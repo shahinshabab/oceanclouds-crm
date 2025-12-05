@@ -1,0 +1,186 @@
+{% extends "ui/base.html" %}
+{% load roles_tags %}
+{% block title %}
+  {% if form.instance.pk %}Edit Event{% else %}New Event{% endif %}
+{% endblock %}
+
+{% block content %}
+{% is_admin as is_admin %}
+{% is_manager as is_manager %}
+{% is_employee as is_employee %}
+<div class="container py-3 max-w-2xl">
+
+  <h2 class="fw-semibold mb-4">
+    {% if form.instance.pk %}Edit Event{% else %}New Event{% endif %}
+  </h2>
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+      <div class="alert alert-danger">
+        {{ form.non_field_errors }}
+      </div>
+    {% endif %}
+
+    <div class="card shadow-sm">
+      <div class="card-body">
+
+        <!-- Row 1: Client / Primary Contact -->
+        <div class="row">
+          <div class="col-md-6 mb-3">
+            <label class="form-label">
+              {{ form.client.label }}{% if form.client.field.required %} *{% endif %}
+            </label>
+            {{ form.client }}
+            {% for error in form.client.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="col-md-6 mb-3">
+            <label class="form-label">
+              {{ form.primary_contact.label }}
+            </label>
+            {{ form.primary_contact }}
+            {% for error in form.primary_contact.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Row 2: Event Name (full width) -->
+        <div class="row">
+          <div class="col-12 mb-3">
+            <label class="form-label">
+              {{ form.name.label }}{% if form.name.field.required %} *{% endif %}
+            </label>
+            {{ form.name }}
+            {% if form.name.help_text %}
+              <small class="form-text text-muted">{{ form.name.help_text }}</small>
+            {% endif %}
+            {% for error in form.name.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Row 3: Type / Status / Date -->
+        <div class="row">
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.event_type.label }}{% if form.event_type.field.required %} *{% endif %}
+            </label>
+            {{ form.event_type }}
+            {% for error in form.event_type.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.status.label }}{% if form.status.field.required %} *{% endif %}
+            </label>
+            {{ form.status }}
+            {% for error in form.status.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.date.label }}{% if form.date.field.required %} *{% endif %}
+            </label>
+            {{ form.date }}
+            {% for error in form.date.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Row 4: Start Time / End Time / Venue -->
+        <div class="row">
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.start_time.label }}
+            </label>
+            {{ form.start_time }}
+            {% for error in form.start_time.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.end_time.label }}
+            </label>
+            {{ form.end_time }}
+            {% for error in form.end_time.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.venue.label }}
+            </label>
+            {{ form.venue }}
+            {% for error in form.venue.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Row 5: Expected Guests -->
+        <div class="row">
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.expected_guests.label }}
+            </label>
+            {{ form.expected_guests }}
+            {% if form.expected_guests.help_text %}
+              <small class="form-text text-muted">{{ form.expected_guests.help_text }}</small>
+            {% endif %}
+            {% for error in form.expected_guests.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Row 6: Notes (full width) -->
+        <div class="row">
+          <div class="col-12 mb-3">
+            <label class="form-label">
+              {{ form.notes.label }}
+            </label>
+            {{ form.notes }}
+            {% if form.notes.help_text %}
+              <small class="form-text text-muted">{{ form.notes.help_text }}</small>
+            {% endif %}
+            {% for error in form.notes.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Buttons -->
+    <div class="row mt-3">
+      <div class="col-12 d-flex justify-content-center gap-2">
+        
+        {% if is_admin or is_manager %}
+          <button type="submit" class="btn btn-primary px-4">
+            Save
+          </button>
+        {% endif %}
+        <a href="{% url 'events:event_list' %}" class="btn btn-secondary">
+          Cancel
+        </a>
+      </div>
+    </div>
+
+  </form>
+
+</div>
+{% endblock %}

@@ -1,0 +1,225 @@
+{% extends "ui/base.html" %}
+{% load roles_tags %}
+
+{% block content %}
+<div class="container py-4">
+
+  {% has_role user ROLE_ADMIN as is_admin %}
+  {% has_role user ROLE_MANAGER as is_manager %}
+
+  <!-- Header -->
+  <div class="mb-3">
+    <h1 class="h3 mb-1">{{ deliverable.name }}</h1>
+    <div class="text-muted">
+      Project:
+      {% if is_admin or is_manager %}
+        <a href="{% url 'projects:project_detail' deliverable.project.pk %}">
+          {{ deliverable.project.name }}
+        </a>
+      {% else %}
+        {{ deliverable.project.name }}
+      {% endif %}
+      · Client: {{ deliverable.project.client }}
+    </div>
+  </div>
+
+  <!-- Info Card -->
+  <div class="card mb-4">
+    <div class="card-body">
+      <div class="row g-4">
+
+        <!-- Assigned To -->
+        <div class="col-md-4">
+          <div class="small text-uppercase text-muted mb-1">Assigned To</div>
+          <div class="fw-semibold">
+            {% if deliverable.assigned_to %}
+              {{ deliverable.assigned_to.get_full_name|default:deliverable.assigned_to.username }}
+            {% else %}
+              <span class="text-muted">Unassigned</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Type -->
+        <div class="col-md-4">
+          <div class="small text-uppercase text-muted mb-1">Type</div>
+          <div class="fw-semibold">{{ deliverable.get_type_display }}</div>
+        </div>
+
+        <!-- Status -->
+        <div class="col-md-4">
+          <div class="small text-uppercase text-muted mb-1">Status</div>
+          <div>
+            {% if deliverable.status == "delivered" %}
+              <span class="badge bg-success">{{ deliverable.get_status_display }}</span>
+            {% elif deliverable.status == "in_progress" %}
+              <span class="badge bg-primary">{{ deliverable.get_status_display }}</span>
+            {% elif deliverable.status == "pending" %}
+              <span class="badge bg-secondary">{{ deliverable.get_status_display }}</span>
+            {% else %}
+              <span class="badge bg-light text-dark">{{ deliverable.get_status_display }}</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Directory -->
+        <div class="col-md-4">
+          <div class="small text-uppercase text-muted mb-1">Directory / Folder</div>
+          <div class="fw-semibold">
+            {% if deliverable.directory %}
+              {{ deliverable.directory }}
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Due Date -->
+        <div class="col-md-4">
+          <div class="small text-uppercase text-muted mb-1">Due Date</div>
+          <div class="fw-semibold">
+            {{ deliverable.due_date|default:"—" }}
+            {% if deliverable.is_overdue %}
+              <span class="badge bg-danger ms-1">Overdue</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Delivered At -->
+        <div class="col-md-4">
+          <div class="small text-uppercase text-muted mb-1">Delivered At</div>
+          <div class="fw-semibold">
+            {{ deliverable.delivered_at|default:"—" }}
+          </div>
+        </div>
+
+        <!-- Created -->
+        <div class="col-md-4">
+          <div class="small text-uppercase text-muted mb-1">Created</div>
+          <div class="fw-semibold">
+            {{ deliverable.created_at|default:"—" }}
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Description -->
+  {% if deliverable.description %}
+    <div class="card mb-4">
+      <div class="card-body">
+        <div class="small text-uppercase text-muted mb-2">Description</div>
+        <div class="fw-normal">
+          {{ deliverable.description|linebreaksbr }}
+        </div>
+      </div>
+    </div>
+  {% endif %}
+
+  <!-- Files -->
+  {% if deliverable.file_link or deliverable.file %}
+    <div class="card mb-4">
+      <div class="card-body">
+        <div class="small text-uppercase text-muted mb-2">Files</div>
+        <ul class="mb-0">
+          {% if deliverable.file_link %}
+            <li>
+              External Link:
+              <a href="{{ deliverable.file_link }}" target="_blank">
+                Open
+              </a>
+            </li>
+          {% endif %}
+          {% if deliverable.file %}
+            <li>
+              Uploaded File:
+              <a href="{{ deliverable.file.url }}" target="_blank">
+                Download
+              </a>
+            </li>
+          {% endif %}
+        </ul>
+      </div>
+    </div>
+  {% endif %}
+
+  <!-- Physical info -->
+  {% if deliverable.delivery_medium or deliverable.quantity or deliverable.handed_over_to %}
+    <div class="card mb-4">
+      <div class="card-body">
+        <div class="small text-uppercase text-muted mb-2">Physical Handover</div>
+        <div class="row">
+          {% if deliverable.delivery_medium %}
+            <div class="col-md-4">
+              <div class="small text-muted text-uppercase mb-1">Medium</div>
+              <div class="fw-semibold">{{ deliverable.delivery_medium }}</div>
+            </div>
+          {% endif %}
+          {% if deliverable.quantity %}
+            <div class="col-md-4">
+              <div class="small text-muted text-uppercase mb-1">Quantity</div>
+              <div class="fw-semibold">{{ deliverable.quantity }}</div>
+            </div>
+          {% endif %}
+          {% if deliverable.handed_over_to %}
+            <div class="col-md-4">
+              <div class="small text-muted text-uppercase mb-1">Handed Over To</div>
+              <div class="fw-semibold">{{ deliverable.handed_over_to }}</div>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  {% endif %}
+
+  <!-- Linked Tasks -->
+  <div class="card mb-4">
+    <div class="card-header">
+      <h5 class="mb-0">Related Tasks</h5>
+    </div>
+    <div class="list-group list-group-flush">
+      {% for t in deliverable.tasks.all %}
+        <a href="{% url 'projects:task_detail' t.pk %}"
+           class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+          <div>
+            <div class="fw-semibold">{{ t.name }}</div>
+            <small class="text-muted">
+              Status: {{ t.get_status_display }} ·
+              Assigned:
+              {% if t.assigned_to %}
+                {{ t.assigned_to.get_full_name|default:t.assigned_to.username }}
+              {% else %}
+                Unassigned
+              {% endif %}
+              · Due: {{ t.due_date|default:"—" }}
+            </small>
+          </div>
+        </a>
+      {% empty %}
+        <div class="list-group-item text-muted">
+          No tasks linked to this deliverable.
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Actions -->
+  <div class="text-center mt-3">
+    {% if is_admin or is_manager %}
+      <a href="{% url 'projects:deliverable_update' deliverable.pk %}"
+         class="btn btn-primary me-2">
+        Edit Deliverable
+      </a>
+      <a href="{% url 'projects:project_detail' deliverable.project.pk %}"
+         class="btn btn-secondary me-2">
+        Back to Project
+      </a>
+    {% endif %}
+    <a href="{% url 'projects:deliverable_list' %}" class="btn btn-outline-secondary">
+      Back to Deliverables
+    </a>
+  </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,154 @@
+{% extends "ui/base.html" %}
+{% load roles_tags %}
+
+{% block title %}
+  {% if form.instance.pk %}Edit Vendor Assignment{% else %}Assign Vendor{% endif %}
+{% endblock %}
+{% block content %}
+{% is_admin as is_admin %}
+{% is_manager as is_manager %}
+{% is_employee as is_employee %}
+<div class="container py-3 max-w-2xl">
+
+  <h2 class="fw-semibold mb-4">
+    {% if form.instance.pk %}Edit Vendor Assignment{% else %}Assign Vendor{% endif %}
+  </h2>
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+      <div class="alert alert-danger">
+        {{ form.non_field_errors }}
+      </div>
+    {% endif %}
+
+    <div class="card shadow-sm">
+      <div class="card-body">
+
+        <!-- Row 1: Event / Vendor / Service -->
+        <div class="row">
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.event.label }}{% if form.event.field.required %} *{% endif %}
+            </label>
+            {{ form.event }}
+            {% for error in form.event.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.vendor.label }}{% if form.vendor.field.required %} *{% endif %}
+            </label>
+            {{ form.vendor }}
+            {% for error in form.vendor.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.service.label }}
+            </label>
+            {{ form.service }}
+            {% for error in form.service.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Row 2: Role (full width) -->
+        <div class="row">
+          <div class="col-12 mb-3">
+            <label class="form-label">
+              {{ form.role.label }}{% if form.role.field.required %} *{% endif %}
+            </label>
+            {{ form.role }}
+            {% if form.role.help_text %}
+              <div class="form-text">{{ form.role.help_text }}</div>
+            {% endif %}
+            {% for error in form.role.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Row 3: Cost Estimate / Cost Actual / Confirmed -->
+        <div class="row">
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.cost_estimate.label }}{% if form.cost_estimate.field.required %} *{% endif %}
+            </label>
+            {{ form.cost_estimate }}
+            {% if form.cost_estimate.help_text %}
+              <div class="form-text">{{ form.cost_estimate.help_text }}</div>
+            {% endif %}
+            {% for error in form.cost_estimate.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.cost_actual.label }}
+            </label>
+            {{ form.cost_actual }}
+            {% if form.cost_actual.help_text %}
+              <div class="form-text">{{ form.cost_actual.help_text }}</div>
+            {% endif %}
+            {% for error in form.cost_actual.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="col-md-4 mb-3 d-flex align-items-center">
+            <div class="form-check mt-2">
+              {{ form.is_confirmed }}
+              <label class="form-check-label ms-1">
+                {{ form.is_confirmed.label }}
+              </label>
+            </div>
+            {% for error in form.is_confirmed.errors %}
+              <div class="text-danger small d-block">{{ error }}</div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Row 4: Notes (full width) -->
+        <div class="row">
+          <div class="col-12 mb-3">
+            <label class="form-label">
+              {{ form.notes.label }}
+            </label>
+            {{ form.notes }}
+            {% if form.notes.help_text %}
+              <div class="form-text">{{ form.notes.help_text }}</div>
+            {% endif %}
+            {% for error in form.notes.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Buttons -->
+    <div class="row mt-3">
+      <div class="col-12 d-flex justify-content-center gap-2">
+        {% if is_admin or is_manager %}
+          <button type="submit" class="btn btn-primary px-4">
+            Save
+          </button>
+        {% endif %}  
+        <a href="{% url 'events:event_vendor_list' %}" class="btn btn-secondary">
+          Cancel
+        </a>
+      </div>
+    </div>
+
+  </form>
+
+</div>
+{% endblock %}

@@ -1,0 +1,148 @@
+{% extends "ui/base.html" %}
+{% load roles_tags %}
+
+{% block title %}
+  {% if form.instance.pk %}Edit Event Person{% else %}New Event Person{% endif %}
+{% endblock %}
+{% block content %}
+{% is_admin as is_admin %}
+{% is_manager as is_manager %}
+{% is_employee as is_employee %}
+<div class="container py-3 max-w-2xl">
+
+  <h2 class="fw-semibold mb-4">
+    {% if form.instance.pk %}Edit Event Person{% else %}New Event Person{% endif %}
+  </h2>
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+      <div class="alert alert-danger">
+        {{ form.non_field_errors }}
+      </div>
+    {% endif %}
+
+    <div class="card shadow-sm">
+      <div class="card-body">
+
+        <!-- Row 1: Event / Role / Full Name -->
+        <div class="row">
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.event.label }}{% if form.event.field.required %} *{% endif %}
+            </label>
+            {{ form.event }}
+            {% for error in form.event.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.role.label }}{% if form.role.field.required %} *{% endif %}
+            </label>
+            {{ form.role }}
+            {% for error in form.role.errors %}
+              <div class="text-danger small">{{ error }}</div %}
+            {% endfor %}
+          </div>
+
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.full_name.label }}{% if form.full_name.field.required %} *{% endif %}
+            </label>
+            {{ form.full_name }}
+            {% for error in form.full_name.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Row 2: Email / Phone / WhatsApp -->
+        <div class="row">
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.email.label }}
+            </label>
+            {{ form.email }}
+            {% for error in form.email.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.phone.label }}
+            </label>
+            {{ form.phone }}
+            {% for error in form.phone.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.whatsapp.label }}
+            </label>
+            {{ form.whatsapp }}
+            {% if form.whatsapp.help_text %}
+              <div class="form-text">{{ form.whatsapp.help_text }}</div>
+            {% endif %}
+            {% for error in form.whatsapp.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Row 3: Marketing Opt-in -->
+        <div class="row">
+          <div class="col-md-4 mb-3 d-flex align-items-center">
+            <div class="form-check mt-2">
+              {{ form.allow_marketing }}
+              <label class="form-check-label ms-1">
+                {{ form.allow_marketing.label }}
+              </label>
+            </div>
+            {% for error in form.allow_marketing.errors %}
+              <div class="text-danger small d-block">{{ error }}</div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Row 4: Notes (full width) -->
+        <div class="row">
+          <div class="col-12 mb-3">
+            <label class="form-label">
+              {{ form.notes.label }}
+            </label>
+            {{ form.notes }}
+            {% if form.notes.help_text %}
+              <div class="form-text">{{ form.notes.help_text }}</div>
+            {% endif %}
+            {% for error in form.notes.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Buttons -->
+    <div class="row mt-3">
+      <div class="col-12 d-flex justify-content-center gap-2">
+        {% if is_admin or is_manager %}
+          <button type="submit" class="btn btn-primary px-4">
+            Save
+          </button>
+        {% endif %}  
+        <a href="{% url 'events:event_person_list' %}" class="btn btn-secondary">
+          Cancel
+        </a>
+      </div>
+    </div>
+
+  </form>
+
+</div>
+{% endblock %}

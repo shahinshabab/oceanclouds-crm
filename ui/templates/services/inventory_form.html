@@ -1,0 +1,128 @@
+{% extends "ui/base.html" %}
+{% load roles_tags %}
+
+{% block title %}
+  {% if form.instance.pk %}Edit Inventory Item{% else %}New Inventory Item{% endif %}
+{% endblock %}
+
+{% block content %}
+{% is_admin as is_admin %}
+{% is_manager as is_manager %}
+{% is_employee as is_employee %}
+
+<div class="container py-3 max-w-2xl">
+
+  <h2 class="fw-semibold mb-4">
+    {% if form.instance.pk %}Edit Inventory Item{% else %}New Inventory Item{% endif %}
+  </h2>
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+      <div class="alert alert-danger">
+        {{ form.non_field_errors }}
+      </div>
+    {% endif %}
+
+    <div class="card shadow-sm">
+      <div class="card-body">
+
+        <!-- Row 1: Name / SKU / Service -->
+        <div class="row">
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.name.label }}{% if form.name.field.required %} *{% endif %}
+            </label>
+            {{ form.name }}
+            {% for error in form.name.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="col-md-4 mb-3">
+            <label class="form-label">{{ form.sku.label }}</label>
+            {{ form.sku }}
+            {% for error in form.sku.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="col-md-4 mb-3">
+            <label class="form-label">{{ form.service.label }}</label>
+            {{ form.service }}
+            {% for error in form.service.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Row 2: Quantities / Unit -->
+        <div class="row">
+          <div class="col-md-4 mb-3">
+            <label class="form-label">{{ form.quantity_total.label }}</label>
+            {{ form.quantity_total }}
+            {% for error in form.quantity_total.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="col-md-4 mb-3">
+            <label class="form-label">{{ form.quantity_available.label }}</label>
+            {{ form.quantity_available }}
+            {% for error in form.quantity_available.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="col-md-4 mb-3">
+            <label class="form-label">{{ form.unit.label }}</label>
+            {{ form.unit }}
+            {% for error in form.unit.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Row 3: Location -->
+        <div class="row">
+          <div class="col-12 mb-3">
+            <label class="form-label">{{ form.location.label }}</label>
+            {{ form.location }}
+            {% for error in form.location.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Row 4: Notes -->
+        <div class="row">
+          <div class="col-12 mb-3">
+            <label class="form-label">{{ form.notes.label }}</label>
+            {{ form.notes }}
+            {% for error in form.notes.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Buttons -->
+    <div class="row mt-3">
+      <div class="col-12 d-flex justify-content-center gap-2">
+        {% if is_admin or is_manager %}
+          <button type="submit" class="btn btn-primary px-4">
+            Save
+          </button>
+        {% endif %}  
+        <a href="{% url 'services:inventory_list' %}" class="btn btn-secondary">
+          Cancel
+        </a>
+      </div>
+    </div>
+
+  </form>
+
+</div>
+{% endblock %}

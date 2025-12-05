@@ -1,0 +1,156 @@
+{% extends "ui/base.html" %}
+{% load roles_tags %}
+{% block title %}Venues{% endblock %}
+
+{% block content %}
+{% is_admin as is_admin %}
+{% is_manager as is_manager %}
+{% is_employee as is_employee %}
+<div class="container py-3">
+
+  <!-- Header Row -->
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="fw-semibold mb-0">Venues</h2>
+    {% if is_admin or is_manager %}
+      <a href="{% url 'events:venue_create' %}" class="btn btn-success btn-sm">
+        + New Venue
+      </a>
+    {% endif %}
+  </div>
+
+  <!-- Search + Filters Row -->
+  <form method="get" class="row g-2 mb-3">
+    <!-- Search -->
+    <div class="col-md-4">
+      <input type="text"
+             name="q"
+             value="{{ q }}"
+             class="form-control"
+             placeholder="Search by name or city">
+    </div>
+
+    <!-- Filter: Venue Type -->
+    <div class="col-md-3">
+      <select name="venue_type" class="form-select">
+        <option value="">All types</option>
+        <option value="hotel" {% if venue_type == "hotel" %}selected{% endif %}>Hotel</option>
+        <option value="hall" {% if venue_type == "hall" %}selected{% endif %}>Function Hall</option>
+        <option value="outdoor" {% if venue_type == "outdoor" %}selected{% endif %}>Outdoor</option>
+        <option value="private_property" {% if venue_type == "private_property" %}selected{% endif %}>Private Property</option>
+        <option value="other" {% if venue_type == "other" %}selected{% endif %}>Other</option>
+      </select>
+    </div>
+
+    <!-- Filter: City -->
+    <div class="col-md-3">
+      <input type="text"
+             name="city"
+             value="{{ city }}"
+             class="form-control"
+             placeholder="Filter by city">
+    </div>
+
+    <!-- Apply Button -->
+    <div class="col-md-2 d-grid">
+      <button type="submit" class="btn btn-outline-secondary">
+        Apply
+      </button>
+    </div>
+  </form>
+
+  <!-- Data Table -->
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th scope="col">Name</th>
+            <th scope="col">Type</th>
+            <th scope="col">City</th>
+            <th scope="col">State</th>
+            <th scope="col">Country</th>
+            <th scope="col">Capacity</th>
+            <th scope="col" class="text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for venue in venues %}
+            <tr>
+              <td>
+                <a href="{% url 'events:venue_detail' venue.pk %}">
+                  {{ venue.name }}
+                </a>
+              </td>
+              <td>{{ venue.get_venue_type_display }}</td>
+              <td>{{ venue.city|default:"-" }}</td>
+              <td>{{ venue.state|default:"-" }}</td>
+              <td>{{ venue.country|default:"-" }}</td>
+              <td>
+                {% if venue.capacity %}
+                  {{ venue.capacity }}
+                {% else %}
+                  -
+                {% endif %}
+              </td>
+              <td class="text-end">
+                <a href="{% url 'events:venue_detail' venue.pk %}"
+                   class="btn btn-sm btn-outline-secondary">
+                  View
+                </a>
+                {% if is_admin or is_manager %}
+                  <a href="{% url 'events:venue_update' venue.pk %}"
+                     class="btn btn-sm btn-outline-primary ms-1">
+                    Edit
+                  </a>
+                {% endif %}
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="7" class="text-center text-muted py-4">
+                No venues found.
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Pagination -->
+  {% if is_paginated %}
+    <nav aria-label="Venue pagination" class="mt-3">
+      <ul class="pagination justify-content-between mb-0">
+        <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
+          {% if page_obj.has_previous %}
+            <a class="page-link"
+               href="?page={{ page_obj.previous_page_number }}&q={{ q }}&venue_type={{ venue_type }}&city={{ city }}">
+              Previous
+            </a>
+          {% else %}
+            <span class="page-link">Previous</span>
+          {% endif %}
+        </li>
+
+        <li class="page-item disabled">
+          <span class="page-link">
+            Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+          </span>
+        </li>
+
+        <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+          {% if page_obj.has_next %}
+            <a class="page-link"
+               href="?page={{ page_obj.next_page_number }}&q={{ q }}&venue_type={{ venue_type }}&city={{ city }}">
+              Next
+            </a>
+          {% else %}
+            <span class="page-link">Next</span>
+          {% endif %}
+        </li>
+      </ul>
+    </nav>
+  {% endif %}
+
+</div>
+{% endblock %}

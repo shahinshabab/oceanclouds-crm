@@ -1,0 +1,189 @@
+{% extends "ui/base.html" %}
+{% load roles_tags %}
+
+{% block title %}Inquiry – {{ inquiry.name|default:inquiry.email|default:inquiry.phone }}{% endblock %}
+
+{% block content %}
+{% is_admin request.user as is_admin %}
+{% is_manager request.user as is_manager %}
+{% is_employee request.user as is_employee %}
+
+<div class="container py-3">
+
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h2 class="fw-semibold mb-0">
+        Inquiry – {{ inquiry.name|default:inquiry.email|default:inquiry.phone|default:"(No name)" }}
+      </h2>
+      <div class="mt-2">
+        <span class="badge bg-secondary">
+          {{ inquiry.get_status_display }}
+        </span>
+        <span class="badge bg-info text-dark">
+          {{ inquiry.get_channel_display }}
+        </span>
+      </div>
+    </div>
+    <div class="text-end">
+
+      {% if is_admin or is_manager or inquiry.handled_by_id == request.user.id %}
+        <a href="{% url 'crm:inquiry_update' inquiry.pk %}"
+           class="btn btn-primary btn-sm">
+          Edit Inquiry
+        </a>
+      {% endif %}
+      <a href="{% url 'crm:inquiry_list' %}"
+         class="btn btn-secondary btn-sm">
+        Back to Inquiries
+      </a>
+    </div>
+  </div>
+
+  <!-- Details card -->
+  <div class="card mb-4 shadow-sm">
+    <div class="card-body">
+
+      <!-- Row 1 -->
+      <div class="row mb-3">
+        <div class="col-md-4 mb-3 mb-md-0">
+          <div class="text-muted small text-uppercase">Name</div>
+          <div class="fw-semibold mt-1">
+            {{ inquiry.name|default:"—" }}
+          </div>
+        </div>
+        <div class="col-md-4 mb-3 mb-md-0">
+          <div class="text-muted small text-uppercase">Email</div>
+          <div class="fw-semibold mt-1">
+            {% if inquiry.email %}
+              <a href="mailto:{{ inquiry.email }}">{{ inquiry.email }}</a>
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="text-muted small text-uppercase">Phone</div>
+          <div class="fw-semibold mt-1">
+            {{ inquiry.phone|default:"—" }}
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 2 -->
+      <div class="row mb-3">
+        <div class="col-md-4 mb-3 mb-md-0">
+          <div class="text-muted small text-uppercase">Wedding Date</div>
+          <div class="fw-semibold mt-1">
+            {% if inquiry.wedding_date %}
+              {{ inquiry.wedding_date }}
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          </div>
+        </div>
+        <div class="col-md-4 mb-3 mb-md-0">
+          <div class="text-muted small text-uppercase">Wedding City</div>
+          <div class="fw-semibold mt-1">
+            {{ inquiry.wedding_city|default:"—" }}
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="text-muted small text-uppercase">Channel</div>
+          <div class="fw-semibold mt-1">
+            {{ inquiry.get_channel_display }}
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 3 -->
+      <div class="row mb-3">
+        <div class="col-md-4 mb-3 mb-md-0">
+          <div class="text-muted small text-uppercase">Status</div>
+          <div class="fw-semibold mt-1">
+            {{ inquiry.get_status_display }}
+          </div>
+        </div>
+        <div class="col-md-4 mb-3 mb-md-0">
+          <div class="text-muted small text-uppercase">Lead</div>
+          <div class="fw-semibold mt-1">
+            {% if inquiry.lead %}
+              <a href="{% url 'crm:lead_detail' inquiry.lead.pk %}">
+                {{ inquiry.lead.name }}
+              </a>
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="text-muted small text-uppercase">Client</div>
+          <div class="fw-semibold mt-1">
+            {% if inquiry.client %}
+              <a href="{% url 'crm:client_detail' inquiry.client.pk %}">
+                {{ inquiry.client }}
+              </a>
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 4 -->
+      <div class="row mb-3">
+        <div class="col-md-4 mb-3 mb-md-0">
+          <div class="text-muted small text-uppercase">Handled By</div>
+          <div class="fw-semibold mt-1">
+            {% if inquiry.handled_by %}
+              {{ inquiry.handled_by.get_full_name|default:inquiry.handled_by.username }}
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          </div>
+        </div>
+        <div class="col-md-4 mb-3 mb-md-0">
+          <div class="text-muted small text-uppercase">Created At</div>
+          <div class="fw-semibold mt-1">
+            {{ inquiry.created_at|date:"Y-m-d H:i" }}
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="text-muted small text-uppercase">Last Updated</div>
+          <div class="fw-semibold mt-1">
+            {{ inquiry.updated_at|date:"Y-m-d H:i" }}
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 5: Message -->
+      <div class="row mb-3">
+        <div class="col-12">
+          <div class="text-muted small text-uppercase">Message</div>
+          <div class="mt-1">
+            {{ inquiry.message|linebreaks|default:"<span class='text-muted'>—</span>"|safe }}
+          </div>
+        </div>
+      </div>
+
+      <!-- Actions row (centered) -->
+      <div class="row">
+        <div class="col-12 d-flex justify-content-center gap-2 mt-2">
+          {% if is_admin or is_manager or inquiry.handled_by_id == request.user.id %}
+            <a href="{% url 'crm:inquiry_update' inquiry.pk %}"
+               class="btn btn-primary px-4">
+              Edit Inquiry
+            </a>
+          {% endif %}
+          <a href="{% url 'crm:inquiry_list' %}"
+             class="btn btn-outline-secondary">
+            Back to Inquiries
+          </a>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+{% endblock %}

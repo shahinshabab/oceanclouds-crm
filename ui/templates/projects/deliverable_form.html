@@ -1,0 +1,217 @@
+{% extends "ui/base.html" %}
+{% load roles_tags %}
+
+{% block content %}
+<div class="container py-3 max-w-2xl">
+
+  <h2 class="fw-semibold mb-4">
+    {% if object %}Edit Deliverable{% else %}New Deliverable{% endif %}
+  </h2>
+
+  <form method="post" enctype="multipart/form-data" novalidate>
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+      <div class="alert alert-danger">
+        {{ form.non_field_errors }}
+      </div>
+    {% endif %}
+
+    <div class="card shadow-sm">
+      <div class="card-body">
+
+        <!-- Row 1: Project / Name / Type -->
+        <div class="row">
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.project.label }}{% if form.project.field.required %} *{% endif %}
+            </label>
+            {% if object %}
+              <div class="form-control-plaintext">
+                {{ object.project }}
+              </div>
+            {% else %}
+              {{ form.project }}
+              {{ form.project.errors }}
+            {% endif %}
+          </div>
+
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.name.label }}{% if form.name.field.required %} *{% endif %}
+            </label>
+            {{ form.name }}
+            {{ form.name.errors }}
+          </div>
+
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.type.label }}{% if form.type.field.required %} *{% endif %}
+            </label>
+            {{ form.type }}
+            {{ form.type.errors }}
+          </div>
+        </div>
+
+        <!-- Row 2: Status / Assigned_to / Due Date -->
+        <div class="row">
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.status.label }}{% if form.status.field.required %} *{% endif %}
+            </label>
+            {{ form.status }}
+            {{ form.status.errors }}
+          </div>
+
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.assigned_to.label }}{% if form.assigned_to.field.required %} *{% endif %}
+            </label>
+            {{ form.assigned_to }}
+            {{ form.assigned_to.errors }}
+          </div>
+
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.due_date.label }}{% if form.due_date.field.required %} *{% endif %}
+            </label>
+            {{ form.due_date }}
+            {{ form.due_date.errors }}
+          </div>
+        </div>
+
+        <!-- Row 3: Tasks -->
+        <div class="mb-3">
+          <label class="form-label">
+            {{ form.tasks.label }}{% if form.tasks.field.required %} *{% endif %}
+          </label>
+          {{ form.tasks }}
+          {{ form.tasks.errors }}
+        </div>
+
+        <!-- Row 4: Directory -->
+        <div class="mb-3">
+          <label class="form-label">
+            {{ form.directory.label }}{% if form.directory.field.required %} *{% endif %}
+          </label>
+          {{ form.directory }}
+          {{ form.directory.errors }}
+        </div>
+
+        <!-- Row 5: Description -->
+        <div class="mb-3">
+          <label class="form-label">
+            {{ form.description.label }}{% if form.description.field.required %} *{% endif %}
+          </label>
+          {{ form.description }}
+          {% if form.description.help_text %}
+            <div class="form-text">{{ form.description.help_text }}</div>
+          {% endif %}
+          {{ form.description.errors }}
+        </div>
+
+        <!-- Row 6: Digital fields -->
+        <div class="row">
+          <div class="col-md-6 mb-3">
+            <label class="form-label">
+              {{ form.file_link.label }}
+            </label>
+            {{ form.file_link }}
+            {{ form.file_link.errors }}
+          </div>
+          <div class="col-md-6 mb-3">
+            <label class="form-label">
+              {{ form.file.label }}
+            </label>
+            {{ form.file }}
+            {{ form.file.errors }}
+          </div>
+        </div>
+
+        <!-- Row 7: Physical fields -->
+        <div class="row">
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.delivery_medium.label }}
+            </label>
+            {{ form.delivery_medium }}
+            {{ form.delivery_medium.errors }}
+          </div>
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.quantity.label }}
+            </label>
+            {{ form.quantity }}
+            {{ form.quantity.errors }}
+          </div>
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.handed_over_to.label }}
+            </label>
+            {{ form.handed_over_to }}
+            {{ form.handed_over_to.errors }}
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Buttons -->
+    <div class="text-center mt-3">
+      <button type="submit" class="btn btn-primary">
+        Save
+      </button>
+      <a href="{% if object %}{% url 'projects:project_detail' object.project.pk %}{% else %}{% url 'projects:deliverable_list' %}{% endif %}"
+         class="btn btn-secondary ms-2">
+        Cancel
+      </a>
+    </div>
+
+  </form>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const projectSelect = document.getElementById("id_project");
+      const tasksSelect = document.getElementById("id_tasks");
+
+      // On edit, projectSelect doesn't exist (we show plaintext),
+      // so this runs only on the "create" form.
+      if (!projectSelect || !tasksSelect) return;
+
+      function loadTasksForProject(projectId) {
+        // Clear current options
+        tasksSelect.innerHTML = "";
+
+        if (!projectId) {
+          return;  // no project selected -> keep tasks empty
+        }
+
+        fetch("{% url 'projects:ajax_load_tasks' %}?project=" + projectId)
+          .then((response) => response.json())
+          .then((data) => {
+            data.forEach((task) => {
+              const option = document.createElement("option");
+              option.value = task.id;
+              option.textContent = task.name;
+              tasksSelect.appendChild(option);
+            });
+          })
+          .catch((error) => {
+            console.error("Error loading tasks:", error);
+          });
+      }
+
+      // When project changes, refresh tasks
+      projectSelect.addEventListener("change", function () {
+        loadTasksForProject(this.value);
+      });
+
+      // Auto-load tasks if a project is preselected on create
+      if (projectSelect.value) {
+        loadTasksForProject(projectSelect.value);
+      }
+    });
+  </script>
+
+</div>
+{% endblock %}

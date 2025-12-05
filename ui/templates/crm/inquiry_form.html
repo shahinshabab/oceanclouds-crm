@@ -1,0 +1,191 @@
+{% extends "ui/base.html" %}
+{% load roles_tags %}
+
+{% block title %}
+  {% if form.instance.pk %}Edit Inquiry{% else %}New Inquiry{% endif %}
+{% endblock %}
+
+{% block content %}
+{% is_admin request.user as is_admin %}
+{% is_manager request.user as is_manager %}
+{% is_employee request.user as is_employee %}
+
+<div class="container py-3 max-w-2xl">
+
+  <h2 class="fw-semibold mb-4">
+    {% if form.instance.pk %}Edit Inquiry{% else %}New Inquiry{% endif %}
+  </h2>
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+      <div class="alert alert-danger">
+        {{ form.non_field_errors }}
+      </div>
+    {% endif %}
+
+    <div class="card shadow-sm">
+      <div class="card-body">
+
+        <!-- Row 1: Name / Email / Phone -->
+        <div class="row">
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.name.label }}
+            </label>
+            {{ form.name }}
+            {% for error in form.name.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.email.label }}
+            </label>
+            {{ form.email }}
+            {% for error in form.email.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.phone.label }}
+            </label>
+            {{ form.phone }}
+            {% for error in form.phone.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Row 2: Channel / Status / Wedding Date -->
+        <div class="row">
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.channel.label }}
+            </label>
+            {{ form.channel }}
+            {% for error in form.channel.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.status.label }}
+            </label>
+            {{ form.status }}
+            {% for error in form.status.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.wedding_date.label }}
+            </label>
+            {{ form.wedding_date }}
+            {% for error in form.wedding_date.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Row 3: Wedding City / Lead / Client -->
+        <div class="row">
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.wedding_city.label }}
+            </label>
+            {{ form.wedding_city }}
+            {% for error in form.wedding_city.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.lead.label }}
+            </label>
+            {{ form.lead }}
+            {% for error in form.lead.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.client.label }}
+            </label>
+            {{ form.client }}
+            {% for error in form.client.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Row 4: Handled by -->
+        <div class="row">
+          {% if is_admin or is_manager %}
+            <div class="col-md-4 mb-3">
+              <label class="form-label">
+                {{ form.handled_by.label }}
+              </label>
+              {{ form.handled_by }}
+              {% for error in form.handled_by.errors %}
+                <div class="text-danger small">{{ error }}</div>
+              {% endfor %}
+            </div>
+            <div class="col-md-8 mb-3">
+              <!-- empty / future use -->
+            </div>
+          {% else %}
+            {# Employee: show read-only info, let view logic set/keep handled_by #}
+            <div class="col-md-4 mb-3">
+              <div class="text-muted small text-uppercase d-block mb-1">
+                Handled By
+              </div>
+              <div class="fw-semibold">
+                {{ request.user.get_full_name|default:request.user.username }}
+              </div>
+            </div>
+            <div class="col-md-8 mb-3">
+              <!-- empty / future use -->
+            </div>
+          {% endif %}
+        </div>
+
+        <!-- Row 5: Message full width -->
+        <div class="row">
+          <div class="col-12 mb-3">
+            <label class="form-label">
+              {{ form.message.label }}
+            </label>
+            {{ form.message }}
+            {% for error in form.message.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Buttons -->
+    <div class="row mt-3">
+      <div class="col-12 d-flex justify-content-center gap-2">
+        <button type="submit" class="btn btn-primary px-4">
+          Save
+        </button>
+        <a href="{% url 'crm:inquiry_list' %}" class="btn btn-secondary">
+          Cancel
+        </a>
+      </div>
+    </div>
+
+  </form>
+
+</div>
+{% endblock %}

@@ -1,0 +1,126 @@
+{% extends "ui/base.html" %}
+{% block title %}
+  {% if form.instance.pk %}Edit Payment{% else %}New Payment{% endif %}
+{% endblock %}
+
+{% is_admin as is_admin %}
+{% is_manager as is_manager %}
+{% is_employee as is_employee %}
+
+<div class="container py-3 max-w-2xl">
+
+  <h2 class="fw-semibold mb-4">
+    {% if form.instance.pk %}Edit Payment{% else %}New Payment{% endif %}
+  </h2>
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+      <div class="alert alert-danger">
+        {{ form.non_field_errors }}
+      </div>
+    {% endif %}
+
+    <div class="card shadow-sm">
+      <div class="card-body">
+
+        <!-- Row 1: Invoice / Date / Amount -->
+        <div class="row">
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.invoice.label }}{% if form.invoice.field.required %} *{% endif %}
+            </label>
+            {{ form.invoice }}
+            {% for error in form.invoice.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.date.label }}{% if form.date.field.required %} *{% endif %}
+            </label>
+            {{ form.date }}
+            {% for error in form.date.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.amount.label }}{% if form.amount.field.required %} *{% endif %}
+            </label>
+            {{ form.amount }}
+            {% for error in form.amount.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Row 2: Method / Payment Type / Reference -->
+        <div class="row">
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.method.label }}{% if form.method.field.required %} *{% endif %}
+            </label>
+            {{ form.method }}
+            {% for error in form.method.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.payment_type.label }}{% if form.payment_type.field.required %} *{% endif %}
+            </label>
+            {{ form.payment_type }}
+            {% for error in form.payment_type.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.reference.label }}
+            </label>
+            {{ form.reference }}
+            {% for error in form.reference.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Row 3: Notes (full width) -->
+        <div class="row">
+          <div class="col-12 mb-3">
+            <label class="form-label">
+              {{ form.notes.label }}
+            </label>
+            {{ form.notes }}
+            {% for error in form.notes.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Buttons -->
+    <div class="row mt-3">
+      <div class="col-12 d-flex justify-content-center gap-2">
+        {% if is_admin or is_manager %}
+          <button type="submit" class="btn btn-primary px-4">
+            Save
+          </button>
+        {% endif %}  
+        <a href="{% url 'sales:payment_list' %}" class="btn btn-secondary">
+          Cancel
+        </a>
+      </div>
+    </div>
+
+  </form>
+
+</div>
+{% endblock %}

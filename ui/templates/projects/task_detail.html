@@ -1,0 +1,205 @@
+{% extends "ui/base.html" %}
+{% load roles_tags %}
+
+{% block content %}
+<div class="container py-4">
+
+  {% has_role user ROLE_ADMIN as is_admin %}
+  {% has_role user ROLE_MANAGER as is_manager %}
+  {% has_role user ROLE_EMPLOYEE as is_employee %}
+
+  <!-- Header -->
+  <div class="mb-3">
+    <h1 class="h3 mb-1">{{ task.name }}</h1>
+    <div class="text-muted">
+      Project:
+      {% if is_admin or is_manager %}
+        <a href="{% url 'projects:project_detail' task.project.pk %}">
+          {{ task.project.name }}
+        </a>
+      {% else %}
+        {{ task.project.name }}
+      {% endif %}
+      · Client: {{ task.project.client }}
+    </div>
+  </div>
+
+  <!-- Data Grid -->
+  <div class="card mb-4">
+    <div class="card-body">
+      <div class="row g-4">
+
+        <!-- AssignedTo -->
+        <div class="col-md-4">
+          <div class="small text-uppercase text-muted mb-1">Assigned To</div>
+          <div class="fw-semibold">
+            {% if task.assigned_to %}
+              {{ task.assigned_to.get_full_name|default:task.assigned_to.username }}
+            {% else %}
+              <span class="text-muted">Unassigned</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Status -->
+        <div class="col-md-4">
+          <div class="small text-uppercase text-muted mb-1">Status</div>
+          <div>
+            {% if task.status == "completed" %}
+              <span class="badge bg-success">{{ task.get_status_display }}</span>
+            {% elif task.status == "in_progress" %}
+              <span class="badge bg-primary">{{ task.get_status_display }}</span>
+            {% elif task.status == "blocked" %}
+              <span class="badge bg-danger">{{ task.get_status_display }}</span>
+            {% else %}
+              <span class="badge bg-secondary">{{ task.get_status_display }}</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Priority -->
+        <div class="col-md-4">
+          <div class="small text-uppercase text-muted mb-1">Priority</div>
+          <div class="fw-semibold">
+            {% if task.priority == "critical" %}
+              Critical
+            {% elif task.priority == "high" %}
+              High
+            {% elif task.priority == "medium" %}
+              Medium
+            {% else %}
+              Low
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Directory -->
+        <div class="col-md-4">
+          <div class="small text-uppercase text-muted mb-1">Directory / Folder</div>
+          <div class="fw-semibold">
+            {% if task.directory %}
+              {{ task.directory }}
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- File Type -->
+        <div class="col-md-4">
+          <div class="small text-uppercase text-muted mb-1">File Type</div>
+          <div class="fw-semibold">
+            {{ task.get_type_display }}
+          </div>
+        </div>
+
+        <!-- Count -->
+        <div class="col-md-4">
+          <div class="small text-uppercase text-muted mb-1">Count / Notes</div>
+          <div class="fw-semibold">
+            {% if task.count %}
+              {{ task.count }}
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Due Date -->
+        <div class="col-md-4">
+          <div class="small text-uppercase text-muted mb-1">Due Date</div>
+          <div class="fw-semibold">
+            {{ task.due_date|default:"—" }}
+            {% if task.is_overdue %}
+              <span class="badge bg-danger ms-1">Overdue</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Completed At -->
+        <div class="col-md-4">
+          <div class="small text-uppercase text-muted mb-1">Completed At</div>
+          <div class="fw-semibold">
+            {{ task.completed_at|default:"—" }}
+          </div>
+        </div>
+
+        <!-- Created -->
+        <div class="col-md-4">
+          <div class="small text-uppercase text-muted mb-1">Created</div>
+          <div class="fw-semibold">
+            {{ task.created_at|default:"—" }}
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Description -->
+  {% if task.description %}
+    <div class="card mb-4">
+      <div class="card-body">
+        <div class="small text-uppercase text-muted mb-2">Description</div>
+        <div class="fw-normal">
+          {{ task.description|linebreaksbr }}
+        </div>
+      </div>
+    </div>
+  {% endif %}
+
+  <!-- Related Deliverables -->
+  <div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <h5 class="mb-0">Related Deliverables</h5>
+    </div>
+    <div class="list-group list-group-flush">
+      {% for d in task.deliverables.all %}
+        <a
+          {% if is_admin or is_manager %}
+            href="{% url 'projects:deliverable_update' d.pk %}"
+          {% else %}
+            href="{% url 'projects:deliverable_detail' d.pk %}"
+          {% endif %}
+          class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+          <div>
+            <div class="fw-semibold">{{ d.name }}</div>
+            <small class="text-muted">
+              Status: {{ d.get_status_display }} ·
+              Due: {{ d.due_date|default:"—" }}
+              {% if d.file_link %}
+                · <a href="{{ d.file_link }}" target="_blank">File</a>
+              {% endif %}
+            </small>
+          </div>
+          {% if d.status == "delivered" %}
+            <span class="badge bg-success">Delivered</span>
+          {% elif d.status == "in_progress" %}
+            <span class="badge bg-primary">In Progress</span>
+          {% endif %}
+        </a>
+      {% empty %}
+        <div class="list-group-item text-muted">
+          No deliverables linked to this task.
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Actions -->
+  <div class="text-center mt-3">
+    {% if is_admin or is_manager %}
+      <a href="{% url 'projects:task_update' task.pk %}" class="btn btn-primary me-2">
+        Edit Task
+      </a>
+      <a href="{% url 'projects:project_detail' task.project.pk %}" class="btn btn-secondary me-2">
+        Back to Project
+      </a>
+    {% endif %}
+    <a href="{% url 'projects:task_list' %}" class="btn btn-outline-secondary">
+      Back to Tasks
+    </a>
+  </div>
+
+</div>
+{% endblock %}

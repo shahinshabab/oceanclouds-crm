@@ -1,0 +1,270 @@
+{% extends "ui/base.html" %}
+{% load static %}
+{% load roles_tags %}
+
+{% block content %}
+<div class="container py-4">
+
+  {% has_role user ROLE_ADMIN ROLE_MANAGER as can_drag %}
+
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3 mb-0">Project Kanban</h1>
+    <div class="d-flex gap-2">
+      <a href="{% url 'projects:project_list' %}" class="btn btn-outline-secondary btn-sm">
+        Table View
+      </a>
+    </div>
+  </div>
+
+  <!-- Kanban Board -->
+  <div class="row g-3" id="project-kanban-board">
+
+    <!-- Planned Column -->
+    <div class="col-md-4">
+      <div class="card h-100">
+        <div class="card-header bg-light">
+          <strong>Planned</strong>
+        </div>
+        <div class="card-body p-2 kanban-column"
+             data-kanban-column
+             data-status="planned">
+          {% for project in projects_by_status.planned %}
+            <div class="card mb-2 shadow-sm kanban-card"
+                 {% if can_drag %}draggable="true"{% endif %}
+                 data-type="project"
+                 data-id="{{ project.id }}"
+                 {% if can_drag %}
+                   data-update-url="{% url 'projects:project_set_status' project.id %}"
+                 {% endif %}>
+              <div class="card-body py-2 px-2">
+                <div class="fw-semibold small text-truncate">
+                  <a href="{% url 'projects:project_detail' project.pk %}"
+                     class="text-decoration-none">
+                    {{ project.name }}
+                  </a>
+                </div>
+                <div class="small text-muted text-truncate">
+                  Client: {{ project.client }}
+                </div>
+                <div class="small mt-1 d-flex flex-wrap align-items-center gap-1">
+                  <span class="badge bg-secondary">{{ project.get_status_display }}</span>
+                  {% if project.due_date %}
+                    <span class="badge {% if project.is_overdue %}bg-danger{% else %}bg-light text-muted border{% endif %}">
+                      Due: {{ project.due_date }}
+                    </span>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+          {% empty %}
+            <div class="text-muted small px-2">
+              No planned projects.
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Active Column -->
+    <div class="col-md-4">
+      <div class="card h-100">
+        <div class="card-header bg-light">
+          <strong>Active</strong>
+        </div>
+        <div class="card-body p-2 kanban-column"
+             data-kanban-column
+             data-status="active">
+          {% for project in projects_by_status.active %}
+            <div class="card mb-2 shadow-sm kanban-card"
+                 {% if can_drag %}draggable="true"{% endif %}
+                 data-type="project"
+                 data-id="{{ project.id }}"
+                 {% if can_drag %}
+                   data-update-url="{% url 'projects:project_set_status' project.id %}"
+                 {% endif %}>
+              <div class="card-body py-2 px-2">
+                <div class="fw-semibold small text-truncate">
+                  <a href="{% url 'projects:project_detail' project.pk %}"
+                     class="text-decoration-none">
+                    {{ project.name }}
+                  </a>
+                </div>
+                <div class="small text-muted text-truncate">
+                  Client: {{ project.client }}
+                </div>
+                <div class="small mt-1 d-flex flex-column gap-1">
+                  <div>
+                    <span class="badge bg-primary me-1">{{ project.get_status_display }}</span>
+                    <span class="small text-muted">
+                      {{ project.progress_percent }}% done
+                    </span>
+                  </div>
+                  <div class="progress" style="height: 4px;">
+                    {% with pct=project.progress_percent|default_if_none:0 %}
+                      <div class="progress-bar
+                        {% if pct < 30 %}
+                          bg-danger
+                        {% elif pct < 70 %}
+                          bg-warning
+                        {% else %}
+                          bg-success
+                        {% endif %}"
+                        style="width: {{ project.progress_bar_width }}%;">
+                      </div>
+                    {% endwith %}
+                  </div>
+                </div>
+              </div>
+            </div>
+          {% empty %}
+            <div class="text-muted small px-2">
+              No active projects.
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Completed Column -->
+    <div class="col-md-4">
+      <div class="card h-100">
+        <div class="card-header bg-light">
+          <strong>Completed</strong>
+        </div>
+        <div class="card-body p-2 kanban-column"
+             data-kanban-column
+             data-status="completed">
+          {% for project in projects_by_status.completed %}
+            <div class="card mb-2 shadow-sm kanban-card"
+                 {% if can_drag %}draggable="true"{% endif %}
+                 data-type="project"
+                 data-id="{{ project.id }}"
+                 {% if can_drag %}
+                   data-update-url="{% url 'projects:project_set_status' project.id %}"
+                 {% endif %}>
+              <div class="card-body py-2 px-2">
+                <div class="fw-semibold small text-truncate">
+                  <a href="{% url 'projects:project_detail' project.pk %}"
+                     class="text-decoration-none">
+                    {{ project.name }}
+                  </a>
+                </div>
+                <div class="small text-muted text-truncate">
+                  Client: {{ project.client }}
+                </div>
+                <div class="small mt-1 d-flex flex-column gap-1">
+                  <div>
+                    <span class="badge bg-success me-1">{{ project.get_status_display }}</span>
+                    <span class="small text-muted">
+                      {{ project.progress_percent }}% done
+                    </span>
+                  </div>
+                  <div class="progress" style="height: 4px;">
+                    {% with pct=project.progress_percent|default_if_none:0 %}
+                      <div class="progress-bar bg-success"
+                           style="width: {{ project.progress_bar_width }}%;">
+                      </div>
+                    {% endwith %}
+                  </div>
+                </div>
+              </div>
+            </div>
+          {% empty %}
+            <div class="text-muted small px-2">
+              No completed projects.
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* existing JS unchanged */
+function getCookie(name) {
+  let cookieValue = null;
+  if (document.cookie && document.cookie !== "") {
+    const cookies = document.cookie.split(";");
+    for (let i = 0; i < cookies.length; i++) {
+      const cookie = cookies[i].trim();
+      if (cookie.substring(0, name.length + 1) === (name + "=")) {
+        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+        break;
+      }
+    }
+  }
+  return cookieValue;
+}
+
+const csrftoken = getCookie("csrftoken");
+let draggedCard = null;
+
+document.querySelectorAll(".kanban-card").forEach((card) => {
+  card.addEventListener("dragstart", (e) => {
+    draggedCard = card;
+    e.dataTransfer.effectAllowed = "move";
+    card.classList.add("opacity-50");
+  });
+
+  card.addEventListener("dragend", () => {
+    draggedCard = null;
+    card.classList.remove("opacity-50");
+  });
+});
+
+document.querySelectorAll("[data-kanban-column]").forEach((column) => {
+  column.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    column.classList.add("bg-light");
+  });
+
+  column.addEventListener("dragleave", () => {
+    column.classList.remove("bg-light");
+  });
+
+  column.addEventListener("drop", (e) => {
+    e.preventDefault();
+    column.classList.remove("bg-light");
+    if (!draggedCard) return;
+
+    const newStatus = column.dataset.status;
+    const updateUrl = draggedCard.dataset.updateUrl;
+    if (!updateUrl) {
+      // non-admin/manager dragged? Just ignore
+      return;
+    }
+
+    column.appendChild(draggedCard);
+
+    const formData = new URLSearchParams();
+    formData.append("status", newStatus);
+
+    fetch(updateUrl, {
+      method: "POST",
+      headers: {
+        "X-CSRFToken": csrftoken,
+        "X-Requested-With": "XMLHttpRequest",
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: formData.toString(),
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        if (!data.success) {
+          alert(data.error || "Could not update project status.");
+          window.location.reload();
+        }
+      })
+      .catch((error) => {
+        console.error(error);
+        alert("Error updating project status.");
+        window.location.reload();
+      });
+  });
+});
+</script>
+{% endblock %}

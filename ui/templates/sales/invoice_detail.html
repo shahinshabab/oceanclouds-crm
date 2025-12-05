@@ -1,0 +1,345 @@
+{% extends "ui/base.html" %}
+{% load roles_tags %}
+{% block title %}Invoice {{ invoice.number }}{% endblock %}
+
+{% block content %}
+{% is_admin as is_admin %}
+{% is_manager as is_manager %}
+{% is_employee as is_employee %}
+
+<div class="container py-4">
+
+  <div class="card shadow-sm">
+    <div class="card-body">
+
+      <!-- Top Header Row -->
+      <div class="d-flex justify-content-between mb-4">
+        <!-- Company Info -->
+        <div>
+          <h2 class="h4 mb-1">Invoice</h2>
+          <div class="text-muted small">
+            OCEANCLOUDS WEDDING LLP<br>
+            info@oceanclouds.com
+          </div>
+        </div>
+
+        <!-- Invoice Meta -->
+        <div class="text-end">
+          <div class="text-uppercase text-muted small mb-1">Invoice #</div>
+          <div class="fw-semibold mb-2">{{ invoice.number }}</div>
+
+          <div class="text-uppercase text-muted small mb-1">Issue Date</div>
+          <div class="fw-semibold mb-2">{{ invoice.issue_date }}</div>
+
+          <div class="text-uppercase text-muted small mb-1">Due Date</div>
+          <div class="fw-semibold mb-2">
+            {% if invoice.due_date %}{{ invoice.due_date }}{% else %}<span class="text-muted">—</span>{% endif %}
+          </div>
+
+          <span class="badge bg-secondary">
+            {{ invoice.get_status_display }}
+          </span>
+        </div>
+      </div>
+
+      <!-- Client / Deal Row -->
+      {% with client=invoice.deal.client %}
+      <div class="row mb-4">
+        <div class="col-md-6">
+          <div class="text-uppercase text-muted small mb-1">Bill To</div>
+          <div class="fw-semibold">{{ client.name|default:client }}</div>
+          {% if client.billing_address %}
+            <div class="small">{{ client.billing_address|linebreaksbr }}</div>
+          {% endif %}
+          {% if client.city or client.country %}
+            <div class="small">
+              {{ client.city }}{% if client.city and client.country %}, {% endif %}{{ client.country }}
+            </div>
+          {% endif %}
+        </div>
+
+        <div class="col-md-6 text-md-end mt-3 mt-md-0">
+          <div class="text-uppercase text-muted small mb-1">Deal</div>
+          <div class="fw-semibold">
+            {% if invoice.deal %}
+              {{ invoice.deal.name }}
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          </div>
+
+          <div class="text-uppercase text-muted small mb-1 mt-3">Contract</div>
+          <div class="fw-semibold">
+            {% if invoice.contract %}
+              {{ invoice.contract.number }}
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          </div>
+
+          {% if invoice.contract and invoice.contract.proposal %}
+            <div class="text-uppercase text-muted small mb-1 mt-3">Proposal</div>
+            <div class="fw-semibold">
+              {{ invoice.contract.proposal.title }} (v{{ invoice.contract.proposal.version }})
+            </div>
+          {% endif %}
+        </div>
+      </div>
+      {% endwith %}
+
+      <!-- Line Items Table (with Package services shown below) -->
+      <div class="table-responsive mb-3">
+        <table class="table table-sm align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>Description</th>
+              <th>Source</th>
+              <th class="text-end">Qty</th>
+              <th class="text-end">Unit Price</th>
+              <th class="text-end">Tax %</th>
+              <th class="text-end">Line Total</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for item in invoice.items.all %}
+            <tr>
+              <td>
+                {{ item.description }}
+              </td>
+              <td class="small text-muted">
+                {% if item.contract_item %}
+                  {% if item.contract_item.package %}
+                    Package: {{ item.contract_item.package.name }}
+                  {% elif item.contract_item.service %}
+                    Service: {{ item.contract_item.service.name }}
+                  {% elif item.contract_item.proposal_item %}
+                    From proposal: {{ item.contract_item.proposal_item.proposal.title }}
+                    (v{{ item.contract_item.proposal_item.proposal.version }})
+                  {% else %}
+                    —
+                  {% endif %}
+                {% else %}
+                  —
+                {% endif %}
+              </td>
+              <td class="text-end">{{ item.quantity }}</td>
+              <td class="text-end">{{ item.unit_price }}</td>
+              <td class="text-end">{{ item.tax_rate }}</td>
+              <td class="text-end">{{ item.line_total }}</td>
+            </tr>
+
+            {# Extra row: ONLY if this invoice line is a package #}
+            {% if item.contract_item and item.contract_item.package %}
+              <tr class="table-light">
+                <td colspan="6">
+                  <div class="small text-muted">
+                    Includes:
+                    <ul class="mb-0">
+                      {% for pkg_item in item.contract_item.package.items.all %}
+                        <li>
+                          {% if pkg_item.service %}
+                            {{ pkg_item.service.name }}
+                          {% else %}
+                            {{ pkg_item.description }}
+                          {% endif %}
+                          (x{{ pkg_item.quantity }})
+                        </li>
+                      {% endfor %}
+                    </ul>
+                  </div>
+                </td>
+              </tr>
+            {% endif %}
+          {% empty %}
+            <tr>
+              <td colspan="6" class="text-center text-muted py-3">
+                No items added.
+              </td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Totals Row -->
+      <div class="row justify-content-end">
+        <div class="col-md-5">
+          <table class="table table-sm mb-0">
+            <tr>
+              <td class="text-muted small">Subtotal</td>
+              <td class="text-end">{{ invoice.subtotal }}</td>
+            </tr>
+            <tr>
+              <td class="text-muted small">Tax</td>
+              <td class="text-end">{{ invoice.tax }}</td>
+            </tr>
+            <tr>
+              <td class="text-muted small">Total</td>
+              <td class="text-end fw-semibold">{{ invoice.total }}</td>
+            </tr>
+            <tr>
+              <td class="text-muted small">Amount Paid</td>
+              <td class="text-end">{{ invoice.amount_paid }}</td>
+            </tr>
+            <tr>
+              <td class="text-muted small">Balance</td>
+              <td class="text-end fw-bold">{{ invoice.balance }}</td>
+            </tr>
+          </table>
+        </div>
+      </div>
+
+      <!-- Notes -->
+      {% if invoice.notes %}
+        <div class="mt-3">
+          <div class="text-uppercase text-muted small mb-1">Notes</div>
+          <div class="small">
+            {{ invoice.notes|linebreaksbr }}
+          </div>
+        </div>
+      {% endif %}
+
+    </div>
+  </div>
+
+  {# Proposal items card left as-is or remove if you feel it's redundant #}
+  {% if invoice.contract and invoice.contract.proposal %}
+    <div class="card mt-3">
+      <div class="card-header">
+        <span class="fw-semibold small text-uppercase text-muted">
+          Proposal Items – {{ invoice.contract.proposal.title }} (v{{ invoice.contract.proposal.version }})
+        </span>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-sm mb-0 align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>Description</th>
+              <th>Service / Package</th>
+              <th class="text-end">Qty</th>
+              <th class="text-end">Unit Price</th>
+              <th class="text-end">Line Total</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for pitem in invoice.contract.proposal.items.all %}
+            <tr>
+              <td>{{ pitem.description }}</td>
+              <td class="small text-muted">
+                {% if pitem.package %}
+                  Package: {{ pitem.package.name }}
+                {% elif pitem.service %}
+                  Service: {{ pitem.service.name }}
+                {% else %}
+                  —
+                {% endif %}
+              </td>
+              <td class="text-end">{{ pitem.quantity }}</td>
+              <td class="text-end">{{ pitem.unit_price }}</td>
+              <td class="text-end">{{ pitem.line_total }}</td>
+            </tr>
+
+            {% if pitem.package %}
+              <tr class="table-light">
+                <td colspan="5">
+                  <div class="small text-muted">
+                    Includes:
+                    <ul class="mb-0">
+                      {% for pkg_item in pitem.package.items.all %}
+                        <li>
+                          {% if pkg_item.service %}
+                            {{ pkg_item.service.name }}
+                          {% else %}
+                            {{ pkg_item.description }}
+                          {% endif %}
+                          (x{{ pkg_item.quantity }})
+                        </li>
+                      {% endfor %}
+                    </ul>
+                  </div>
+                </td>
+              </tr>
+            {% endif %}
+          {% empty %}
+            <tr>
+              <td colspan="5" class="text-center text-muted py-3">
+                No proposal items defined.
+              </td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  {% endif %}
+
+  <!-- Payments Card -->
+  <div class="card mt-3">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <span class="fw-semibold small text-uppercase text-muted">Payments</span>
+
+      {% if is_admin or is_manager %}
+        <a href="{% url 'sales:payment_create' %}?invoice={{ invoice.pk }}"
+           class="btn btn-success btn-sm">
+          + Add Payment
+        </a>
+      {% endif %}
+    </div>
+    <div class="card-body p-0">
+      {% if invoice.payments.all %}
+        <table class="table table-sm mb-0 align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>Date</th>
+              <th class="text-end">Amount</th>
+              <th>Method</th>
+              <th>Reference</th>
+              <th>Received By</th>
+              <th class="text-end">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for payment in invoice.payments.all %}
+            <tr>
+              <td>{{ payment.date }}</td>
+              <td class="text-end">{{ payment.amount }}</td>
+              <td>{{ payment.get_method_display }}</td>
+              <td>{{ payment.reference|default:"—" }}</td>
+              <td>{{ payment.received_by|default:"—" }}</td>
+              <td class="text-end">
+                <a href="{% url 'sales:payment_detail' payment.pk %}"
+                   class="btn btn-sm btn-outline-primary">
+                  View
+                </a>
+              </td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <div class="p-3 text-muted small">
+          No payments recorded.
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Action Buttons -->
+  <div class="text-center mt-3">
+    {% if is_admin or is_manager %}
+      <a href="{% url 'sales:invoice_update' invoice.pk %}" class="btn btn-primary me-2">
+        Edit Invoice
+      </a>
+    {% endif %}
+
+    <a href="{% url 'sales:invoice_download' invoice.pk %}" class="btn btn-outline-secondary me-2">
+      Download PDF
+    </a>
+
+    <a href="{% url 'sales:invoice_list' %}" class="btn btn-secondary">
+      Back to Invoices
+    </a>
+  </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,119 @@
+{% extends "ui/base.html" %}
+{% block title %}Raise Support Ticket{% endblock %}
+
+{% block content %}
+<div class="container py-3 max-w-2xl">
+
+  <h2 class="fw-semibold mb-4">Raise Support Ticket</h2>
+
+  <form method="post" enctype="multipart/form-data" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+      <div class="alert alert-danger">
+        {{ form.non_field_errors }}
+      </div>
+    {% endif %}
+
+    <div class="card shadow-sm">
+      <div class="card-body">
+
+        {# Row 1: Category / Subject Type / Priority #}
+        <div class="row">
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.category.label }}{% if form.category.field.required %} *{% endif %}
+            </label>
+            {{ form.category }}
+            {% for error in form.category.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.subject_type.label }}{% if form.subject_type.field.required %} *{% endif %}
+            </label>
+            {{ form.subject_type }}
+            {% for error in form.subject_type.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.priority.label }}{% if form.priority.field.required %} *{% endif %}
+            </label>
+            {{ form.priority }}
+            {% for error in form.priority.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+        </div>
+
+        {# Row 2: Subject #}
+        <div class="row">
+          <div class="col-12 mb-3">
+            <label class="form-label">
+              {{ form.subject.label }}{% if form.subject.field.required %} *{% endif %}
+            </label>
+            {{ form.subject }}
+            {% if form.subject.help_text %}
+              <small class="form-text text-muted">{{ form.subject.help_text }}</small>
+            {% endif %}
+            {% for error in form.subject.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+        </div>
+
+        {# Row 3: Description full-width #}
+        <div class="row">
+          <div class="col-12 mb-3">
+            <label class="form-label">
+              {{ form.description.label }}{% if form.description.field.required %} *{% endif %}
+            </label>
+            {{ form.description }}
+            {% if form.description.help_text %}
+              <small class="form-text text-muted">{{ form.description.help_text }}</small>
+            {% endif %}
+            {% for error in form.description.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+        </div>
+
+        {# Row 4: Screenshot (optional) #}
+        <div class="row">
+          <div class="col-12 mb-3">
+            <label class="form-label">
+              {{ form.screenshot.label }}
+            </label>
+            {{ form.screenshot }}
+            {% if form.screenshot.help_text %}
+              <small class="form-text text-muted">{{ form.screenshot.help_text }}</small>
+            {% endif %}
+            {% for error in form.screenshot.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    {# Buttons row #}
+    <div class="row mt-3">
+      <div class="col-12 d-flex justify-content-center gap-2">
+        <a href="{% url 'common:ticket_list' %}" class="btn btn-secondary">
+          Cancel
+        </a>
+        <button type="submit" class="btn btn-primary px-4">
+          Save
+        </button>
+      </div>
+    </div>
+
+  </form>
+
+</div>
+{% endblock %}

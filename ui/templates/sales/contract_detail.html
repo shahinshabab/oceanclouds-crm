@@ -1,0 +1,244 @@
+{% extends "ui/base.html" %}
+{% load roles_tags %}
+{% block title %}Contract – {{ contract.number }}{% endblock %}
+
+{% block content %}
+{% is_admin as is_admin %}
+{% is_manager as is_manager %}
+{% is_employee as is_employee %}
+<div class="container py-4">
+
+  <!-- Header -->
+  <div class="mb-3">
+    <h1 class="h4 mb-1">Contract {{ contract.number }}</h1>
+    <div class="small text-muted">
+      {{ contract.deal }} &middot;
+      <span class="badge bg-secondary">{{ contract.get_status_display }}</span>
+    </div>
+  </div>
+
+  <!-- Main Details Card -->
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="row g-3">
+
+        <div class="col-md-4">
+          <div class="text-uppercase text-muted small mb-1">Deal</div>
+          <div class="fw-semibold">{{ contract.deal }}</div>
+        </div>
+
+        <div class="col-md-4">
+          <div class="text-uppercase text-muted small mb-1">Client</div>
+          <div class="fw-semibold">{{ contract.deal.client }}</div>
+        </div>
+
+        <div class="col-md-4">
+          <div class="text-uppercase text-muted small mb-1">Status</div>
+          <div>
+            <span class="badge bg-secondary">{{ contract.get_status_display }}</span>
+          </div>
+        </div>
+
+        <div class="col-md-4">
+          <div class="text-uppercase text-muted small mb-1">Signed Date</div>
+          <div class="fw-semibold">
+            {% if contract.signed_date %}
+              {{ contract.signed_date }}
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="col-md-4">
+          <div class="text-uppercase text-muted small mb-1">Start Date</div>
+          <div class="fw-semibold">
+            {% if contract.start_date %}
+              {{ contract.start_date }}
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="col-md-4">
+          <div class="text-uppercase text-muted small mb-1">End Date</div>
+          <div class="fw-semibold">
+            {% if contract.end_date %}
+              {{ contract.end_date }}
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="col-md-4">
+          <div class="text-uppercase text-muted small mb-1">Proposal</div>
+          <div class="fw-semibold">
+            {% if contract.proposal %}
+              <a href="{% url 'sales:proposal_detail' contract.proposal.pk %}">
+                {{ contract.proposal.title }} (v{{ contract.proposal.version }})
+              </a>
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="col-md-4">
+          <div class="text-uppercase text-muted small mb-1">Owner</div>
+          <div class="fw-semibold">
+            {% if contract.owner %}
+              {{ contract.owner.get_full_name|default:contract.owner.username|default:contract.owner }}
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- File -->
+        <div class="col-md-4">
+          <div class="text-uppercase text-muted small mb-1">File</div>
+          <div class="fw-semibold">
+            {% if contract.file %}
+              <a href="{{ contract.file.url }}" target="_blank">
+                Download file
+              </a>
+            {% else %}
+              <span class="text-muted">No file uploaded.</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Terms full width -->
+        <div class="col-12 mt-2">
+          <div class="text-uppercase text-muted small mb-1">Terms</div>
+          <div>
+            {% if contract.terms %}
+              {{ contract.terms|linebreaksbr }}
+            {% else %}
+              <span class="text-muted">No terms defined.</span>
+            {% endif %}
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Contract Items -->
+  <div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <span class="fw-semibold small text-uppercase text-muted">Contract Items</span>
+    </div>
+    <div class="card-body p-0">
+      {% if contract.items.all %}
+        <table class="table table-sm mb-0 align-middle">
+          <thead class="table-light">
+            <tr>
+              <th style="width: 35%;">Description</th>
+              <th style="width: 20%;">Type</th>
+              <th style="width: 10%;">Qty</th>
+              <th style="width: 15%;">Unit Price</th>
+              <th style="width: 20%;">Line Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in contract.items.all %}
+              <tr>
+                <td>{{ item.description }}</td>
+                <td>
+                  {% if item.package %}
+                    <span class="badge bg-dark">Package</span>
+                    <span class="small text-muted d-block">{{ item.package.name }}</span>
+                  {% elif item.service %}
+                    <span class="badge bg-primary">Service</span>
+                    <span class="small text-muted d-block">{{ item.service.name }}</span>
+                  {% else %}
+                    <span class="text-muted small">Custom line</span>
+                  {% endif %}
+                </td>
+                <td>{{ item.quantity }}</td>
+                <td>{{ item.unit_price }}</td>
+                <td>{{ item.line_total }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <div class="p-3 text-muted small">
+          No items in this contract yet.
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Related: Invoices (via deal.invoices) -->
+  <div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <span class="fw-semibold small text-uppercase text-muted">Invoices</span>
+
+      {% has_role user ROLE_ADMIN ROLE_MANAGER as can_edit %}
+      {% if is_admin or is_manager %}
+        {# include contract in query so InvoiceCreateView can copy items #}
+        <a href="{% url 'sales:invoice_create' %}?deal={{ contract.deal.pk }}&contract={{ contract.pk }}"
+           class="btn btn-success btn-sm">
+          + New Invoice
+        </a>
+      {% endif %}
+    </div>
+    <div class="card-body p-0">
+      {% if contract.deal.invoices.all %}
+        <table class="table table-sm mb-0 align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>Number</th>
+              <th>Status</th>
+              <th>Total</th>
+              <th>Balance</th>
+              <th class="text-end">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for invoice in contract.deal.invoices.all %}
+            <tr>
+              <td>{{ invoice.number }}</td>
+              <td>
+                <span class="badge bg-light text-dark border">
+                  {{ invoice.get_status_display }}
+                </span>
+              </td>
+              <td>{{ invoice.total }}</td>
+              <td>{{ invoice.balance }}</td>
+              <td class="text-end">
+                <a href="{% url 'sales:invoice_detail' invoice.pk %}"
+                   class="btn btn-sm btn-outline-primary">
+                  View
+                </a>
+              </td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <div class="p-3 text-muted small">
+          No invoices linked to this contract.
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Action Row -->
+  <div class="text-center">
+    {% if is_admin or is_manager %}
+      <a href="{% url 'sales:contract_update' contract.pk %}" class="btn btn-primary me-2">
+        Edit Contract
+      </a>
+    {% endif %}
+    <a href="{% url 'sales:contract_list' %}" class="btn btn-outline-secondary">
+      Back to Contracts
+    </a>
+  </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,342 @@
+{% extends "ui/base.html" %}
+{% load roles_tags %}
+
+{% block content %}
+<div class="container py-4">
+
+  {% has_role request.user "Admin" as is_admin %}
+  {% has_role request.user "Manager" as is_manager %}
+  {% has_role request.user "Employee" as is_employee %}
+
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h1 class="h3 mb-0">Deliverable Kanban</h1>
+      <small class="text-muted">
+        {% if is_admin or is_manager %}
+          Drag cards between columns to update status.
+        {% elif is_employee %}
+          You can drag deliverables assigned to you.
+        {% else %}
+          View-only board.
+        {% endif %}
+      </small>
+    </div>
+
+    <div class="d-flex gap-2">
+      <a href="{% url 'projects:deliverable_list' %}" class="btn btn-outline-secondary btn-sm">
+        Table View
+      </a>
+    </div>
+  </div>
+
+  <!-- Kanban Board -->
+  <div class="row g-3" id="deliverable-kanban-board">
+
+    <!-- Pending Column -->
+    <div class="col-md-4">
+      <div class="card h-100">
+        <div class="card-header bg-light">
+          <strong>Pending</strong>
+        </div>
+        <div class="card-body p-2 kanban-column"
+             data-kanban-column
+             data-status="pending">
+          {% for d in deliverables_by_status.pending %}
+            <div class="card mb-2 shadow-sm kanban-card"
+                 {% if is_admin or is_manager or d.assigned_to_id == request.user.id %}
+                   draggable="true"
+                   data-update-url="{% url 'projects:deliverable_set_status' d.id %}"
+                 {% endif %}
+                 data-type="deliverable"
+                 data-id="{{ d.id }}">
+              <div class="card-body py-2 px-2">
+                <div class="fw-semibold small">
+                  <a href="{% url 'projects:deliverable_detail' d.pk %}" class="text-decoration-none">
+                    {{ d.name }}
+                  </a>
+                </div>
+                <div class="small text-muted">
+                  Project: {{ d.project.name }}
+                </div>
+
+                {# Directory + count #}
+                {% if d.directory %}
+                  <div class="small text-muted">
+                    Directory: {{ d.directory }}{% if d.count %} ({{ d.count }}){% endif %}
+                  </div>
+                {% endif %}
+
+                {# Primary task name (first linked task) #}
+                {% with d.tasks.all as d_tasks %}
+                  {% if d_tasks %}
+                    <div class="small text-muted">
+                      Task:
+                      {% for t in d_tasks %}
+                        {% if forloop.first %}
+                          {{ t.name }}
+                        {% endif %}
+                      {% endfor %}
+                    </div>
+                  {% endif %}
+                {% endwith %}
+
+                <div class="small text-muted">
+                  {% if d.assigned_to %}
+                    {{ d.assigned_to.get_full_name|default:d.assigned_to.username }}
+                  {% else %}
+                    Unassigned
+                  {% endif %}
+                </div>
+                {% if d.due_date %}
+                  <div class="small mt-1">
+                    <span class="badge bg-light text-muted border">
+                      Due: {{ d.due_date }}
+                    </span>
+                  </div>
+                {% endif %}
+              </div>
+            </div>
+          {% empty %}
+            <div class="text-muted small px-2">
+              No pending deliverables.
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- In Progress Column -->
+    <div class="col-md-4">
+      <div class="card h-100">
+        <div class="card-header bg-light">
+          <strong>In Progress</strong>
+        </div>
+        <div class="card-body p-2 kanban-column"
+             data-kanban-column
+             data-status="in_progress">
+          {% for d in deliverables_by_status.in_progress %}
+            <div class="card mb-2 shadow-sm kanban-card"
+                 {% if is_admin or is_manager or d.assigned_to_id == request.user.id %}
+                   draggable="true"
+                   data-update-url="{% url 'projects:deliverable_set_status' d.id %}"
+                 {% endif %}
+                 data-type="deliverable"
+                 data-id="{{ d.id }}">
+              <div class="card-body py-2 px-2">
+                <div class="fw-semibold small">
+                  <a href="{% url 'projects:deliverable_detail' d.pk %}" class="text-decoration-none">
+                    {{ d.name }}
+                  </a>
+                </div>
+                <div class="small text-muted">
+                  Project: {{ d.project.name }}
+                </div>
+
+                {% if d.directory %}
+                  <div class="small text-muted">
+                    Directory: {{ d.directory }}{% if d.count %} ({{ d.count }}){% endif %}
+                  </div>
+                {% endif %}
+
+                {% with d.tasks.all as d_tasks %}
+                  {% if d_tasks %}
+                    <div class="small text-muted">
+                      Task:
+                      {% for t in d_tasks %}
+                        {% if forloop.first %}
+                          {{ t.name }}
+                        {% endif %}
+                      {% endfor %}
+                    </div>
+                  {% endif %}
+                {% endwith %}
+
+                <div class="small text-muted">
+                  {% if d.assigned_to %}
+                    {{ d.assigned_to.get_full_name|default:d.assigned_to.username }}
+                  {% else %}
+                    Unassigned
+                  {% endif %}
+                </div>
+                {% if d.due_date %}
+                  <div class="small mt-1">
+                    <span class="badge bg-light text-muted border">
+                      Due: {{ d.due_date }}
+                    </span>
+                  </div>
+                {% endif %}
+              </div>
+            </div>
+          {% empty %}
+            <div class="text-muted small px-2">
+              No in-progress deliverables.
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Delivered Column -->
+    <div class="col-md-4">
+      <div class="card h-100">
+        <div class="card-header bg-light">
+          <strong>Delivered</strong>
+        </div>
+        <div class="card-body p-2 kanban-column"
+             data-kanban-column
+             data-status="delivered">
+          {% for d in deliverables_by_status.delivered %}
+            <div class="card mb-2 shadow-sm kanban-card"
+                 {% if is_admin or is_manager or d.assigned_to_id == request.user.id %}
+                   draggable="true"
+                   data-update-url="{% url 'projects:deliverable_set_status' d.id %}"
+                 {% endif %}
+                 data-type="deliverable"
+                 data-id="{{ d.id }}">
+              <div class="card-body py-2 px-2">
+                <div class="fw-semibold small">
+                  <a href="{% url 'projects:deliverable_detail' d.pk %}" class="text-decoration-none">
+                    {{ d.name }}
+                  </a>
+                </div>
+                <div class="small text-muted">
+                  Project: {{ d.project.name }}
+                </div>
+
+                {% if d.directory %}
+                  <div class="small text-muted">
+                    Directory: {{ d.directory }}{% if d.count %} ({{ d.count }}){% endif %}
+                  </div>
+                {% endif %}
+
+                {% with d.tasks.all as d_tasks %}
+                  {% if d_tasks %}
+                    <div class="small text-muted">
+                      Task:
+                      {% for t in d_tasks %}
+                        {% if forloop.first %}
+                          {{ t.name }}
+                        {% endif %}
+                      {% endfor %}
+                    </div>
+                  {% endif %}
+                {% endwith %}
+
+                <div class="small text-muted">
+                  {% if d.assigned_to %}
+                    {{ d.assigned_to.get_full_name|default:d.assigned_to.username }}
+                  {% else %}
+                    Unassigned
+                  {% endif %}
+                </div>
+                {% if d.due_date %}
+                  <div class="small mt-1">
+                    <span class="badge bg-light text-muted border">
+                      Due: {{ d.due_date }}
+                    </span>
+                  </div>
+                {% endif %}
+              </div>
+            </div>
+          {% empty %}
+            <div class="text-muted small px-2">
+              No delivered items.
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+function getCookie(name) {
+  let cookieValue = null;
+  if (document.cookie && document.cookie !== "") {
+    const cookies = document.cookie.split(";");
+    for (let i = 0; i < cookies.length; i++) {
+      const cookie = cookies[i].trim();
+      if (cookie.substring(0, name.length + 1) === (name + "=")) {
+        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+        break;
+      }
+    }
+  }
+  return cookieValue;
+}
+
+const csrftoken = getCookie("csrftoken");
+let draggedDeliverableCard = null;
+
+document.querySelectorAll(".kanban-card").forEach((card) => {
+  card.addEventListener("dragstart", (e) => {
+    if (card.getAttribute("draggable") !== "true") {
+      e.preventDefault();
+      return;
+    }
+    draggedDeliverableCard = card;
+    e.dataTransfer.effectAllowed = "move";
+    card.classList.add("opacity-50");
+  });
+
+  card.addEventListener("dragend", () => {
+    draggedDeliverableCard = null;
+    card.classList.remove("opacity-50");
+  });
+});
+
+document.querySelectorAll("[data-kanban-column]").forEach((column) => {
+  column.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    column.classList.add("bg-light");
+  });
+
+  column.addEventListener("dragleave", () => {
+    column.classList.remove("bg-light");
+  });
+
+  column.addEventListener("drop", (e) => {
+    e.preventDefault();
+    column.classList.remove("bg-light");
+    if (!draggedDeliverableCard) return;
+
+    const newStatus = column.dataset.status;
+    const updateUrl = draggedDeliverableCard.dataset.updateUrl;
+
+    if (!updateUrl) {
+      return;
+    }
+
+    column.appendChild(draggedDeliverableCard);
+
+    const formData = new URLSearchParams();
+    formData.append("status", newStatus);
+
+    fetch(updateUrl, {
+      method: "POST",
+      headers: {
+        "X-CSRFToken": csrftoken,
+        "X-Requested-With": "XMLHttpRequest",
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: formData.toString(),
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        if (!data.success) {
+          alert(data.error || "Could not update deliverable status.");
+          window.location.reload();
+        }
+      })
+      .catch((error) => {
+        console.error(error);
+        alert("Error updating deliverable status.");
+        window.location.reload();
+      });
+  });
+});
+</script>
+{% endblock %}

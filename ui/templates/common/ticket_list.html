@@ -1,0 +1,114 @@
+{% extends "ui/base.html" %}
+{% block title %}Support Tickets{% endblock %}
+
+{% block content %}
+<div class="container py-3">
+
+  {# A) Header Row #}
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h1 class="h4 mb-0">Support Tickets</h1>
+      <small class="text-muted">View and track your support requests.</small>
+    </div>
+    <a href="{% url 'common:ticket_create' %}" class="btn btn-success btn-sm">
+      + New Ticket
+    </a>
+  </div>
+
+  {# B) Search + Filters Row #}
+  <form method="get" class="row g-2 mb-3 align-items-end">
+
+    <div class="col-md-4">
+      <input
+        type="text"
+        name="q"
+        value="{{ q }}"
+        class="form-control"
+        placeholder="Search by subject or description"
+      >
+    </div>
+
+    <div class="col-md-3">
+      <select name="status" class="form-select">
+        <option value="">All Statuses</option>
+        {% for value, label in ticket_status_choices %}
+          <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>
+            {{ label }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="col-md-3">
+      <select name="priority" class="form-select">
+        <option value="">All Priorities</option>
+        {% for value, label in ticket_priority_choices %}
+          <option value="{{ value }}" {% if priority_filter == value %}selected{% endif %}>
+            {{ label }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="col-md-2 d-grid">
+      <button type="submit" class="btn btn-outline-secondary">
+        Apply
+      </button>
+    </div>
+
+  </form>
+
+  {# C) Data Table Card #}
+  {% if tickets %}
+    <div class="card shadow-sm">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th scope="col">Ticket #</th>
+              <th scope="col">Subject</th>
+              <th scope="col">Category</th>
+              <th scope="col">Priority</th>
+              <th scope="col">Status</th>
+              <th scope="col">Created</th>
+              <th scope="col" class="text-end">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for ticket in tickets %}
+              <tr>
+                <td>{{ ticket.ticket_number }}</td>
+                <td>{{ ticket.subject }}</td>
+                <td>{{ ticket.get_category_display }}</td>
+                <td>
+                  <span class="badge bg-dark">{{ ticket.get_priority_display }}</span>
+                </td>
+                <td>
+                  <span class="badge bg-secondary">{{ ticket.get_status_display }}</span>
+                </td>
+                <td>{{ ticket.created_at|date:"Y-m-d H:i" }}</td>
+                <td class="text-end">
+                  <a href="{% url 'common:ticket_detail' ticket.pk %}" class="btn btn-outline-secondary btn-sm">
+                    View
+                  </a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  {% else %}
+    <div class="card shadow-sm">
+      <div class="card-body text-center text-muted py-5">
+        You haven't raised any tickets yet.
+        <br>
+        <a href="{% url 'common:ticket_create' %}" class="btn btn-link btn-sm mt-2">
+          Raise your first ticket
+        </a>
+      </div>
+    </div>
+  {% endif %}
+
+</div>
+{% endblock %}

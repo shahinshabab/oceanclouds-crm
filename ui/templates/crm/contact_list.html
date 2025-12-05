@@ -1,0 +1,163 @@
+{% extends "ui/base.html" %}
+{% load roles_tags %}
+
+{% block title %}Contacts{% endblock %}
+
+{% block content %}
+{% is_admin request.user as is_admin %}
+{% is_manager request.user as is_manager %}
+{% is_employee request.user as is_employee %}
+
+<div class="container py-3">
+
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="fw-semibold mb-0">Contacts</h2>
+
+    {# Only Admin & Manager can create new contacts #}
+    {% if is_admin or is_manager %}
+      <a href="{% url 'crm:contact_create' %}" class="btn btn-success btn-sm">
+        + New Contact
+      </a>
+    {% endif %}
+  </div>
+
+  <!-- Search + Filters -->
+  <form method="get" class="row g-2 align-items-end mb-3">
+    <!-- Search -->
+    <div class="col-md-4">
+      <label class="form-label mb-1 small text-muted">Search</label>
+      <input type="text"
+             name="q"
+             value="{{ request.GET.q }}"
+             class="form-control"
+             placeholder="Search by name, email or client">
+    </div>
+
+    <!-- Filter: Role -->
+    <div class="col-md-3">
+      <label class="form-label mb-1 small text-muted">Role</label>
+      <select name="role" class="form-select">
+        <option value="">All roles</option>
+        <option value="bride"   {% if request.GET.role == "bride" %}selected{% endif %}>Bride</option>
+        <option value="groom"   {% if request.GET.role == "groom" %}selected{% endif %}>Groom</option>
+        <option value="parent"  {% if request.GET.role == "parent" %}selected{% endif %}>Parent</option>
+        <option value="sibling" {% if request.GET.role == "sibling" %}selected{% endif %}>Sibling</option>
+        <option value="friend"  {% if request.GET.role == "friend" %}selected{% endif %}>Friend</option>
+        <option value="planner" {% if request.GET.role == "planner" %}selected{% endif %}>External Planner</option>
+        <option value="other"   {% if request.GET.role == "other" %}selected{% endif %}>Other</option>
+      </select>
+    </div>
+
+    <!-- Filter: Primary contact -->
+    <div class="col-md-3">
+      <label class="form-label mb-1 small text-muted">Primary contact</label>
+      <select name="is_primary" class="form-select">
+        <option value="">All</option>
+        <option value="1" {% if request.GET.is_primary == "1" %}selected{% endif %}>Primary only</option>
+        <option value="0" {% if request.GET.is_primary == "0" %}selected{% endif %}>Non-primary only</option>
+      </select>
+    </div>
+
+    <!-- Filter button -->
+    <div class="col-md-2">
+      <button type="submit" class="btn btn-outline-secondary w-100">
+        Apply
+      </button>
+    </div>
+  </form>
+
+  <!-- Contacts table -->
+  <div class="card shadow-sm">
+    <div class="card-body p-0">
+      <table class="table table-hover mb-0 align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>Name</th>
+            <th>Client</th>
+            <th>Role</th>
+            <th>Email</th>
+            <th>Phone</th>
+            <th class="text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for contact in contacts %}
+          <tr>
+            <td>
+              <a href="{% url 'crm:contact_detail' contact.pk %}" class="text-decoration-none">
+                {{ contact.first_name }} {{ contact.last_name }}
+              </a>
+              {% if contact.is_primary %}
+                <span class="badge bg-success ms-1 align-middle">Primary</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if contact.client %}
+                <a href="{% url 'crm:client_detail' contact.client.pk %}" class="text-decoration-none">
+                  {{ contact.client }}
+                </a>
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+            <td>{{ contact.get_role_display|default:"—" }}</td>
+            <td>
+              {% if contact.email %}
+                <a href="mailto:{{ contact.email }}">{{ contact.email }}</a>
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+            <td>{{ contact.phone|default:"—" }}</td>
+            <td class="text-end">
+              <a href="{% url 'crm:contact_detail' contact.pk %}"
+                 class="btn btn-sm btn-outline-secondary me-1">
+                View
+              </a>
+
+              {# Only Admin & Manager can edit contacts #}
+              {% if is_admin or is_manager %}
+                <a href="{% url 'crm:contact_update' contact.pk %}"
+                   class="btn btn-sm btn-outline-primary">
+                  Edit
+                </a>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="6" class="text-center text-muted py-3">
+              No contacts found.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {% if is_paginated %}
+  <div class="mt-3 d-flex justify-content-between align-items-center">
+    <div>
+      {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}&q={{ request.GET.q }}&role={{ request.GET.role }}&is_primary={{ request.GET.is_primary }}">
+          ‹ Previous
+        </a>
+      {% endif %}
+    </div>
+    <div class="small text-muted">
+      Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+    </div>
+    <div>
+      {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}&q={{ request.GET.q }}&role={{ request.GET.role }}&is_primary={{ request.GET.is_primary }}">
+          Next ›
+        </a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

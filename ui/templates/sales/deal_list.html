@@ -1,0 +1,177 @@
+{% extends "ui/base.html" %}
+{% load roles_tags %}
+{% block title %}Deals{% endblock %}
+
+{% block content %}
+{% is_admin as is_admin %}
+{% is_manager as is_manager %}
+{% is_employee as is_employee %}
+
+<div class="container py-4">
+
+  <!-- Header Row -->
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h4 mb-0">Deals</h1>
+    {% if is_admin or is_manager %}
+      <a href="{% url 'sales:deal_create' %}" class="btn btn-success btn-sm">
+        + New Deal
+      </a>
+    {% endif %}
+  </div>
+
+  <!-- Search + Filters Row -->
+  <form method="get" class="row g-2 align-items-end mb-3">
+    <!-- Search -->
+    <div class="col-md-4">
+      <label for="id_q" class="form-label small text-muted">Search</label>
+      <input type="text"
+             id="id_q"
+             name="q"
+             value="{{ q }}"
+             placeholder="Search by deal name or client…"
+             class="form-control form-control-sm">
+    </div>
+
+    <!-- Filter: Stage -->
+    <div class="col-md-3">
+      <label for="id_stage" class="form-label small text-muted">Stage</label>
+      <select name="stage" id="id_stage" class="form-select form-select-sm">
+        <option value="">All stages</option>
+        {% for value, label in stage_choices %}
+          <option value="{{ value }}" {% if filter_stage == value %}selected{% endif %}>
+            {{ label }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <!-- Filter: Active -->
+    <div class="col-md-3">
+      <label for="id_is_active" class="form-label small text-muted">Status</label>
+      <select name="is_active" id="id_is_active" class="form-select form-select-sm">
+        {% for value, label in is_active_choices %}
+          <option value="{{ value }}" {% if filter_is_active == value %}selected{% endif %}>
+            {{ label }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <!-- Apply Button -->
+    <div class="col-md-2 text-md-end">
+      <button type="submit" class="btn btn-outline-secondary btn-sm w-100">
+        Apply
+      </button>
+    </div>
+  </form>
+
+  <!-- Data Table -->
+  <div class="card">
+    <div class="card-body p-0">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th scope="col">Deal</th>
+            <th scope="col">Client</th>
+            <th scope="col">Stage</th>
+            <th scope="col">Amount</th>
+            <th scope="col">Expected Close</th>
+            <th scope="col" class="text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for deal in deals %}
+          <tr>
+            <td>
+              <div class="fw-semibold">{{ deal.name }}</div>
+              {% if deal.owner %}
+                <div class="small text-muted">
+                  Owner:
+                  {{ deal.owner.get_full_name|default:deal.owner.username|default:deal.owner }}
+                </div>
+              {% endif %}
+            </td>
+            <td>
+              {{ deal.client }}
+            </td>
+            <td>
+              <span class="badge bg-secondary">
+                {{ deal.get_stage_display }}
+              </span>
+            </td>
+            <td>
+              {% if deal.amount %}
+                {{ deal.amount }}
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if deal.expected_close_date %}
+                {{ deal.expected_close_date }}
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+            <td class="text-end">
+              <a href="{% url 'sales:deal_detail' deal.pk %}"
+                 class="btn btn-sm btn-outline-primary">
+                View
+              </a>
+              {% if is_admin or is_manager %}
+                <a href="{% url 'sales:deal_update' deal.pk %}"
+                   class="btn btn-sm btn-outline-secondary">
+                  Edit
+                </a>
+              {% endif %}
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="6" class="text-center text-muted py-4">
+              No deals found.
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Pagination -->
+  {% if is_paginated %}
+    <nav aria-label="Deals pagination" class="mt-3">
+      <ul class="pagination pagination-sm justify-content-between align-items-center mb-0">
+        <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
+          {% if page_obj.has_previous %}
+            <a class="page-link"
+               href="?page={{ page_obj.previous_page_number }}&q={{ q }}&stage={{ filter_stage }}&is_active={{ filter_is_active }}">
+              Previous
+            </a>
+          {% else %}
+            <span class="page-link">Previous</span>
+          {% endif %}
+        </li>
+
+        <li class="page-item disabled">
+          <span class="page-link">
+            Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+          </span>
+        </li>
+
+        <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+          {% if page_obj.has_next %}
+            <a class="page-link"
+               href="?page={{ page_obj.next_page_number }}&q={{ q }}&stage={{ filter_stage }}&is_active={{ filter_is_active }}">
+              Next
+            </a>
+          {% else %}
+            <span class="page-link">Next</span>
+          {% endif %}
+        </li>
+      </ul>
+    </nav>
+  {% endif %}
+
+</div>
+{% endblock %}

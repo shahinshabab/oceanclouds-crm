@@ -1,0 +1,185 @@
+{% extends "ui/base.html" %}
+{% load static %}
+{% load roles_tags %}
+
+{% block content %}
+<div class="container py-4">
+
+  {% has_role user ROLE_ADMIN as can_create_project %}
+  {% has_role user ROLE_ADMIN ROLE_MANAGER as can_edit_projects %}
+
+  <!-- Header Row -->
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3 mb-0">Projects</h1>
+
+    <div class="d-flex gap-2">
+      <a href="{% url 'projects:project_kanban' %}" class="btn btn-outline-secondary btn-sm">
+        Kanban View
+      </a>
+      {# Only Admin role can create projects (matches AdminOnlyMixin) #}
+      {% if can_create_project %}
+        <a href="{% url 'projects:project_create' %}" class="btn btn-success btn-sm">
+          + New Project
+        </a>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Search + Filters Row -->
+  <form method="get" class="row g-2 align-items-end mb-3">
+    <div class="col-md-5">
+      <label class="form-label small text-muted text-uppercase mb-1">Search</label>
+      <input type="text"
+             name="q"
+             value="{{ q }}"
+             class="form-control"
+             placeholder="Search by project, client, or deal">
+    </div>
+
+    <div class="col-md-3">
+      <label class="form-label small text-muted text-uppercase mb-1">Status</label>
+      <select name="status" class="form-select">
+        <option value="">All statuses</option>
+        {% for value, label in status_choices %}
+          <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>
+            {{ label }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="col-md-3">
+      <label class="form-label small text-muted text-uppercase mb-1">Manager</label>
+      <select name="manager" class="form-select">
+        <option value="">All managers</option>
+        {% for manager in manager_choices %}
+          <option value="{{ manager.id }}" {% if manager_filter|add:'' == manager.id|add:'' %}selected{% endif %}>
+            {{ manager.get_full_name|default:manager.username }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="col-md-1 d-grid">
+      <button class="btn btn-outline-secondary" type="submit">
+        Apply
+      </button>
+    </div>
+  </form>
+
+  <!-- Data Table -->
+  <div class="card">
+    <div class="card-body p-0">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Project</th>
+            <th>Client</th>
+            <th>Manager</th>
+            <th>Status</th>
+            <th>Due</th>
+            <th class="text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for project in projects %}
+            <tr>
+              <td>
+                <a href="{% url 'projects:project_detail' project.pk %}"
+                   class="fw-semibold text-decoration-none">
+                  {{ project.name }}
+                </a>
+                <div class="mt-1">
+                  <div class="progress" style="height: 4px;">
+                    {% with pct=project.progress_percent|default_if_none:0 %}
+                      <div class="progress-bar
+                        {% if pct < 30 %}
+                          bg-danger
+                        {% elif pct < 70 %}
+                          bg-warning
+                        {% else %}
+                          bg-success
+                        {% endif %}"
+                        style="width: {{ project.progress_bar_width }}%;">
+                      </div>
+                    {% endwith %}
+                  </div>
+                </div>
+              </td>
+
+              <td>{{ project.client }}</td>
+              <td>{{ project.manager|default:"Unassigned" }}</td>
+              <td>
+                {% if project.status == "completed" %}
+                  <span class="badge bg-success">{{ project.get_status_display }}</span>
+                {% elif project.status == "active" %}
+                  <span class="badge bg-primary">{{ project.get_status_display }}</span>
+                {% elif project.status == "on_hold" %}
+                  <span class="badge bg-warning text-dark">{{ project.get_status_display }}</span>
+                {% elif project.status == "cancelled" %}
+                  <span class="badge bg-danger">{{ project.get_status_display }}</span>
+                {% else %}
+                  <span class="badge bg-secondary">{{ project.get_status_display }}</span>
+                {% endif %}
+              </td>
+              <td>{{ project.due_date|default:"—" }}</td>
+              <td class="text-end">
+                <div class="btn-group btn-group-sm">
+                  <a href="{% url 'projects:project_detail' project.pk %}"
+                     class="btn btn-outline-secondary">
+                    View
+                  </a>
+                  {# Edit allowed for Admin + Manager (matches AdminManagerMixin) #}
+                  {% if can_edit_projects %}
+                    <a href="{% url 'projects:project_update' project.pk %}"
+                       class="btn btn-outline-secondary">
+                      Edit
+                    </a>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="6" class="text-center text-muted py-4">
+                No projects found.
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Pagination -->
+  {% if is_paginated %}
+    <nav aria-label="Project pagination" class="mt-3">
+      <ul class="pagination mb-0">
+        {% if page_obj.has_previous %}
+          <li class="page-item">
+            <a class="page-link"
+               href="?page={{ page_obj.previous_page_number }}&q={{ q }}&status={{ status_filter }}&manager={{ manager_filter }}">
+              Previous
+            </a>
+          </li>
+        {% endif %}
+
+        <li class="page-item disabled">
+          <span class="page-link">
+            Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+          </span>
+        </li>
+
+        {% if page_obj.has_next %}
+          <li class="page-item">
+            <a class="page-link"
+               href="?page={{ page_obj.next_page_number }}&q={{ q }}&status={{ status_filter }}&manager={{ manager_filter }}">
+              Next
+            </a>
+          </li>
+        {% endif %}
+      </ul>
+    </nav>
+  {% endif %}
+</div>
+{% endblock %}

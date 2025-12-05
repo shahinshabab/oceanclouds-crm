@@ -1,0 +1,45 @@
+{% extends "ui/base.html" %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="h3 mb-0">Roles &amp; Permissions</h1>
+        <a href="{% url 'adminpanel:role_create' %}" class="btn btn-primary btn-sm">
+            + New Role
+        </a>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-sm mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Name</th>
+                        <th># Permissions</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for role in roles %}
+                    <tr>
+                        <td>{{ role.name }}</td>
+                        <td>{{ role.permissions.count }}</td>
+                        <td class="text-end">
+                            <a href="{% url 'adminpanel:role_edit' role.pk %}" class="btn btn-outline-sm btn-sm">
+                                Edit
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="3" class="text-center text-muted py-4">
+                            No roles created yet.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

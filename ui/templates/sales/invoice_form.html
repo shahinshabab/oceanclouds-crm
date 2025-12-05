@@ -1,0 +1,186 @@
+{% extends "ui/base.html" %}
+{% block title %}
+  {% if form.instance.pk %}Edit Invoice{% else %}New Invoice{% endif %}
+{% endblock %}
+
+{% block content %}
+{% is_admin as is_admin %}
+{% is_manager as is_manager %}
+{% is_employee as is_employee %}
+
+<div class="container py-3 max-w-2xl">
+
+  <h2 class="fw-semibold mb-4">
+    {% if form.instance.pk %}Edit Invoice{% else %}New Invoice{% endif %}
+  </h2>
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+      <div class="alert alert-danger">
+        {{ form.non_field_errors }}
+      </div>
+    {% endif %}
+
+    <div class="card shadow-sm">
+      <div class="card-body">
+
+        <!-- Row 1: Deal / Client (from Deal) / Contract -->
+        <div class="row">
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.deal.label }}
+            </label>
+            {{ form.deal }}
+            {% for error in form.deal.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              Client
+            </label>
+            <div class="form-control-plaintext">
+              {% if form.instance.deal %}
+                {{ form.instance.deal.client }}
+              {% else %}
+                <span class="text-muted">Will be set from deal</span>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.contract.label }}
+            </label>
+            {{ form.contract }}
+            {% for error in form.contract.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Row 2: Number / Issue Date / Due Date -->
+        <div class="row">
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.number.label }}{% if form.number.field.required %} *{% endif %}
+            </label>
+            {{ form.number }}
+            {% for error in form.number.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.issue_date.label }}{% if form.issue_date.field.required %} *{% endif %}
+            </label>
+            {{ form.issue_date }}
+            {% for error in form.issue_date.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.due_date.label }}
+            </label>
+            {{ form.due_date }}
+            {% for error in form.due_date.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Row 3: Status / Subtotal / Tax -->
+        <div class="row">
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.status.label }}{% if form.status.field.required %} *{% endif %}
+            </label>
+            {{ form.status }}
+            {% for error in form.status.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.subtotal.label }}
+            </label>
+            {{ form.subtotal }}
+            {% for error in form.subtotal.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.tax.label }}
+            </label>
+            {{ form.tax }}
+            {% for error in form.tax.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Row 4: Total / Amount Paid -->
+        <div class="row">
+          <div class="col-md-6 mb-3">
+            <label class="form-label">
+              {{ form.total.label }}
+            </label>
+            {{ form.total }}
+            {% for error in form.total.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="col-md-6 mb-3">
+            <label class="form-label">
+              {{ form.amount_paid.label }}
+            </label>
+            {{ form.amount_paid }}
+            {% for error in form.amount_paid.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Row 5: Notes (full width) -->
+        <div class="row">
+          <div class="col-12 mb-3">
+            <label class="form-label">
+              {{ form.notes.label }}
+            </label>
+            {{ form.notes }}
+            {% for error in form.notes.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Buttons -->
+    <div class="row mt-3">
+      <div class="col-12 d-flex justify-content-center gap-2">
+        {% if is_admin or is_manager %}
+          <button type="submit" class="btn btn-primary px-4">
+            Save
+          </button>
+        {% endif %}  
+        <a href="{% url 'sales:invoice_list' %}" class="btn btn-secondary">
+          Cancel
+        </a>
+      </div>
+    </div>
+
+  </form>
+
+</div>
+{% endblock %}

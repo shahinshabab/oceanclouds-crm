@@ -1,0 +1,222 @@
+{% extends "ui/base.html" %}
+{% load roles_tags %}
+
+{% block title %}Client Reviews{% endblock %}
+
+{% block content %}
+{% is_admin request.user as is_admin %}
+{% is_manager request.user as is_manager %}
+{% is_employee request.user as is_employee %}
+
+<div class="container py-3">
+
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="fw-semibold mb-0">Client Reviews</h2>
+
+    {# Only Admin & Manager can create new reviews #}
+    {% if is_admin or is_manager %}
+      <a href="{% url 'crm:review_create' %}" class="btn btn-success btn-sm">
+        + New Review
+      </a>
+    {% endif %}
+  </div>
+
+  <!-- Search + Filters -->
+  <form method="get" class="row g-2 align-items-end mb-3">
+    <!-- Search -->
+    <div class="col-md-4">
+      <label class="form-label mb-1 small text-muted">Search</label>
+      <input type="text"
+             name="q"
+             value="{{ request.GET.q }}"
+             class="form-control"
+             placeholder="Search by title, comment, next action or client">
+    </div>
+
+    <!-- Filter: Rating -->
+    <div class="col-md-3">
+      <label class="form-label mb-1 small text-muted">Rating</label>
+      <select name="rating" class="form-select">
+        <option value="">All ratings</option>
+        {% for i in "12345" %}
+          {% with val=forloop.counter|stringformat:"d" %}
+            <option value="{{ val }}"
+              {% if request.GET.rating == val %}selected{% endif %}>
+              {{ val }} stars
+            </option>
+          {% endwith %}
+        {% endfor %}
+      </select>
+    </div>
+
+    <!-- NEW: Filter: Action Due -->
+    <div class="col-md-3">
+      <label class="form-label mb-1 small text-muted">Action Due</label>
+      <select name="action_due" class="form-select">
+        <option value="">All</option>
+        <option value="overdue"
+          {% if request.GET.action_due == "overdue" %}selected{% endif %}>
+          Overdue
+        </option>
+        <option value="today"
+          {% if request.GET.action_due == "today" %}selected{% endif %}>
+          Due today
+        </option>
+        <option value="upcoming"
+          {% if request.GET.action_due == "upcoming" %}selected{% endif %}>
+          Upcoming
+        </option>
+        <option value="no_date"
+          {% if request.GET.action_due == "no_date" %}selected{% endif %}>
+          No date set
+        </option>
+      </select>
+    </div>
+
+    <!-- Filter button -->
+    <div class="col-md-2">
+      <button type="submit" class="btn btn-outline-secondary w-100">
+        Apply
+      </button>
+    </div>
+  </form>
+
+  <!-- Reviews table -->
+  <div class="card shadow-sm">
+    <div class="card-body p-0">
+      <table class="table table-hover mb-0 align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>Client</th>
+            <th>Title</th>
+            <th>Rating</th>
+            <th>Next Action</th>
+            <th>Next Action Date</th>
+            <th>Created</th>
+            <th class="text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for review in reviews %}
+          <tr>
+            <td>
+              {% if review.client %}
+                <a href="{% url 'crm:client_detail' review.client.pk %}"
+                   class="text-decoration-none">
+                  {{ review.client }}
+                </a>
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+
+            <td>
+              <a href="{% url 'crm:review_detail' review.pk %}"
+                 class="text-decoration-none">
+                {{ review.title|default:"(No title)" }}
+              </a>
+              {% if review.comment %}
+                <div class="small text-muted text-truncate" style="max-width: 260px;">
+                  {{ review.comment|truncatechars:80 }}
+                </div>
+              {% endif %}
+            </td>
+
+            <td>
+              {% if review.rating %}
+                {% for i in "12345" %}
+                  {% if forloop.counter <= review.rating %}
+                    <span class="text-warning">&#9733;</span>
+                  {% else %}
+                    <span class="text-muted">&#9734;</span>
+                  {% endif %}
+                {% endfor %}
+                <span class="small text-muted ms-1">
+                  ({{ review.rating }}/5)
+                </span>
+              {% else %}
+                <span class="text-muted">No rating</span>
+              {% endif %}
+            </td>
+
+            <td>
+              {% if review.next_action %}
+                <span>{{ review.next_action|truncatechars:40 }}</span>
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+
+            <td>
+              {% if review.next_action_date %}
+                <span class="small">
+                  {{ review.next_action_date|date:"Y-m-d" }}
+                </span>
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+
+            <td>
+              <span class="small text-muted">
+                {{ review.created_at|date:"Y-m-d H:i" }}
+              </span>
+            </td>
+
+            <td class="text-end">
+              <a href="{% url 'crm:review_detail' review.pk %}"
+                 class="btn btn-sm btn-outline-secondary me-1">
+                View
+              </a>
+
+              {% if is_admin or is_manager %}
+                <a href="{% url 'crm:review_update' review.pk %}"
+                   class="btn btn-sm btn-outline-primary">
+                  Edit
+                </a>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="7" class="text-center text-muted py-3">
+              No reviews found.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {% if is_paginated %}
+  <div class="mt-3 d-flex justify-content-between align-items-center">
+    <div>
+      {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}
+                 &q={{ request.GET.q }}
+                 &rating={{ request.GET.rating }}
+                 &action_due={{ request.GET.action_due }}">
+          ‹ Previous
+        </a>
+      {% endif %}
+    </div>
+    <div class="small text-muted">
+      Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+    </div>
+    <div>
+      {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}
+                 &q={{ request.GET.q }}
+                 &rating={{ request.GET.rating }}
+                 &action_due={{ request.GET.action_due }}">
+          Next ›
+        </a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

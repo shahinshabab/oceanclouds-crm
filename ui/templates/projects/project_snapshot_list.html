@@ -1,0 +1,178 @@
+{% extends "ui/base.html" %}
+{% block title %}Project Snapshots{% endblock %}
+
+{% block content %}
+<div class="container">
+
+  <!-- Header Row -->
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="fw-semibold">Project Snapshots</h2>
+    <a href="{% url 'projects:project_list' %}" class="btn btn-outline-secondary btn-sm">
+      View Projects
+    </a>
+  </div>
+
+  <!-- Search + Filters Row -->
+  <form method="get" class="row g-2 mb-3">
+    <!-- Search -->
+    <div class="col-md-4">
+      <input type="text"
+             name="q"
+             value="{{ q }}"
+             class="form-control"
+             placeholder="Search client / bride / groom">
+    </div>
+
+    <!-- Status Filter -->
+    <div class="col-md-3">
+      <select name="status" class="form-select">
+        <option value="">All statuses</option>
+        {% for value, label in status_choices %}
+          <option value="{{ value }}"{% if current_status == value %} selected{% endif %}>
+            {{ label }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <!-- Payment State Filter -->
+    <div class="col-md-3">
+      <select name="payment_state" class="form-select">
+        <option value="">All payment states</option>
+        <option value="fully_paid"{% if current_payment_state == "fully_paid" %} selected{% endif %}>
+          Fully paid
+        </option>
+        <option value="not_fully_paid"{% if current_payment_state == "not_fully_paid" %} selected{% endif %}>
+          Not fully paid
+        </option>
+      </select>
+    </div>
+
+    <!-- Apply button -->
+    <div class="col-md-2 d-grid">
+      <button type="submit" class="btn btn-outline-secondary">
+        Apply
+      </button>
+    </div>
+  </form>
+
+  <!-- Data Table -->
+  {% if snapshots %}
+    <div class="card shadow-sm">
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover mb-0 align-middle">
+            <thead class="table-light">
+              <tr>
+                <th>Project</th>
+                <th>Client</th>
+                <th>Main Event</th>
+                <th>Invoice Total</th>
+                <th>Payments</th>
+                <th class="text-end">Status / Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for snap in snapshots %}
+                <tr>
+                  <!-- Project -->
+                  <td>
+                    {{ snap.project }}
+                    <br>
+                    <small class="text-muted">
+                      ID: {{ snap.project.id }}
+                    </small>
+                  </td>
+
+                  <!-- Client -->
+                  <td>
+                    {{ snap.client_name|default:"—" }}
+                    {% if snap.client_phone %}
+                      <br><small class="text-muted">{{ snap.client_phone }}</small>
+                    {% endif %}
+                  </td>
+
+                  <!-- Main Event -->
+                  <td>
+                    {% if snap.main_event %}
+                      {{ snap.main_event.name }}
+                      {% if snap.main_event.date %}
+                        <br><small class="text-muted">{{ snap.main_event.date }}</small>
+                      {% endif %}
+                    {% else %}
+                      <span class="text-muted">—</span>
+                    {% endif %}
+                  </td>
+
+                  <!-- Invoice Total -->
+                  <td>
+                    {% if snap.invoice_total %}
+                      {{ snap.invoice_total }}
+                    {% else %}
+                      <span class="text-muted">—</span>
+                    {% endif %}
+                  </td>
+
+                  <!-- Payments -->
+                  <td>
+                    {% if snap.payments_total %}
+                      {{ snap.payments_total }}
+                    {% else %}
+                      <span class="text-muted">—</span>
+                    {% endif %}
+                    {% if snap.invoice_total %}
+                      <br>
+                      {% with balance=snap.invoice_total|floatformat:2 %}
+                        <small class="text-muted">
+                          {% if snap.is_fully_paid %}
+                            Fully paid
+                          {% else %}
+                            Pending balance
+                          {% endif %}
+                        </small>
+                      {% endwith %}
+                    {% endif %}
+                  </td>
+
+                  <!-- Status + Actions -->
+                  <td class="text-end">
+                    <div class="mb-1">
+                      <span class="badge bg-{% if snap.status == 'final' %}success{% else %}secondary{% endif %}">
+                        {{ snap.get_status_display }}
+                      </span>
+                      {% if snap.is_fully_paid %}
+                        <span class="badge bg-success ms-1">
+                          Fully Paid
+                        </span>
+                      {% else %}
+                        <span class="badge bg-warning text-dark ms-1">
+                          Not Fully Paid
+                        </span>
+                      {% endif %}
+                    </div>
+                    <a href="{% url 'projects:project_snapshot_detail' snap.pk %}"
+                       class="btn btn-sm btn-outline-primary">
+                      View
+                    </a>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        {% if is_paginated %}
+          <div class="p-3">
+            {% include "ui/includes/pagination.html" %}
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  {% else %}
+    <p class="text-muted text-center my-5">
+      No project snapshots found.
+    </p>
+  {% endif %}
+
+</div>
+{% endblock %}

@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Invoice {{ invoice.number }}</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 20mm;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 12px;
+      color: #333;
+    }
+
+    .invoice-wrapper {
+      width: 100%;
+    }
+
+    .header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 24px;
+    }
+
+    .company-name {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .text-muted { color: #777; }
+    .small { font-size: 11px; }
+
+    .meta-block { text-align: right; }
+    .meta-label {
+      text-transform: uppercase;
+      font-size: 10px;
+      color: #999;
+      margin-bottom: 2px;
+    }
+    .meta-value {
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 10px;
+      background: #eee;
+      font-size: 11px;
+    }
+
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      margin: 0 -8px;
+    }
+    .col-6 {
+      width: 50%;
+      padding: 0 8px;
+      box-sizing: border-box;
+    }
+
+    .section { margin-bottom: 18px; }
+    .section-label {
+      text-transform: uppercase;
+      font-size: 10px;
+      color: #999;
+      margin-bottom: 4px;
+    }
+    .section-value {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 4px;
+    }
+    .table th,
+    .table td {
+      padding: 6px 6px;
+      border-bottom: 1px solid #ddd;
+      vertical-align: top;
+    }
+    .table th {
+      font-size: 11px;
+      text-align: left;
+      background: #f5f5f5;
+      text-transform: uppercase;
+      color: #666;
+    }
+    .text-right { text-align: right; }
+
+    .totals-table {
+      width: 40%;
+      float: right;
+      margin-top: 12px;
+      border-collapse: collapse;
+    }
+    .totals-table td {
+      padding: 4px 6px;
+      font-size: 12px;
+    }
+    .totals-label { color: #777; font-size: 11px; }
+    .totals-value { text-align: right; }
+    .totals-strong {
+      font-weight: 700;
+      border-top: 1px solid #ccc;
+      padding-top: 6px;
+    }
+
+    .notes {
+      margin-top: 24px;
+      font-size: 11px;
+    }
+    .notes-title {
+      text-transform: uppercase;
+      font-size: 10px;
+      color: #999;
+      margin-bottom: 4px;
+    }
+
+    .payments-section {
+      margin-top: 28px;
+      font-size: 11px;
+    }
+    .payments-title {
+      text-transform: uppercase;
+      font-size: 10px;
+      color: #999;
+      margin-bottom: 4px;
+    }
+
+    .mt-2 { margin-top: 8px; }
+    .mt-3 { margin-top: 12px; }
+
+    .includes {
+      font-size: 10px;
+      color: #777;
+      margin-top: 2px;
+      margin-left: 10px;
+    }
+  </style>
+</head>
+<body>
+<div class="invoice-wrapper">
+
+  <!-- Header -->
+  <div class="header-row">
+    <div>
+      <div class="company-name">Invoice</div>
+      <div class="text-muted small">
+        OCEANCLOUDS WEDDING LLP<br>
+        info@oceanclouds.com
+      </div>
+    </div>
+    <div class="meta-block">
+      <div class="meta-label">Invoice #</div>
+      <div class="meta-value">{{ invoice.number }}</div>
+
+      <div class="meta-label">Issue Date</div>
+      <div class="meta-value">{{ invoice.issue_date }}</div>
+
+      <div class="meta-label">Due Date</div>
+      <div class="meta-value">
+        {% if invoice.due_date %}
+          {{ invoice.due_date }}
+        {% else %}
+          —
+        {% endif %}
+      </div>
+
+      <div class="meta-label">Status</div>
+      <div class="status-badge">{{ invoice.get_status_display }}</div>
+    </div>
+  </div>
+
+  <!-- Bill To / Deal / Contract / Proposal -->
+  {% with client=invoice.deal.client %}
+  <div class="row section">
+    <div class="col-6">
+      <div class="section-label">Bill To</div>
+      <div class="section-value">
+        {{ client.name|default:client }}
+      </div>
+      {% if client.billing_address %}
+        <div class="small">
+          {{ client.billing_address|linebreaksbr }}
+        </div>
+      {% endif %}
+      {% if client.city or client.country %}
+        <div class="small mt-2">
+          {{ client.city }}{% if client.city and client.country %}, {% endif %}{{ client.country }}
+        </div>
+      {% endif %}
+    </div>
+
+    <div class="col-6">
+      <div class="section-label">Deal</div>
+      <div class="section-value">
+        {% if invoice.deal %}
+          {{ invoice.deal.name }}
+        {% else %}
+          —
+        {% endif %}
+      </div>
+
+      <div class="section-label mt-2">Contract</div>
+      <div class="section-value">
+        {% if invoice.contract %}
+          {{ invoice.contract.number }}
+        {% else %}
+          —
+        {% endif %}
+      </div>
+
+      {% if invoice.contract and invoice.contract.proposal %}
+        <div class="section-label mt-2">Proposal</div>
+        <div class="section-value">
+          {{ invoice.contract.proposal.title }} (v{{ invoice.contract.proposal.version }})
+        </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endwith %}
+
+  <!-- Invoice Items (with packages expanded) -->
+  <div class="section mt-3">
+    <div class="section-label">Invoice Items</div>
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Description</th>
+          <th>Source</th>
+          <th class="text-right">Qty</th>
+          <th class="text-right">Unit Price</th>
+          <th class="text-right">Tax %</th>
+          <th class="text-right">Line Total</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for item in invoice.items.all %}
+        <tr>
+          <td>{{ item.description }}</td>
+          <td class="small text-muted">
+            {% if item.contract_item %}
+              {% if item.contract_item.package %}
+                Package: {{ item.contract_item.package.name }}
+              {% elif item.contract_item.service %}
+                Service: {{ item.contract_item.service.name }}
+              {% elif item.contract_item.proposal_item %}
+                From proposal: {{ item.contract_item.proposal_item.proposal.title }}
+                (v{{ item.contract_item.proposal_item.proposal.version }})
+              {% else %}
+                —
+              {% endif %}
+            {% else %}
+              —
+            {% endif %}
+          </td>
+          <td class="text-right">{{ item.quantity }}</td>
+          <td class="text-right">{{ item.unit_price }}</td>
+          <td class="text-right">{{ item.tax_rate }}</td>
+          <td class="text-right">{{ item.line_total }}</td>
+        </tr>
+
+        {% if item.contract_item and item.contract_item.package %}
+          <tr>
+            <td colspan="6">
+              <div class="includes">
+                Includes:
+                {% for pkg_item in item.contract_item.package.items.all %}
+                  {% if not forloop.first %}, {% endif %}
+                  {% if pkg_item.service %}
+                    {{ pkg_item.service.name }}
+                  {% else %}
+                    {{ pkg_item.description }}
+                  {% endif %}
+                  (x{{ pkg_item.quantity }})
+                {% endfor %}
+              </div>
+            </td>
+          </tr>
+        {% endif %}
+      {% empty %}
+        <tr>
+          <td colspan="6" class="text-right text-muted small">
+            No invoice items.
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- (Optional) Proposal Items section - kept as reference -->
+  {% if invoice.contract and invoice.contract.proposal %}
+    <div class="section mt-3">
+      <div class="section-label">
+        Proposal Items – {{ invoice.contract.proposal.title }} (v{{ invoice.contract.proposal.version }})
+      </div>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Description</th>
+            <th>Service / Package</th>
+            <th class="text-right">Qty</th>
+            <th class="text-right">Unit Price</th>
+            <th class="text-right">Line Total</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for pitem in invoice.contract.proposal.items.all %}
+          <tr>
+            <td>{{ pitem.description }}</td>
+            <td class="small text-muted">
+              {% if pitem.package %}
+                Package: {{ pitem.package.name }}
+              {% elif pitem.service %}
+                Service: {{ pitem.service.name }}
+              {% else %}
+                —
+              {% endif %}
+            </td>
+            <td class="text-right">{{ pitem.quantity }}</td>
+            <td class="text-right">{{ pitem.unit_price }}</td>
+            <td class="text-right">{{ pitem.line_total }}</td>
+          </tr>
+
+          {% if pitem.package %}
+            <tr>
+              <td colspan="5">
+                <div class="includes">
+                  Includes:
+                  {% for pkg_item in pitem.package.items.all %}
+                    {% if not forloop.first %}, {% endif %}
+                    {% if pkg_item.service %}
+                      {{ pkg_item.service.name }}
+                    {% else %}
+                      {{ pkg_item.description }}
+                    {% endif %}
+                    (x{{ pkg_item.quantity }})
+                  {% endfor %}
+                </div>
+              </td>
+            </tr>
+          {% endif %}
+        {% empty %}
+          <tr>
+            <td colspan="5" class="text-right text-muted small">
+              No proposal items defined.
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+
+  <!-- Totals -->
+  <table class="totals-table">
+    <tr>
+      <td class="totals-label">Subtotal</td>
+      <td class="totals-value">{{ invoice.subtotal }}</td>
+    </tr>
+    <tr>
+      <td class="totals-label">Tax</td>
+      <td class="totals-value">{{ invoice.tax }}</td>
+    </tr>
+    <tr>
+      <td class="totals-label">Total</td>
+      <td class="totals-value totals-strong">{{ invoice.total }}</td>
+    </tr>
+    <tr>
+      <td class="totals-label">Amount Paid</td>
+      <td class="totals-value">{{ invoice.amount_paid }}</td>
+    </tr>
+    <tr>
+      <td class="totals-label">Balance</td>
+      <td class="totals-value totals-strong">{{ invoice.balance }}</td>
+    </tr>
+  </table>
+
+  <div style="clear: both;"></div>
+
+  <!-- Notes -->
+  {% if invoice.notes %}
+    <div class="notes">
+      <div class="notes-title">Notes</div>
+      <div>
+        {{ invoice.notes|linebreaksbr }}
+      </div>
+    </div>
+  {% endif %}
+
+  <!-- Payments Summary -->
+  {% if invoice.payments.all %}
+    <div class="payments-section">
+      <div class="payments-title">Payments</div>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th class="text-right">Amount</th>
+            <th>Method</th>
+            <th>Reference</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for payment in invoice.payments.all %}
+          <tr>
+            <td>{{ payment.date }}</td>
+            <td class="text-right">{{ payment.amount }}</td>
+            <td>{{ payment.get_method_display }}</td>
+            <td>{{ payment.reference|default:"—" }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+
+</div>
+</body>
+</html>

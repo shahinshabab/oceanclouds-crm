@@ -1,0 +1,166 @@
+{% extends "ui/base.html" %}
+{% load roles_tags %}
+{% block title %}Proposal – {{ proposal.title }}{% endblock %}
+
+{% block content %}
+{% is_admin as is_admin %}
+{% is_manager as is_manager %}
+{% is_employee as is_employee %}
+
+<div class="container py-4">
+
+  <!-- Header -->
+  <div class="mb-3">
+    <h1 class="h4 mb-1">{{ proposal.title }}</h1>
+    <div class="small text-muted">
+      Deal: {{ proposal.deal }} &middot;
+      v{{ proposal.version }} &middot;
+      <span class="badge bg-secondary">{{ proposal.get_status_display }}</span>
+    </div>
+  </div>
+
+  <!-- Main Details Card -->
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="row g-3">
+
+        <div class="col-md-4">
+          <div class="text-uppercase text-muted small mb-1">Deal</div>
+          <div class="fw-semibold">{{ proposal.deal }}</div>
+        </div>
+
+        <div class="col-md-4">
+          <div class="text-uppercase text-muted small mb-1">Client</div>
+          <div class="fw-semibold">{{ proposal.deal.client }}</div>
+        </div>
+
+        <div class="col-md-4">
+          <div class="text-uppercase text-muted small mb-1">Status</div>
+          <div>
+            <span class="badge bg-secondary">{{ proposal.get_status_display }}</span>
+          </div>
+        </div>
+
+        <div class="col-md-4">
+          <div class="text-uppercase text-muted small mb-1">Version</div>
+          <div class="fw-semibold">v{{ proposal.version }}</div>
+        </div>
+
+        <div class="col-md-4">
+          <div class="text-uppercase text-muted small mb-1">Valid Until</div>
+          <div class="fw-semibold">
+            {% if proposal.valid_until %}
+              {{ proposal.valid_until }}
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="col-md-4">
+          <div class="text-uppercase text-muted small mb-1">Created</div>
+          <div class="fw-semibold">
+            {{ proposal.created_at|date:"Y-m-d" }}
+          </div>
+        </div>
+
+        <!-- Financials -->
+        <div class="col-md-4">
+          <div class="text-uppercase text-muted small mb-1">Subtotal</div>
+          <div class="fw-semibold">{{ proposal.subtotal }}</div>
+        </div>
+
+        <div class="col-md-4">
+          <div class="text-uppercase text-muted small mb-1">Discount</div>
+          <div class="fw-semibold">{{ proposal.discount }}</div>
+        </div>
+
+        <div class="col-md-4">
+          <div class="text-uppercase text-muted small mb-1">Tax</div>
+          <div class="fw-semibold">{{ proposal.tax }}</div>
+        </div>
+
+        <div class="col-12 mt-2">
+          <div class="text-uppercase text-muted small mb-1">Total</div>
+          <div class="fw-bold fs-5">{{ proposal.total }}</div>
+        </div>
+
+        <!-- Notes -->
+        <div class="col-12 mt-2">
+          <div class="text-uppercase text-muted small mb-1">Notes</div>
+          <div>
+            {% if proposal.notes %}
+              {{ proposal.notes|linebreaksbr }}
+            {% else %}
+              <span class="text-muted">No notes.</span>
+            {% endif %}
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Items Table -->
+  <div class="card mb-4">
+    <div class="card-header">
+      <span class="fw-semibold small text-uppercase text-muted">Items</span>
+    </div>
+    <div class="card-body p-0">
+      {% if proposal.items.all %}
+        <table class="table table-sm mb-0 align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>Description</th>
+              <th>Service / Package</th>
+              <th class="text-end">Qty</th>
+              <th class="text-end">Unit Price</th>
+              <th class="text-end">Line Total</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for item in proposal.items.all %}
+            <tr>
+              <td>{{ item.description }}</td>
+              <td>
+                {% if item.service %}
+                  <a href="{% url 'services:service_detail' item.service.pk %}">
+                    {{ item.service.name }}
+                  </a>
+                {% elif item.package %}
+                  <a href="{% url 'services:package_detail' item.package.pk %}">
+                    {{ item.package.name }}
+                  </a>
+                {% else %}
+                  <span class="text-muted">—</span>
+                {% endif %}
+              </td>
+              <td class="text-end">{{ item.quantity }}</td>
+              <td class="text-end">{{ item.unit_price }}</td>
+              <td class="text-end">{{ item.line_total }}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <div class="p-3 text-muted small">
+          No items added.
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Action Row -->
+  <div class="text-center">
+    {% if is_admin or is_manager %}
+      <a href="{% url 'sales:proposal_update' proposal.pk %}" class="btn btn-primary me-2">
+        Edit Proposal
+      </a>
+    {% endif %}
+    <a href="{% url 'sales:proposal_list' %}" class="btn btn-outline-secondary">
+      Back to Proposals
+    </a>
+  </div>
+
+</div>
+{% endblock %}

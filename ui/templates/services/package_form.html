@@ -1,0 +1,213 @@
+{% extends "ui/base.html" %}
+{% load roles_tags %}
+
+{% block title %}
+  {% if form.instance.pk %}Edit Package{% else %}New Package{% endif %}
+{% endblock %}
+
+{% block content %}
+{% is_admin as is_admin %}
+{% is_manager as is_manager %}
+{% is_employee as is_employee %}
+
+<div class="container py-3 max-w-2xl">
+
+  <h2 class="fw-semibold mb-4">
+    {% if form.instance.pk %}Edit Package{% else %}New Package{% endif %}
+  </h2>
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+      <div class="alert alert-danger">
+        {{ form.non_field_errors }}
+      </div>
+    {% endif %}
+
+    <!-- Package header card -->
+    <div class="card shadow-sm mb-3">
+      <div class="card-body">
+
+        <!-- Row 1: Name / Code -->
+        <div class="row">
+          <div class="col-md-6 mb-3">
+            <label class="form-label">
+              {{ form.name.label }}{% if form.name.field.required %} *{% endif %}
+            </label>
+            {{ form.name }}
+            {% for error in form.name.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="col-md-3 mb-3">
+            <label class="form-label">{{ form.code.label }}</label>
+            {{ form.code }}
+            {% for error in form.code.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="col-md-3 mb-3 d-flex align-items-center">
+            <div class="form-check mt-3">
+              {{ form.is_active }}
+              <label class="form-check-label ms-1">
+                {{ form.is_active.label }}
+              </label>
+              {% for error in form.is_active.errors %}
+                <div class="text-danger small d-block">{{ error }}</div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+
+        <!-- Row 2: Description -->
+        <div class="row">
+          <div class="col-12 mb-3">
+            <label class="form-label">{{ form.description.label }}</label>
+            {{ form.description }}
+            {% for error in form.description.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Row 3: Notes -->
+        <div class="row">
+          <div class="col-12 mb-0">
+            <label class="form-label">{{ form.notes.label }}</label>
+            {{ form.notes }}
+            {% for error in form.notes.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Package items formset -->
+    <div class="card shadow-sm mb-3">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="fw-semibold small text-uppercase text-muted">Package Items</span>
+        <button type="button" class="btn btn-sm btn-outline-primary" id="add-item-row">
+          + Add Item
+        </button>
+      </div>
+      <div class="card-body p-0">
+
+        {{ items_formset.management_form }}
+
+        <table class="table table-sm mb-0 align-middle">
+          <thead class="table-light">
+          <tr>
+            <th style="width: 30%;">Service</th>
+            <th style="width: 30%;">Description</th>
+            <th class="text-end" style="width: 10%;">Qty</th>
+            <th class="text-end" style="width: 15%;">Unit price</th>
+            <th class="text-center" style="width: 10%;">Delete</th>
+          </tr>
+          </thead>
+          <tbody id="items-table-body">
+          {% for item_form in items_formset %}
+            <tr class="item-row">
+              {{ item_form.id }} {# hidden id field #}
+              <td>
+                {{ item_form.service }}
+                {% for error in item_form.service.errors %}
+                  <div class="text-danger small">{{ error }}</div>
+                {% endfor %}
+              </td>
+              <td>
+                {{ item_form.description }}
+                {% for error in item_form.description.errors %}
+                  <div class="text-danger small">{{ error }}</div>
+                {% endfor %}
+              </td>
+              <td class="text-end">
+                {{ item_form.quantity }}
+                {% for error in item_form.quantity.errors %}
+                  <div class="text-danger small">{{ error }}</div>
+                {% endfor %}
+              </td>
+              <td class="text-end">
+                {{ item_form.unit_price }}
+                {% for error in item_form.unit_price.errors %}
+                  <div class="text-danger small">{{ error }}</div>
+                {% endfor %}
+              </td>
+              <td class="text-center">
+                {% if item_form.DELETE %}
+                  <div class="form-check d-inline-block">
+                    {{ item_form.DELETE }}
+                  </div>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+
+        {# Empty form template for JS cloning #}
+        <script type="text/template" id="empty-item-form-template">
+          <tr class="item-row">
+            {{ items_formset.empty_form.id }}
+            <td>
+              {{ items_formset.empty_form.service }}
+            </td>
+            <td>
+              {{ items_formset.empty_form.description }}
+            </td>
+            <td class="text-end">
+              {{ items_formset.empty_form.quantity }}
+            </td>
+            <td class="text-end">
+              {{ items_formset.empty_form.unit_price }}
+            </td>
+            <td class="text-center">
+              {% if items_formset.empty_form.DELETE %}
+                <div class="form-check d-inline-block">
+                  {{ items_formset.empty_form.DELETE }}
+                </div>
+              {% endif %}
+            </td>
+          </tr>
+        </script>
+
+      </div>
+      <div class="card-footer text-end small text-muted">
+        Total price is auto-calculated from item lines after saving.
+      </div>
+    </div>
+
+    <!-- Buttons -->
+    <div class="row mt-3">
+      <div class="col-12 d-flex justify-content-center gap-2">
+        {% if is_admin or is_manager %}
+          <button type="submit" class="btn btn-primary px-4">Save</button>
+        {% endif %}
+        <a href="{% url 'services:package_list' %}" class="btn btn-secondary">Cancel</a>
+      </div>
+    </div>
+
+  </form>
+</div>
+
+<script>
+  (function () {
+    const addBtn = document.getElementById("add-item-row");
+    const tableBody = document.getElementById("items-table-body");
+    const totalFormsInput = document.getElementById("id_items-TOTAL_FORMS");
+    const templateEl = document.getElementById("empty-item-form-template");
+
+    if (!addBtn || !tableBody || !totalFormsInput || !templateEl) return;
+
+    addBtn.addEventListener("click", function () {
+      const currentCount = parseInt(totalFormsInput.value, 10) || 0;
+      let newRowHtml = templateEl.innerHTML.replace(/__prefix__/g, currentCount);
+      tableBody.insertAdjacentHTML("beforeend", newRowHtml);
+      totalFormsInput.value = currentCount + 1;
+    });
+  })();
+</script>
+{% endblock %}

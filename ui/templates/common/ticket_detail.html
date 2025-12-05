@@ -1,0 +1,111 @@
+{% extends "ui/base.html" %}
+{% block title %}Ticket #{{ ticket.ticket_number }}{% endblock %}
+
+{% block content %}
+<div class="container py-3 d-flex justify-content-center">
+  <div class="card shadow-sm" style="max-width: 900px; width: 100%;">
+    <div class="card-body">
+
+      {# Header #}
+      <div class="d-flex justify-content-between align-items-start mb-3">
+        <div>
+          <h1 class="h4 mb-1">Ticket #{{ ticket.ticket_number }}</h1>
+          <small class="text-muted">
+            Created on {{ ticket.created_at|date:"Y-m-d H:i" }}
+          </small>
+        </div>
+        <div class="text-end">
+          <span class="badge bg-secondary me-1">
+            {{ ticket.get_status_display }}
+          </span>
+          <span class="badge bg-dark">
+            {{ ticket.get_priority_display }}
+          </span>
+        </div>
+      </div>
+
+      {# Data grid: 3 columns per row #}
+      <div class="row g-3 mb-3">
+        <div class="col-md-4">
+          <div class="text-uppercase text-muted small">Subject</div>
+          <div class="fw-semibold">{{ ticket.subject }}</div>
+        </div>
+        <div class="col-md-4">
+          <div class="text-uppercase text-muted small">Category</div>
+          <div class="fw-semibold">{{ ticket.get_category_display }}</div>
+        </div>
+        <div class="col-md-4">
+          <div class="text-uppercase text-muted small">Subject Type</div>
+          <div class="fw-semibold">{{ ticket.get_subject_type_display }}</div>
+        </div>
+      </div>
+
+      <div class="row g-3 mb-3">
+        <div class="col-md-4">
+          <div class="text-uppercase text-muted small">Created By</div>
+          <div class="fw-semibold">
+            {{ ticket.created_by.get_full_name|default:ticket.created_by.username }}
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="text-uppercase text-muted small">Assigned To</div>
+          <div class="fw-semibold">
+            {% if ticket.assigned_to %}
+              {{ ticket.assigned_to.get_full_name|default:ticket.assigned_to.username }}
+            {% else %}
+              <span class="text-muted">Not assigned</span>
+            {% endif %}
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="text-uppercase text-muted small">Ticket #</div>
+          <div class="fw-semibold">{{ ticket.ticket_number }}</div>
+        </div>
+      </div>
+
+      {# Description #}
+      <div class="mb-3">
+        <div class="text-uppercase text-muted small mb-1">Description</div>
+        <div class="fw-normal" style="white-space: pre-line;">
+          {{ ticket.description }}
+        </div>
+      </div>
+
+      {# Screenshot #}
+      {% if ticket.screenshot %}
+        <div class="mb-3">
+          <div class="text-uppercase text-muted small mb-1">Screenshot</div>
+          <img src="{{ ticket.screenshot.url }}" alt="Screenshot" class="img-fluid rounded border">
+        </div>
+      {% endif %}
+
+      {# Support Response #}
+      <div class="mb-3">
+        <div class="text-uppercase text-muted small mb-1">Support Response</div>
+        {% if ticket.admin_response %}
+          <div class="fw-normal mb-1" style="white-space: pre-line;">
+            {{ ticket.admin_response }}
+          </div>
+          {% if ticket.responded_at %}
+            <div class="text-muted small">
+              Responded on {{ ticket.responded_at|date:"Y-m-d H:i" }}
+            </div>
+          {% endif %}
+        {% else %}
+          <div class="text-muted">
+            No response yet. Our support team will review your ticket soon.
+          </div>
+        {% endif %}
+      </div>
+
+      {# Actions #}
+      <div class="d-flex justify-content-center gap-2 mt-4">
+        <a href="{% url 'common:ticket_list' %}" class="btn btn-outline-secondary">
+          Back to My Tickets
+        </a>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}

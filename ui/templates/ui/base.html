@@ -1,0 +1,559 @@
+<!doctype html>
+<html lang="en">
+{% load static user_groups %}
+<head>
+    <meta charset="utf-8">
+    <title>{% block title %}OCEAN CLOUDS{% endblock %}</title>
+
+    <!-- Bootstrap (for layout & basic styles) -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Bootstrap Icons (for bell & user icons) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+
+    <style>
+        body {
+            margin: 0;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background-color: #f5f5f5;
+        }
+
+        /* SIDEBAR */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            width: 240px;
+            background-color: #000;
+            color: #fff;
+            padding: 1.5rem 1rem;
+            overflow-y: auto;
+        }
+
+        .sidebar .sidebar-title {
+            font-weight: 700;
+            font-size: 1.2rem;
+            margin-bottom: 1.5rem;
+            letter-spacing: 0.08em;
+        }
+
+        .sidebar .nav-link {
+            color: #e5e5e5;
+            padding: 0.45rem 0.75rem;
+            border-radius: 0.5rem;
+            font-size: 0.92rem;
+        }
+
+        .sidebar .nav-link:hover,
+        .sidebar .nav-link.active {
+            background-color: #111;
+            color: #fff;
+        }
+
+        /* TOP NAVBAR */
+        .top-navbar {
+            position: fixed;
+            top: 0;
+            left: 240px;
+            right: 0;
+            height: 60px;
+            background-color: #fff;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding: 0 1.5rem;
+            z-index: 100;
+        }
+
+        .top-navbar .nav-actions {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .icon-btn {
+            border: none;
+            background: transparent;
+            padding: 0.25rem;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .icon-btn i {
+            font-size: 1.3rem;
+            color: #000;
+        }
+
+        .icon-btn:focus {
+            outline: none;
+        }
+
+        /* PROFILE AVATAR */
+        .avatar-circle {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background-color: #000;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        /* DROPDOWNS */
+        .dropdown-panel {
+            position: absolute;
+            top: 115%;
+            right: 0;
+            min-width: 260px;
+            background-color: #fff;
+            border-radius: 0.75rem;
+            border: 1px solid #e0e0e0;
+            padding: 0.75rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            z-index: 200;
+        }
+
+        .dropdown-panel.p-0 {
+            padding: 0;
+        }
+
+        .dropdown-header {
+            font-weight: 600;
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .dropdown-item-custom {
+            display: block;
+            padding: 0.45rem 0;
+            font-size: 0.9rem;
+            text-decoration: none;
+            color: #333;
+        }
+
+        .dropdown-item-custom:hover {
+            text-decoration: none;
+            color: #000;
+        }
+
+        .dropdown-footer {
+            border-top: 1px solid #eee;
+            margin-top: 0.5rem;
+            padding-top: 0.5rem;
+            text-align: right;
+        }
+
+        /* MAIN CONTENT */
+        .content {
+            margin-left: 240px;
+            padding: 80px 24px 24px; /* 80px top to account for navbar */
+        }
+
+        .content-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* Small screens: collapse sidebar (simple version) */
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 200px;
+            }
+
+            .top-navbar {
+                left: 200px;
+            }
+
+            .content {
+                margin-left: 200px;
+                padding: 80px 16px 16px;
+            }
+        }
+    </style>
+
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-title">
+            OCEAN CLOUDS
+        </div>
+
+        {% if request.user.is_authenticated %}
+
+            {# ================= ADMIN (Group: Admin OR Superuser) ================= #}
+            {% if request.user.is_superuser or request.user|has_group:"Admin" %}
+                <p class="text-uppercase text-white-50 small mb-2">Overview</p>
+                <nav class="nav flex-column mb-3">
+                    <a class="nav-link" href="{% url 'ui:home' %}">Dashboard</a>
+                    <a class="nav-link" href="#">Analytics & Reports</a>
+                </nav>
+
+                <p class="text-uppercase text-white-50 small mb-2">CRM</p>
+                <nav class="nav flex-column mb-3">
+                    <a class="nav-link" href="{% url 'crm:inquiry_list' %}">Inquiries</a>
+                    <a class="nav-link" href="{% url 'crm:lead_list' %}">Leads</a>
+                    <a class="nav-link" href="{% url 'crm:contact_list' %}">Contacts</a>
+                    <a class="nav-link" href="{% url 'crm:client_list' %}">Clients</a>
+                    <a class="nav-link" href="{% url 'crm:review_list' %}">Reviews</a>
+                </nav>
+
+                <p class="text-uppercase text-white-50 small mb-2">Sales &amp; Finance</p>
+                <nav class="nav flex-column mb-3">
+                    <a class="nav-link" href="{% url 'sales:deal_list' %}">Deals / Bookings</a>
+                    <a class="nav-link" href="{% url 'sales:proposal_list' %}">Proposals</a>
+                    <a class="nav-link" href="{% url 'sales:contract_list' %}">Contracts</a>
+                    <a class="nav-link" href="{% url 'sales:invoice_list' %}">Invoices</a>
+                    <a class="nav-link" href="{% url 'sales:payment_list' %}">Payments</a>
+                </nav>
+
+                <p class="text-uppercase text-white-50 small mb-2">Events</p>
+                <nav class="nav flex-column mb-3">
+                    <a class="nav-link" href="{% url 'events:event_list' %}">Events</a>
+                    <a class="nav-link" href="{% url 'events:venue_list' %}">Venues</a>
+                    <a class="nav-link" href="{% url 'events:event_person_list' %}">Event Persons</a>
+                    <a class="nav-link" href="{% url 'events:checklist_list' %}">Checklists</a>
+                    <a class="nav-link" href="{% url 'events:event_vendor_list' %}">Event Vendors</a>
+                    <a class="nav-link" href="{% url 'events:event_calendar' %}">Event Calendar</a>
+                </nav>
+
+                <p class="text-uppercase text-white-50 small mb-2">Projects &amp; Tasks</p>
+                <nav class="nav flex-column mb-3">
+                    <a class="nav-link" href="{% url 'projects:project_snapshot_list' %}">Project Snapshot</a>
+                    <a class="nav-link" href="{% url 'projects:project_list' %}">Projects</a>
+                    <a class="nav-link" href="{% url 'projects:project_kanban' %}">Project Kanban</a>
+                    <a class="nav-link" href="{% url 'projects:task_list' %}">Tasks</a>
+                    <a class="nav-link" href="{% url 'projects:task_kanban' %}">Task Kanban</a>
+                    <a class="nav-link" href="{% url 'projects:deliverable_list' %}">Deliverables</a>
+                    <a class="nav-link" href="{% url 'projects:deliverable_kanban' %}">Deliverable Kanban</a>
+                </nav>
+
+                <p class="text-uppercase text-white-50 small mb-2">Services &amp; Catalog</p>
+                <nav class="nav flex-column mb-3">
+                    <a class="nav-link" href="{% url 'services:service_list' %}">Services</a>
+                    <a class="nav-link" href="{% url 'services:package_list' %}">Packages</a>
+                    <a class="nav-link" href="{% url 'services:vendor_list' %}">Vendors</a>
+                    <a class="nav-link" href="{% url 'services:inventory_list' %}">Inventory</a>
+                </nav>
+
+                <p class="text-uppercase text-white-50 small mb-2">Communication &amp; Docs</p>
+                <nav class="nav flex-column mb-3">
+                    <a class="nav-link" href="{% url 'common:ticket_list' %}">Rise a Ticket</a>
+                    <a class="nav-link" href="#">Communication Logs</a>
+                    <a class="nav-link" href="#">Documents</a>
+                </nav>
+
+                <p class="text-uppercase text-white-50 small mb-2">System</p>
+                <nav class="nav flex-column mb-3">
+                    <a class="nav-link" href="{% url 'adminpanel:user_list' %}">Users</a>
+                    <a class="nav-link" href="{% url 'adminpanel:role_list' %}">Roles &amp; Permissions</a>
+                    <a class="nav-link" href="{% url 'adminpanel:system_settings' %}">System Settings</a>
+                </nav>
+
+            {# ================= MANAGER (Group: Manager) ================= #}
+            {% elif request.user|has_group:"Manager" %}
+                <p class="text-uppercase text-white-50 small mb-2">Overview</p>
+                <nav class="nav flex-column mb-3">
+                    <a class="nav-link active" href="{% url 'ui:home' %}">Dashboard</a>
+                    <a class="nav-link" href="#">Team Overview</a>
+                    <a class="nav-link" href="#">Performance</a>
+                </nav>
+
+                <p class="text-uppercase text-white-50 small mb-2">CRM</p>
+                <nav class="nav flex-column mb-3">
+                    <a class="nav-link" href="{% url 'crm:inquiry_list' %}">Inquiries</a>
+                    <a class="nav-link" href="{% url 'crm:lead_list' %}">Leads</a>
+                    <a class="nav-link" href="{% url 'crm:contact_list' %}">Contacts</a>
+                    <a class="nav-link" href="{% url 'crm:client_list' %}">Clients</a>
+                    <a class="nav-link" href="{% url 'crm:review_list' %}">Reviews</a>
+                </nav>
+
+                <p class="text-uppercase text-white-50 small mb-2">Sales &amp; Finance</p>
+                <nav class="nav flex-column mb-3">
+                    <a class="nav-link" href="{% url 'sales:deal_list' %}">Deals / Bookings</a>
+                    <a class="nav-link" href="{% url 'sales:proposal_list' %}">Proposals</a>
+                    <a class="nav-link" href="{% url 'sales:contract_list' %}">Contracts</a>
+                    <a class="nav-link" href="{% url 'sales:invoice_list' %}">Invoices</a>
+                    <a class="nav-link" href="{% url 'sales:payment_list' %}">Payments</a>
+                </nav>
+
+                <p class="text-uppercase text-white-50 small mb-2">Events</p>
+                <nav class="nav flex-column mb-3">
+                    <a class="nav-link" href="{% url 'events:event_list' %}">Events</a>
+                    <a class="nav-link" href="{% url 'events:venue_list' %}">Venues</a>
+                    <a class="nav-link" href="{% url 'events:event_person_list' %}">Event Persons</a>
+                    <a class="nav-link" href="{% url 'events:checklist_list' %}">Checklists</a>
+                    <a class="nav-link" href="{% url 'events:event_vendor_list' %}">Event Vendors</a>
+                    <a class="nav-link" href="{% url 'events:event_calendar' %}">Event Calendar</a>
+                </nav>
+
+                <p class="text-uppercase text-white-50 small mb-2">Projects &amp; Tasks</p>
+                <nav class="nav flex-column mb-3">
+                    <a class="nav-link" href="{% url 'projects:project_list' %}">Projects</a>
+                    <a class="nav-link" href="{% url 'projects:project_kanban' %}">Project Kanban</a>
+                    <a class="nav-link" href="{% url 'projects:task_list' %}">Tasks</a>
+                    <a class="nav-link" href="{% url 'projects:task_kanban' %}">Task Kanban</a>
+                    <a class="nav-link" href="{% url 'projects:deliverable_list' %}">Deliverables</a>
+                    <a class="nav-link" href="{% url 'projects:deliverable_kanban' %}">Deliverable Kanban</a>
+                </nav>
+                
+                <p class="text-uppercase text-white-50 small mb-2">Services &amp; Catalog</p>
+                <nav class="nav flex-column mb-3">
+                    <a class="nav-link" href="{% url 'services:service_list' %}">Services</a>
+                    <a class="nav-link" href="{% url 'services:package_list' %}">Packages</a>
+                    <a class="nav-link" href="{% url 'services:vendor_list' %}">Vendors</a>
+                    <a class="nav-link" href="{% url 'services:inventory_list' %}">Inventory</a>
+                </nav>
+
+                <p class="text-uppercase text-white-50 small mb-2">Communication</p>
+                <nav class="nav flex-column mb-3">
+                    <a class="nav-link" href="{% url 'common:ticket_list' %}">Rise a Ticket</a>
+                    <a class="nav-link" href="#">Communication Logs</a>
+                    <a class="nav-link" href="#">Documents</a>
+                </nav>
+
+            {# ================= EMPLOYEE (Group: Employee or fallback) ================= #}
+            {% else %}
+                <p class="text-uppercase text-white-50 small mb-2">My Day</p>
+                <nav class="nav flex-column mb-3">
+                    <a class="nav-link active" href="{% url 'ui:home' %}">My Dashboard</a>
+                    <a class="nav-link" href="#">Today&apos;s Schedule</a>
+                </nav>
+                <p class="text-uppercase text-white-50 small mb-2">Tasks</p>
+                <nav class="nav flex-column mb-3">
+                    <a class="nav-link" href="{% url 'projects:task_list' %}">Tasks</a>
+                    <a class="nav-link" href="{% url 'projects:task_kanban' %}">Task Kanban</a>
+                    <a class="nav-link" href="{% url 'projects:deliverable_list' %}">Deliverables</a>
+                    <a class="nav-link" href="{% url 'projects:deliverable_kanban' %}">Deliverable Kanban</a>
+               </nav>
+                <p class="text-uppercase text-white-50 small mb-2">My CRM</p>
+                <nav class="nav flex-column mb-3">
+                    <a class="nav-link" href="{% url 'crm:inquiry_list' %}">Inquiries</a>
+                </nav>
+
+                <p class="text-uppercase text-white-50 small mb-2">Events</p>
+                <nav class="nav flex-column mb-3">
+                    <a class="nav-link" href="{% url 'events:event_calendar' %}">Event Calendar</a>
+                    <a class="nav-link" href="#">Event Checklists</a>
+                </nav>
+
+                <p class="text-uppercase text-white-50 small mb-2">Communication</p>
+                <nav class="nav flex-column mb-3">
+                    <a class="nav-link" href="{% url 'common:ticket_list' %}">Rise a Ticket</a>
+                    <a class="nav-link" href="#">My Notes</a>
+                    <a class="nav-link" href="#">Team Messages</a>
+                </nav>
+            {% endif %}
+
+        {% else %}
+            <p class="text-uppercase text-white-50 small mb-2">Public</p>
+            <nav class="nav flex-column mb-3">
+                <a class="nav-link active" href="{% url 'ui:home' %}">Home</a>
+                <a class="nav-link" href="{% url 'ui:login' %}">Login</a>
+            </nav>
+        {% endif %}
+    </aside>
+
+    <!-- TOP NAVBAR -->
+    <header class="top-navbar">
+        <div class="nav-actions">
+            {% if request.user.is_authenticated %}
+
+                {% block notifications %}
+                    {% include "ui/partials/notifications.html" %}
+                {% endblock %}
+
+                <!-- PROFILE BUTTON -->
+                <div class="position-relative">
+                    <button id="profileToggle" class="icon-btn d-flex align-items-center gap-2" type="button">
+                        <div class="avatar-circle">
+                            {% if request.user.get_full_name %}
+                                {{ request.user.get_full_name|first|upper }}
+                            {% else %}
+                                {{ request.user.username|first|upper }}
+                            {% endif %}
+                        </div>
+                    </button>
+
+                    <div id="profileDropdown" class="dropdown-panel d-none">
+                        <div class="d-flex align-items-center mb-2">
+                            <div class="avatar-circle me-2">
+                                {% if request.user.get_full_name %}
+                                    {{ request.user.get_full_name|first|upper }}
+                                {% else %}
+                                    {{ request.user.username|first|upper }}
+                                {% endif %}
+                            </div>
+                            <div>
+                                <div class="fw-semibold small">
+                                    {{ request.user.get_full_name|default:request.user.username }}
+                                </div>
+                                <div class="text-muted small">
+                                    {{ request.user.email }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <a href="#" class="dropdown-item-custom small">View Profile</a>
+
+                        <div class="dropdown-footer">
+                            <a href="{% url 'ui:logout' %}" class="btn btn-sm btn-outline-dark">
+                                Logout
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            {% else %}
+                <a href="{% url 'ui:login' %}" class="btn btn-sm btn-dark">Login</a>
+            {% endif %}
+        </div>
+    </header>
+
+    <!-- MAIN CONTENT -->
+    <main class="content">
+        <div class="content-inner">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <!-- JS (Bootstrap + custom dropdown toggling) -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const bellBtn = document.getElementById("notificationToggle");
+            const bellDropdown = document.getElementById("notificationDropdown");
+            const profileBtn = document.getElementById("profileToggle");
+            const profileDropdown = document.getElementById("profileDropdown");
+            const sidebar = document.getElementById("sidebar");
+
+            function closeAll() {
+            if (bellDropdown) bellDropdown.classList.add("d-none");
+            if (profileDropdown) profileDropdown.classList.add("d-none");
+            }
+
+            // === NOTIFICATION DROPDOWN ===
+            if (bellBtn && bellDropdown) {
+            bellBtn.addEventListener("click", function (e) {
+                e.stopPropagation();
+                const isHidden = bellDropdown.classList.contains("d-none");
+                closeAll();
+                if (isHidden) {
+                bellDropdown.classList.remove("d-none");
+                }
+            });
+            }
+
+            // === PROFILE DROPDOWN ===
+            if (profileBtn && profileDropdown) {
+            profileBtn.addEventListener("click", function (e) {
+                e.stopPropagation();
+                const isHidden = profileDropdown.classList.contains("d-none");
+                closeAll();
+                if (isHidden) {
+                profileDropdown.classList.remove("d-none");
+                }
+            });
+            }
+
+            // Close dropdowns when clicking anywhere else
+            document.addEventListener("click", function () {
+            closeAll();
+            });
+
+            // === SIDEBAR SCROLL PERSISTENCE ===
+            if (sidebar) {
+            const savedScroll = localStorage.getItem("sidebarScrollTop");
+            if (savedScroll !== null) {
+                sidebar.scrollTop = parseInt(savedScroll, 10) || 0;
+            }
+            sidebar.addEventListener("scroll", function () {
+                localStorage.setItem("sidebarScrollTop", sidebar.scrollTop);
+            });
+            }
+
+            // === ACTIVE LINK HIGHLIGHT BY URL ===
+            const currentUrl = window.location.pathname;
+            document.querySelectorAll(".sidebar .nav-link").forEach(link => {
+            const href = link.getAttribute("href");
+            if (href === currentUrl) {
+                link.classList.add("active");
+            }
+            });
+
+            // === CSRF helper ===
+            function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== "") {
+                const cookies = document.cookie.split(";");
+                for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                // Does this cookie string begin with the name we want?
+                if (cookie.substring(0, name.length + 1) === (name + "=")) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+                }
+            }
+            return cookieValue;
+            }
+            const csrftoken = getCookie("csrftoken");
+
+            // === MARK NOTIFICATION AS READ ===
+            function attachMarkReadHandlers() {
+            document.querySelectorAll(".js-mark-notification-read").forEach(btn => {
+                btn.addEventListener("click", function (e) {
+                e.preventDefault();
+                e.stopPropagation();  // avoid clicking the stretched link under it
+
+                const url = this.dataset.url;
+                const notifId = this.dataset.id;
+                if (!url) return;
+
+                fetch(url, {
+                    method: "POST",
+                    headers: {
+                    "X-CSRFToken": csrftoken,
+                    "X-Requested-With": "XMLHttpRequest",
+                    },
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                    if (data.success) {
+                        // Find the wrapper div
+                        const wrapper = document.querySelector(
+                        `[data-notif-id="${notifId}"]`
+                        );
+                        if (wrapper) {
+                        wrapper.classList.remove("bg-light-subtle");
+                        // Replace button with "Read" badge
+                        const btnContainer = wrapper.querySelector(".js-mark-notification-read").parentElement;
+                        btnContainer.innerHTML = `
+                            <span class="badge rounded-pill text-bg-light small">
+                            Read
+                            </span>
+                        `;
+                        }
+                    }
+                    })
+                    .catch(err => {
+                    console.error("Error marking notification as read:", err);
+                    });
+                });
+            });
+            }
+
+            attachMarkReadHandlers();
+        });
+    </script>
+
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

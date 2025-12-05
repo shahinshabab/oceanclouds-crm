@@ -1,0 +1,150 @@
+{% extends "ui/base.html" %}
+{% load roles_tags %}
+
+{% block title %}Clients{% endblock %}
+
+{% block content %}
+{% is_admin request.user as is_admin %}
+{% is_manager request.user as is_manager %}
+{% is_employee request.user as is_employee %}
+
+<div class="container py-3">
+
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="fw-semibold mb-0">Clients</h2>
+
+    {# Only Admin & Manager can create clients #}
+    {% if is_admin or is_manager %}
+      <a href="{% url 'crm:client_create' %}" class="btn btn-success btn-sm">
+        + New Client
+      </a>
+    {% endif %}
+  </div>
+
+  <!-- Search + Filters -->
+  <form method="get" class="row g-2 align-items-end mb-3">
+    <!-- Search -->
+    <div class="col-md-4">
+      <label class="form-label mb-1 small text-muted">Search</label>
+      <input type="text"
+             name="q"
+             value="{{ request.GET.q }}"
+             class="form-control"
+             placeholder="Search by name, display name, email or phone">
+    </div>
+
+    <!-- Filter: Active -->
+    <div class="col-md-3">
+      <label class="form-label mb-1 small text-muted">Status</label>
+      <select name="is_active" class="form-select">
+        <option value="">All</option>
+        <option value="1" {% if request.GET.is_active == "1" %}selected{% endif %}>Active only</option>
+        <option value="0" {% if request.GET.is_active == "0" %}selected{% endif %}>Inactive only</option>
+      </select>
+    </div>
+
+    <!-- Filter: Country -->
+    <div class="col-md-3">
+      <label class="form-label mb-1 small text-muted">Country</label>
+      <input type="text"
+             name="country"
+             value="{{ request.GET.country }}"
+             class="form-control"
+             placeholder="e.g. UAE, India">
+    </div>
+
+    <!-- Filter button -->
+    <div class="col-md-2">
+      <button type="submit" class="btn btn-outline-secondary w-100">
+        Apply
+      </button>
+    </div>
+  </form>
+
+  <!-- Clients table -->
+  <div class="card shadow-sm">
+    <div class="card-body p-0">
+      <table class="table table-hover mb-0 align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>Name</th>
+            <th>Display Name</th>
+            <th>Email</th>
+            <th>Phone</th>
+            <th>City</th>
+            <th class="text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for client in clients %}
+          <tr>
+            <td>
+              <a href="{% url 'crm:client_detail' client.pk %}" class="text-decoration-none">
+                {{ client.name }}
+              </a>
+              {% if not client.is_active %}
+                <span class="badge bg-secondary ms-1 align-middle">Inactive</span>
+              {% endif %}
+            </td>
+            <td>{{ client.display_name|default:"—" }}</td>
+            <td>
+              {% if client.email %}
+                <a href="mailto:{{ client.email }}">{{ client.email }}</a>
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+            <td>{{ client.phone|default:"—" }}</td>
+            <td>{{ client.city|default:"—" }}</td>
+            <td class="text-end">
+              <a href="{% url 'crm:client_detail' client.pk %}"
+                 class="btn btn-sm btn-outline-secondary me-1">
+                View
+              </a>
+
+              {# Only Admin & Manager can edit clients #}
+              {% if is_admin or is_manager %}
+                <a href="{% url 'crm:client_update' client.pk %}"
+                   class="btn btn-sm btn-outline-primary">
+                  Edit
+                </a>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="6" class="text-center text-muted py-3">
+              No clients found.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {% if is_paginated %}
+  <div class="mt-3 d-flex justify-content-between align-items-center">
+    <div>
+      {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}&q={{ request.GET.q }}&is_active={{ request.GET.is_active }}&country={{ request.GET.country }}">
+          ‹ Previous
+        </a>
+      {% endif %}
+    </div>
+    <div class="small text-muted">
+      Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+    </div>
+    <div>
+      {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}&q={{ request.GET.q }}&is_active={{ request.GET.is_active }}&country={{ request.GET.country }}">
+          Next ›
+        </a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

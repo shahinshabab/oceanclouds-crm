@@ -1,0 +1,133 @@
+{% extends "ui/base.html" %}
+{% load roles_tags %}
+{% block title %}Contracts{% endblock %}
+
+{% block content %}
+{% is_admin as is_admin %}
+{% is_manager as is_manager %}
+{% is_employee as is_employee %}
+<div class="container py-4">
+
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h4 mb-0">Contracts</h1>
+
+    {% if is_admin or is_manager %}
+      <a href="{% url 'sales:contract_create' %}" class="btn btn-success btn-sm">
+        + New Contract
+      </a>
+    {% endif %}
+  </div>
+
+  <!-- Search + Filters -->
+  <form method="get" class="row g-2 align-items-end mb-3">
+
+    <div class="col-md-4">
+      <label class="form-label small text-muted">Search</label>
+      <input type="text" name="q" value="{{ q }}" class="form-control form-control-sm"
+             placeholder="Search by number or deal…">
+    </div>
+
+    <div class="col-md-3">
+      <label class="form-label small text-muted">Status</label>
+      <select name="status" class="form-select form-select-sm">
+        <option value="">All</option>
+        {% for value, label in status_choices %}
+          <option value="{{ value }}" {% if filter_status == value %}selected{% endif %}>
+            {{ label }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="col-md-3">
+      <label class="form-label small text-muted">Deal Stage</label>
+      <select name="deal_stage" class="form-select form-select-sm">
+        <option value="">All</option>
+        {% for value, label in deal_stage_choices %}
+          <option value="{{ value }}" {% if filter_deal_stage == value %}selected{% endif %}>
+            {{ label }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="col-md-2 text-md-end">
+      <button type="submit" class="btn btn-outline-secondary btn-sm w-100">Apply</button>
+    </div>
+
+  </form>
+
+  <!-- Table -->
+  <div class="card">
+    <div class="card-body p-0">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Number</th>
+            <th>Deal</th>
+            <th>Status</th>
+            <th>Signed</th>
+            <th>Period</th>
+            <th class="text-end">Actions</th>
+          </tr>
+        </thead>
+
+        <tbody>
+        {% for contract in contracts %}
+          <tr>
+            <td class="fw-semibold">{{ contract.number }}</td>
+
+            <td>
+              <div class="fw-semibold">{{ contract.deal.name }}</div>
+              <div class="small text-muted">{{ contract.deal.client }}</div>
+            </td>
+
+            <td>
+              <span class="badge bg-secondary">
+                {{ contract.get_status_display }}
+              </span>
+            </td>
+
+            <td>
+              {% if contract.signed_date %}
+                {{ contract.signed_date }}
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+
+            <td>
+              {% if contract.start_date or contract.end_date %}
+                {{ contract.start_date|default:"?" }} – {{ contract.end_date|default:"?" }}
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+
+            <td class="text-end">
+              <a href="{% url 'sales:contract_detail' contract.pk %}"
+                 class="btn btn-sm btn-outline-primary">View</a>
+
+              {% if is_admin or is_manager %}
+                <a href="{% url 'sales:contract_update' contract.pk %}"
+                   class="btn btn-sm btn-outline-secondary">Edit</a>
+              {% endif %}
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="6" class="text-center text-muted py-4">No contracts found.</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+
+      </table>
+    </div>
+  </div>
+
+  <!-- Pagination stays same -->
+  {{ block.super }}
+
+</div>
+{% endblock %}

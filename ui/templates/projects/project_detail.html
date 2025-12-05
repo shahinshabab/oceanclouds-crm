@@ -1,0 +1,205 @@
+{% extends "ui/base.html" %}
+{% load static %}
+{% load roles_tags %}
+
+{% block content %}
+<div class="container py-4">
+
+  {% has_role user ROLE_ADMIN ROLE_MANAGER as can_manage_project %}
+
+  <!-- Header -->
+  <div class="mb-3 d-flex justify-content-between align-items-start">
+    <div>
+      <h1 class="h3 mb-1">{{ project.name }}</h1>
+      <div class="text-muted">
+        Client: {{ project.client }}
+        {% if project.deal %} · Deal: {{ project.deal }}{% endif %}
+      </div>
+    </div>
+    <div>
+      <a href="{% url 'projects:project_overview' project.pk %}" class="btn btn-outline-secondary btn-sm">
+        Full Overview
+      </a>
+    </div>
+  </div>
+
+  <!-- Data Grid -->
+  <div class="row g-3 mb-4">
+    <div class="col-md-4">
+      <div class="small text-uppercase text-muted mb-1">Manager</div>
+      <div class="fw-semibold">{{ project.manager|default:"Unassigned" }}</div>
+    </div>
+    <div class="col-md-4">
+      <div class="small text-uppercase text-muted mb-1">Status</div>
+      <div>
+        {% if project.status == "completed" %}
+          <span class="badge bg-success me-1">{{ project.get_status_display }}</span>
+        {% elif project.status == "active" %}
+          <span class="badge bg-primary me-1">{{ project.get_status_display }}</span>
+        {% elif project.status == "on_hold" %}
+          <span class="badge bg-warning text-dark me-1">{{ project.get_status_display }}</span>
+        {% elif project.status == "cancelled" %}
+          <span class="badge bg-danger me-1">{{ project.get_status_display }}</span>
+        {% else %}
+          <span class="badge bg-secondary me-1">{{ project.get_status_display }}</span>
+        {% endif %}
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="small text-uppercase text-muted mb-1">Priority</div>
+      <div class="fw-semibold">{{ project.get_priority_display }}</div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="small text-uppercase text-muted mb-1">Start Date</div>
+      <div class="fw-semibold">{{ project.start_date|default:"—" }}</div>
+    </div>
+    <div class="col-md-4">
+      <div class="small text-uppercase text-muted mb-1">Due Date</div>
+      <div class="fw-semibold">{{ project.due_date|default:"—" }}</div>
+    </div>
+    <div class="col-md-4">
+      <div class="small text-uppercase text-muted mb-1">Progress</div>
+      <div class="fw-semibold">{{ project.progress_percent }}%</div>
+      <div class="mt-1">
+        <div class="progress" style="height: 4px;">
+          {% with pct=project.progress_percent|default_if_none:0 %}
+            <div class="progress-bar
+              {% if pct < 30 %}
+                bg-danger
+              {% elif pct < 70 %}
+                bg-warning
+              {% else %}
+                bg-success
+              {% endif %}"
+              style="width: {{ project.progress_bar_width }}%;">
+            </div>
+          {% endwith %}
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="small text-uppercase text-muted mb-1">Deal</div>
+      <div class="fw-semibold">{{ project.deal|default:"—" }}</div>
+    </div>
+    {% if project.event %}
+      <div class="col-md-4">
+        <div class="small text-uppercase text-muted mb-1">Event</div>
+        <div class="fw-semibold">{{ project.event }}</div>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- Description -->
+  {% if project.description %}
+    <div class="card mb-4">
+      <div class="card-body">
+        <div class="small text-uppercase text-muted mb-2">Description</div>
+        <div class="fw-normal">
+          {{ project.description|linebreaksbr }}
+        </div>
+      </div>
+    </div>
+  {% endif %}
+
+  <div class="row">
+    <!-- Tasks Section -->
+    <div class="col-md-6 mb-4">
+      <div class="card h-100">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h5 class="mb-0">Tasks</h5>
+          {% if can_manage_project %}
+            <a href="{% url 'projects:task_create' %}" class="btn btn-sm btn-primary">
+              + Add Task
+            </a>
+          {% endif %}
+        </div>
+        <div class="list-group list-group-flush">
+          {% for task in project.tasks.all %}
+            <a href="{% url 'projects:task_detail' task.pk %}"
+               class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+              <div>
+                <div class="fw-semibold">{{ task.name }}</div>
+                <small class="text-muted">
+                  Assigned: {{ task.assigned_to|default:"Unassigned" }} ·
+                  Status: {{ task.get_status_display }} ·
+                  Due: {{ task.due_date|default:"—" }}
+                </small>
+              </div>
+              {% if task.status == "completed" %}
+                <span class="badge bg-success">Done</span>
+              {% elif task.status == "in_progress" %}
+                <span class="badge bg-primary">In Progress</span>
+              {% elif task.status == "blocked" %}
+                <span class="badge bg-warning text-dark">Blocked</span>
+              {% endif %}
+            </a>
+          {% empty %}
+            <div class="list-group-item text-muted">
+              No tasks yet.
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Deliverables Section -->
+    <div class="col-md-6 mb-4">
+      <div class="card h-100">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h5 class="mb-0">Deliverables</h5>
+          {% if can_manage_project %}
+            <a href="{% url 'projects:deliverable_create' %}"
+               class="btn btn-sm btn-primary">
+              + Add Deliverable
+            </a>
+          {% endif %}
+        </div>
+        <div class="list-group list-group-flush">
+          {% for d in project.deliverables.all %}
+            <a href="{% url 'projects:deliverable_detail' d.pk %}"
+               class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+              <div>
+                <div class="fw-semibold">{{ d.name }}</div>
+                <small class="text-muted">
+                  Type: {{ d.get_type_display }} ·
+                  Status: {{ d.get_status_display }} ·
+                  Due: {{ d.due_date|default:"—" }}
+                  {% if d.file_link %}
+                    · <a href="{{ d.file_link }}" target="_blank">File</a>
+                  {% endif %}
+                </small>
+              </div>
+              {% if d.status == "delivered" %}
+                <span class="badge bg-success">Delivered</span>
+              {% elif d.status == "in_progress" %}
+                <span class="badge bg-primary">In Progress</span>
+              {% endif %}
+            </a>
+          {% empty %}
+            <div class="list-group-item text-muted">
+              No deliverables yet.
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Action Row -->
+  <div class="text-center mt-3">
+    {% if can_manage_project %}
+      <a href="{% url 'projects:project_update' project.pk %}"
+         class="btn btn-primary me-2">
+        Edit Project
+      </a>
+    {% endif %}
+    <a href="{% url 'projects:project_list' %}"
+       class="btn btn-secondary">
+      Back to Projects
+    </a>
+  </div>
+
+</div>
+{% endblock %}

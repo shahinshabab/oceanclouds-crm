@@ -1,0 +1,186 @@
+{% extends "ui/base.html" %}
+{% load roles_tags %}
+
+{% block content %}
+<div class="container py-3 max-w-2xl">
+
+  {% has_role user ROLE_ADMIN as is_admin %}
+  {% has_role user ROLE_MANAGER as is_manager %}
+
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-start mb-3">
+    <div>
+      <h2 class="fw-semibold mb-1">
+        {% if object %}
+          Edit Task
+        {% else %}
+          New Task
+        {% endif %}
+      </h2>
+
+      {% if object %}
+        <small class="text-muted">
+          Project:
+          <a href="{% url 'projects:project_detail' object.project.pk %}">
+            {{ object.project.name }}
+          </a>
+          · Client: {{ object.project.client }}
+        </small>
+      {% endif %}
+    </div>
+
+    <div class="mt-2 mt-md-0">
+      {% if object %}
+        <a href="{% url 'projects:project_detail' object.project.pk %}"
+           class="btn btn-sm btn-outline-secondary">
+          ← Back to Project
+        </a>
+      {% endif %}
+      <a href="{% url 'projects:task_list' %}"
+         class="btn btn-sm btn-outline-secondary ms-1">
+        All Tasks
+      </a>
+    </div>
+  </div>
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+      <div class="alert alert-danger">
+        {{ form.non_field_errors }}
+      </div>
+    {% endif %}
+
+    <div class="card shadow-sm">
+      <div class="card-body">
+
+        <!-- Row 1: Name / Project / Assigned To -->
+        <div class="row">
+          <!-- Name -->
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.name.label }}{% if form.name.field.required %} *{% endif %}
+            </label>
+            {{ form.name }}
+            {{ form.name.errors }}
+          </div>
+
+          <!-- Project -->
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              Project{% if not object and form.project.field.required %} *{% endif %}
+            </label>
+            {% if not object %}
+              {{ form.project }}
+              {{ form.project.errors }}
+            {% else %}
+              <div class="form-control-plaintext">
+                {{ object.project.name }}
+              </div>
+            {% endif %}
+          </div>
+
+          <!-- Assigned To -->
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.assigned_to.label }}{% if form.assigned_to.field.required %} *{% endif %}
+            </label>
+            {{ form.assigned_to }}
+            {{ form.assigned_to.errors }}
+          </div>
+        </div>
+
+        <!-- Row 2: Directory / Type / Count -->
+        <div class="row">
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.directory.label }}{% if form.directory.field.required %} *{% endif %}
+            </label>
+            {{ form.directory }}
+            {{ form.directory.errors }}
+          </div>
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.type.label }}{% if form.type.field.required %} *{% endif %}
+            </label>
+            {{ form.type }}
+            {{ form.type.errors }}
+          </div>
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.count.label }}{% if form.count.field.required %} *{% endif %}
+            </label>
+            {{ form.count }}
+            {{ form.count.errors }}
+          </div>
+        </div>
+
+        <!-- Row 3: Status / Priority / Due Date -->
+        <div class="row">
+          <!-- Status -->
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.status.label }}{% if form.status.field.required %} *{% endif %}
+            </label>
+            {{ form.status }}
+            {{ form.status.errors }}
+          </div>
+
+          <!-- Priority -->
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.priority.label }}{% if form.priority.field.required %} *{% endif %}
+            </label>
+            {{ form.priority }}
+            {{ form.priority.errors }}
+          </div>
+
+          <!-- Due Date -->
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.due_date.label }}{% if form.due_date.field.required %} *{% endif %}
+            </label>
+            {{ form.due_date }}
+            {{ form.due_date.errors }}
+          </div>
+        </div>
+
+        <!-- Description (full width) -->
+        <div class="mb-3">
+          <label class="form-label">
+            {{ form.description.label }}{% if form.description.field.required %} *{% endif %}
+          </label>
+          {{ form.description }}
+          {% if form.description.help_text %}
+            <div class="form-text">{{ form.description.help_text }}</div>
+          {% endif %}
+          {{ form.description.errors }}
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Buttons -->
+    <div class="text-center mt-3">
+      <button type="submit" class="btn btn-primary">
+        {% if object %}Save Changes{% else %}Create Task{% endif %}
+      </button>
+
+      {% if object %}
+        <a href="{% url 'projects:project_detail' object.project.pk %}"
+           class="btn btn-secondary ms-2">
+          Cancel
+        </a>
+      {% else %}
+        <a href="{% url 'projects:task_list' %}"
+           class="btn btn-secondary ms-2">
+          Cancel
+        </a>
+      {% endif %}
+    </div>
+
+  </form>
+
+</div>
+{% endblock %}

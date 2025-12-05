@@ -1,0 +1,316 @@
+{% extends "ui/base.html" %}
+{% load roles_tags %}
+
+{% block content %}
+<div class="container py-4">
+
+  {% has_role request.user "Admin" as is_admin %}
+  {% has_role request.user "Manager" as is_manager %}
+  {% has_role request.user "Employee" as is_employee %}
+
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h1 class="h3 mb-0">Task Kanban</h1>
+      <small class="text-muted">
+        {% if is_admin or is_manager %}
+          Drag cards between columns to update status.
+        {% elif is_employee %}
+          You can drag tasks assigned to you to update their status.
+        {% else %}
+          View-only board.
+        {% endif %}
+      </small>
+    </div>
+
+    <div class="d-flex gap-2">
+      <a href="{% url 'projects:task_list' %}" class="btn btn-outline-secondary btn-sm">
+        Table View
+      </a>
+    </div>
+  </div>
+  
+  <!-- Kanban Board -->
+  <div class="row g-3" id="task-kanban-board">
+
+    <!-- Pending Column -->
+    <div class="col-md-4">
+      <div class="card h-100">
+        <div class="card-header bg-light">
+          <strong>Pending</strong>
+        </div>
+        <div class="card-body p-2 kanban-column"
+             data-kanban-column
+             data-status="pending">
+          {% for task in tasks_by_status.pending %}
+            <div class="card mb-2 shadow-sm kanban-card"
+                 {% if is_admin or is_manager or task.assigned_to_id == request.user.id %}
+                   draggable="true"
+                   data-update-url="{% url 'projects:task_set_status' task.id %}"
+                 {% endif %}
+                 data-type="task"
+                 data-id="{{ task.id }}">
+              <div class="card-body py-2 px-2">
+                <div class="fw-semibold small">
+                  <a href="{% url 'projects:task_detail' task.pk %}" class="text-decoration-none">
+                    {{ task.name }}
+                  </a>
+                </div>
+                <div class="small text-muted">
+                  Project: {{ task.project.name }}
+                </div>
+                <div class="small text-muted">
+                  {% if task.assigned_to %}
+                    {{ task.assigned_to.get_full_name|default:task.assigned_to.username }}
+                  {% else %}
+                    Unassigned
+                  {% endif %}
+                </div>
+
+                {# Directory + count summary from related deliverables #}
+                {% if task.deliverables.all %}
+                  <div class="small text-muted mt-1">
+                    {% for d in task.deliverables.all %}
+                      {{ d.directory }}
+                      {% if d.count %} ({{ d.count }}){% endif %}
+                      {% if not forloop.last %} · {% endif %}
+                    {% endfor %}
+                  </div>
+                {% endif %}
+
+                {% if task.due_date %}
+                  <div class="small mt-1">
+                    <span class="badge bg-light text-muted border">
+                      Due: {{ task.due_date }}
+                    </span>
+                  </div>
+                {% endif %}
+              </div>
+            </div>
+          {% empty %}
+            <div class="text-muted small px-2">
+              No pending tasks.
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- In Progress Column -->
+    <div class="col-md-4">
+      <div class="card h-100">
+        <div class="card-header bg-light">
+          <strong>In Progress</strong>
+        </div>
+        <div class="card-body p-2 kanban-column"
+             data-kanban-column
+             data-status="in_progress">
+          {% for task in tasks_by_status.in_progress %}
+            <div class="card mb-2 shadow-sm kanban-card"
+                 {% if is_admin or is_manager or task.assigned_to_id == request.user.id %}
+                   draggable="true"
+                   data-update-url="{% url 'projects:task_set_status' task.id %}"
+                 {% endif %}
+                 data-type="task"
+                 data-id="{{ task.id }}">
+              <div class="card-body py-2 px-2">
+                <div class="fw-semibold small">
+                  <a href="{% url 'projects:task_detail' task.pk %}" class="text-decoration-none">
+                    {{ task.name }}
+                  </a>
+                </div>
+                <div class="small text-muted">
+                  Project: {{ task.project.name }}
+                </div>
+                <div class="small text-muted">
+                  {% if task.assigned_to %}
+                    {{ task.assigned_to.get_full_name|default:task.assigned_to.username }}
+                  {% else %}
+                    Unassigned
+                  {% endif %}
+                </div>
+
+                {% if task.deliverables.all %}
+                  <div class="small text-muted mt-1">
+                    {% for d in task.deliverables.all %}
+                      {{ d.directory }}
+                      {% if d.count %} ({{ d.count }}){% endif %}
+                      {% if not forloop.last %} · {% endif %}
+                    {% endfor %}
+                  </div>
+                {% endif %}
+
+                {% if task.due_date %}
+                  <div class="small mt-1">
+                    <span class="badge bg-light text-muted border">
+                      Due: {{ task.due_date }}
+                    </span>
+                  </div>
+                {% endif %}
+              </div>
+            </div>
+          {% empty %}
+            <div class="text-muted small px-2">
+              No in-progress tasks.
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Completed Column -->
+    <div class="col-md-4">
+      <div class="card h-100">
+        <div class="card-header bg-light">
+          <strong>Completed</strong>
+        </div>
+        <div class="card-body p-2 kanban-column"
+             data-kanban-column
+             data-status="completed">
+          {% for task in tasks_by_status.completed %}
+            <div class="card mb-2 shadow-sm kanban-card"
+                 {% if is_admin or is_manager or task.assigned_to_id == request.user.id %}
+                   draggable="true"
+                   data-update-url="{% url 'projects:task_set_status' task.id %}"
+                 {% endif %}
+                 data-type="task"
+                 data-id="{{ task.id }}">
+              <div class="card-body py-2 px-2">
+                <div class="fw-semibold small">
+                  <a href="{% url 'projects:task_detail' task.pk %}" class="text-decoration-none">
+                    {{ task.name }}
+                  </a>
+                </div>
+                <div class="small text-muted">
+                  Project: {{ task.project.name }}
+                </div>
+                <div class="small text-muted">
+                  {% if task.assigned_to %}
+                    {{ task.assigned_to.get_full_name|default:task.assigned_to.username }}
+                  {% else %}
+                    Unassigned
+                  {% endif %}
+                </div>
+
+                {% if task.deliverables.all %}
+                  <div class="small text-muted mt-1">
+                    {% for d in task.deliverables.all %}
+                      {{ d.directory }}
+                      {% if d.count %} ({{ d.count }}){% endif %}
+                      {% if not forloop.last %} · {% endif %}
+                    {% endfor %}
+                  </div>
+                {% endif %}
+
+                {% if task.due_date %}
+                  <div class="small mt-1">
+                    <span class="badge bg-light text-muted border">
+                      Due: {{ task.due_date }}
+                    </span>
+                  </div>
+                {% endif %}
+              </div>
+            </div>
+          {% empty %}
+            <div class="text-muted small px-2">
+              No completed tasks.
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+function getCookie(name) {
+  let cookieValue = null;
+  if (document.cookie && document.cookie !== "") {
+    const cookies = document.cookie.split(";");
+    for (let i = 0; i < cookies.length; i++) {
+      const cookie = cookies[i].trim();
+      if (cookie.substring(0, name.length + 1) === (name + "=")) {
+        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+        break;
+      }
+    }
+  }
+  return cookieValue;
+}
+
+const csrftoken = getCookie("csrftoken");
+let draggedTaskCard = null;
+
+document.querySelectorAll(".kanban-card").forEach((card) => {
+  card.addEventListener("dragstart", (e) => {
+    // Only allow drag if browser thinks it's draggable
+    if (card.getAttribute("draggable") !== "true") {
+      e.preventDefault();
+      return;
+    }
+    draggedTaskCard = card;
+    e.dataTransfer.effectAllowed = "move";
+    card.classList.add("opacity-50");
+  });
+
+  card.addEventListener("dragend", () => {
+    draggedTaskCard = null;
+    card.classList.remove("opacity-50");
+  });
+});
+
+document.querySelectorAll("[data-kanban-column]").forEach((column) => {
+  column.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    column.classList.add("bg-light");
+  });
+
+  column.addEventListener("dragleave", () => {
+    column.classList.remove("bg-light");
+  });
+
+  column.addEventListener("drop", (e) => {
+    e.preventDefault();
+    column.classList.remove("bg-light");
+    if (!draggedTaskCard) return;
+
+    const newStatus = column.dataset.status;
+    const updateUrl = draggedTaskCard.dataset.updateUrl;
+
+    // If this card has no update URL (view-only), just ignore
+    if (!updateUrl) {
+      return;
+    }
+
+    column.appendChild(draggedTaskCard);
+
+    const formData = new URLSearchParams();
+    formData.append("status", newStatus);
+
+    fetch(updateUrl, {
+      method: "POST",
+      headers: {
+        "X-CSRFToken": csrftoken,
+        "X-Requested-With": "XMLHttpRequest",
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: formData.toString(),
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        if (!data.success) {
+          alert(data.error || "Could not update task status.");
+          window.location.reload();
+        }
+      })
+      .catch((error) => {
+        console.error(error);
+        alert("Error updating task status.");
+        window.location.reload();
+      });
+  });
+});
+</script>
+{% endblock %}

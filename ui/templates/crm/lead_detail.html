@@ -1,0 +1,232 @@
+{% extends "ui/base.html" %}
+{% load roles_tags %}
+
+{% block title %}Lead – {{ lead.name }}{% endblock %}
+
+{% block content %}
+{% is_admin request.user as is_admin %}
+{% is_manager request.user as is_manager %}
+{% is_employee request.user as is_employee %}
+
+<div class="container py-3">
+
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h2 class="fw-semibold mb-0">
+        {{ lead.name }}
+      </h2>
+      <span class="badge bg-secondary mt-2">
+        {{ lead.get_status_display }}
+      </span>
+      {% if lead.source %}
+        <span class="badge bg-info text-dark mt-2">
+          {{ lead.get_source_display }}
+        </span>
+      {% endif %}
+    </div>
+    <div class="text-end">
+
+      {% if is_admin or is_manager %}
+        <a href="{% url 'crm:lead_update' lead.pk %}"
+           class="btn btn-primary btn-sm">
+          Edit Lead
+        </a>
+      {% endif %}
+      <a href="{% url 'crm:lead_list' %}"
+         class="btn btn-secondary btn-sm">
+        Back to Leads
+      </a>
+    </div>
+  </div>
+
+  <!-- Lead info -->
+  <div class="card mb-4 shadow-sm">
+    <div class="card-body">
+
+      <!-- Row 1 -->
+      <div class="row mb-3">
+        <div class="col-md-4 mb-3 mb-md-0">
+          <div class="text-muted small text-uppercase">Name</div>
+          <div class="fw-semibold mt-1">
+            {{ lead.name }}
+          </div>
+        </div>
+        <div class="col-md-4 mb-3 mb-md-0">
+          <div class="text-muted small text-uppercase">Email</div>
+          <div class="fw-semibold mt-1">
+            {% if lead.email %}
+              <a href="mailto:{{ lead.email }}">{{ lead.email }}</a>
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="text-muted small text-uppercase">Phone</div>
+          <div class="fw-semibold mt-1">
+            {{ lead.phone|default:"—" }}
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 2 -->
+      <div class="row mb-3">
+        <div class="col-md-4 mb-3 mb-md-0">
+          <div class="text-muted small text-uppercase">WhatsApp</div>
+          <div class="fw-semibold mt-1">
+            {{ lead.whatsapp|default:"—" }}
+          </div>
+        </div>
+        <div class="col-md-4 mb-3 mb-md-0">
+          <div class="text-muted small text-uppercase">Wedding Date</div>
+          <div class="fw-semibold mt-1">
+            {% if lead.wedding_date %}
+              {{ lead.wedding_date }}
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="text-muted small text-uppercase">Wedding Location</div>
+          <div class="fw-semibold mt-1">
+            {% if lead.wedding_city or lead.wedding_district or lead.wedding_state or lead.wedding_country %}
+              {# Build a nice comma-separated location string #}
+              {% if lead.wedding_city %}{{ lead.wedding_city }}{% endif %}
+              {% if lead.wedding_district %}
+                {% if lead.wedding_city %}, {% endif %}{{ lead.wedding_district }}
+              {% endif %}
+              {% if lead.wedding_state %}
+                {% if lead.wedding_city or lead.wedding_district %}, {% endif %}{{ lead.wedding_state }}
+              {% endif %}
+              {% if lead.wedding_country %}
+                {% if lead.wedding_city or lead.wedding_district or lead.wedding_state %}, {% endif %}{{ lead.wedding_country }}
+              {% endif %}
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 3 -->
+      <div class="row mb-3">
+        <div class="col-md-4 mb-3 mb-md-0">
+          <div class="text-muted small text-uppercase">Budget Range</div>
+          <div class="fw-semibold mt-1">
+            {% if lead.budget_min or lead.budget_max %}
+              {% if lead.budget_min %}{{ lead.budget_min }}{% endif %}
+              –
+              {% if lead.budget_max %}{{ lead.budget_max }}{% endif %}
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          </div>
+        </div>
+        <div class="col-md-4 mb-3 mb-md-0">
+          <div class="text-muted small text-uppercase">Source</div>
+          <div class="fw-semibold mt-1">
+            {% if lead.source %}
+              {{ lead.get_source_display }}
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="text-muted small text-uppercase">Source Detail</div>
+          <div class="fw-semibold mt-1">
+            {{ lead.source_detail|default:"—" }}
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 4 -->
+      <div class="row mb-3">
+        <div class="col-md-4 mb-3 mb-md-0">
+          <div class="text-muted small text-uppercase">Linked Client</div>
+          <div class="fw-semibold mt-1">
+            {% if lead.client %}
+              <a href="{% url 'crm:client_detail' lead.client.pk %}">{{ lead.client }}</a>
+            {% else %}
+              <span class="text-muted">Not yet converted</span>
+            {% endif %}
+          </div>
+        </div>
+        <div class="col-md-4 mb-3 mb-md-0">
+          <div class="text-muted small text-uppercase">Next Action Date</div>
+          <div class="fw-semibold mt-1">
+            {% if lead.next_action_date %}
+              {{ lead.next_action_date }}
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="text-muted small text-uppercase">Next Action Note</div>
+          <div class="fw-semibold mt-1">
+            {{ lead.next_action_note|default:"—" }}
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 5: Notes -->
+      <div class="row mb-3">
+        <div class="col-12">
+          <div class="text-muted small text-uppercase">Notes</div>
+          <div class="mt-1">
+            {{ lead.notes|linebreaks|default:"<span class='text-muted'>—</span>"|safe }}
+          </div>
+        </div>
+      </div>
+
+      <!-- Actions row -->
+      <div class="row">
+        <div class="col-12 d-flex justify-content-center gap-2 mt-2">
+          {% if is_admin or is_manager %}
+            <a href="{% url 'crm:lead_update' lead.pk %}"
+               class="btn btn-primary px-4">
+              Edit Lead
+            </a>
+          {% endif %}
+          <a href="{% url 'crm:lead_list' %}"
+             class="btn btn-outline-secondary">
+            Back to Leads
+          </a>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Inquiries related to this lead -->
+  <div class="card mb-4 shadow-sm">
+    <div class="card-header bg-secondary text-white">
+      Inquiries Related to This Lead
+    </div>
+    <div class="card-body">
+      {% if lead.inquiries.all %}
+        <ul class="list-group">
+          {% for inquiry in lead.inquiries.all %}
+          <li class="list-group-item d-flex justify-content-between align-items-center">
+            <span>
+              {{ inquiry.get_channel_display }} —
+              {{ inquiry.name|default:inquiry.email|default:"(No Name)" }}
+            </span>
+            <a href="{% url 'crm:inquiry_detail' inquiry.pk %}"
+               class="btn btn-sm btn-outline-secondary">
+              View
+            </a>
+          </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="text-muted mb-0">No inquiries linked to this lead.</p>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}

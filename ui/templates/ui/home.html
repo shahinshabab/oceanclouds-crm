@@ -1,0 +1,65 @@
+{% extends "ui/base.html" %}
+
+{% block title %}Dashboard | OCEAN CLOUDS{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <h1 class="h3 mb-1">Dashboard</h1>
+    <p class="text-muted mb-0">
+        It works 🎉 — welcome to your Wedding CRM.<br>
+        <span class="fw-semibold">
+            You are logged in as: {{ role_label }}
+        </span>
+    </p>
+</div>
+
+<div class="row g-3">
+
+    {# Example: you can later customize these cards per role if you like #}
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <div class="small text-muted mb-1">Leads</div>
+                <div class="h4 mb-0">0</div>
+                <div class="small text-muted">
+                    {% if is_admin or is_crm_manager %}
+                        New this week (all clients)
+                    {% elif is_employee %}
+                        New leads assigned to you
+                    {% else %}
+                        New this week
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <div class="small text-muted mb-1">Active Deals / Projects</div>
+                <div class="h4 mb-0">0</div>
+                <div class="small text-muted">
+                    {% if is_project_manager %}
+                        Active projects you manage
+                    {% elif is_crm_manager %}
+                        Active deals in pipeline
+                    {% else %}
+                        In pipeline
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <div class="small text-muted mb-1">Upcoming Events</div>
+                <div class="h4 mb-0">0</div>
+                <div class="small text-muted">Next 30 days</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

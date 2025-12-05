@@ -1,0 +1,154 @@
+{% extends "ui/base.html" %}
+{% load roles_tags %}
+
+{% block title %}
+  Review – {{ review.client }}
+{% endblock %}
+
+{% block content %}
+{% is_admin request.user as is_admin %}
+{% is_manager request.user as is_manager %}
+{% is_employee request.user as is_employee %}
+
+<div class="container py-3">
+
+  <!-- Page header -->
+  <div class="mb-4 d-flex justify-content-between align-items-start">
+    <div>
+      <h2 class="fw-semibold mb-1">
+        {{ review.title|default:"Client Review" }}
+      </h2>
+
+      {% if review.client %}
+        <div class="mt-1">
+          <span class="text-muted small text-uppercase">Client</span>
+          <div class="fw-semibold">
+            <a href="{% url 'crm:client_detail' review.client.pk %}"
+               class="text-decoration-none">
+              {{ review.client }}
+            </a>
+          </div>
+        </div>
+      {% endif %}
+
+      <div class="mt-2">
+        {% if review.rating %}
+          <span class="badge bg-warning-subtle text-warning-emphasis">
+            {% for i in "12345" %}
+              {% if forloop.counter <= review.rating %}
+                &#9733;
+              {% else %}
+                &#9734;
+              {% endif %}
+            {% endfor %}
+            <span class="ms-1">{{ review.rating }}/5</span>
+          </span>
+        {% else %}
+          <span class="badge bg-light text-muted">
+            No rating
+          </span>
+        {% endif %}
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Details card -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-body">
+
+      <!-- Row 1: Meta -->
+      <div class="row mb-3">
+        <div class="col-md-3 mb-3 mb-md-0">
+          <div class="text-muted small text-uppercase">Created at</div>
+          <div class="fw-semibold mt-1">
+            {{ review.created_at|date:"Y-m-d H:i" }}
+          </div>
+        </div>
+
+        <div class="col-md-3 mb-3 mb-md-0">
+          <div class="text-muted small text-uppercase">Created by</div>
+          <div class="fw-semibold mt-1">
+            {{ review.owner|default:"—" }}
+          </div>
+        </div>
+
+        <div class="col-md-3 mb-3 mb-md-0">
+          <div class="text-muted small text-uppercase">Responded</div>
+          <div class="fw-semibold mt-1">
+            {% if review.responded_by %}
+              {{ review.responded_by }}<br>
+              <span class="small text-muted">
+                {{ review.responded_at|date:"Y-m-d H:i" }}
+              </span>
+            {% else %}
+              <span class="text-muted">Not responded</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="col-md-3">
+          <div class="text-muted small text-uppercase">Next Action Date</div>
+          <div class="fw-semibold mt-1">
+            {% if review.next_action_date %}
+              {{ review.next_action_date|date:"Y-m-d" }}
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 2: Next Action -->
+      <div class="row mb-3">
+        <div class="col-12">
+          <div class="text-muted small text-uppercase">Next Action</div>
+          <div class="mt-1">
+            {% if review.next_action %}
+              {{ review.next_action|linebreaks }}
+            {% else %}
+              <span class="text-muted">No next action recorded.</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 3: Comment -->
+      <div class="row mb-3">
+        <div class="col-12">
+          <div class="text-muted small text-uppercase">Review Text</div>
+          <div class="mt-1">
+            {{ review.comment|linebreaks|default:"<span class='text-muted'>No comment provided.</span>"|safe }}
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 4: Actions -->
+      <div class="row">
+        <div class="col-12 d-flex justify-content-center gap-2 mt-2">
+          {% if is_admin or is_manager %}
+            <a href="{% url 'crm:review_update' review.pk %}"
+               class="btn btn-primary px-4">
+              Edit
+            </a>
+          {% endif %}
+
+          {% if review.client %}
+            <a href="{% url 'crm:client_detail' review.client.pk %}"
+               class="btn btn-outline-secondary">
+              Back to Client
+            </a>
+          {% else %}
+            <a href="{% url 'crm:review_list' %}"
+               class="btn btn-outline-secondary">
+              Back to Reviews
+            </a>
+          {% endif %}
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+{% endblock %}

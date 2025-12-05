@@ -1,0 +1,94 @@
+{% extends "ui/base.html" %}
+{% load roles_tags %}
+{% block title %}Person – {{ person.full_name }}{% endblock %}
+{% block content %}
+{% is_admin as is_admin %}
+{% is_manager as is_manager %}
+{% is_employee as is_employee %}
+<div class="container py-3 max-w-2xl">
+
+  <!-- Heading -->
+  <h2 class="fw-semibold mb-4">{{ person.full_name }}</h2>
+
+  <!-- Main Card -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-body">
+
+      <div class="row">
+        <!-- Column 1: Role / Event -->
+        <div class="col-md-4 mb-3">
+          <div class="text-uppercase text-muted small">Role</div>
+          <div class="fw-semibold mb-2">{{ person.get_role_display }}</div>
+
+          <div class="text-uppercase text-muted small">Event</div>
+          <div class="fw-semibold mb-2">
+            {% if person.event %}
+              <a href="{% url 'events:event_detail' person.event.pk %}">
+                {{ person.event.name }}
+              </a>
+            {% else %}
+              —
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Column 2: Email / Phone -->
+        <div class="col-md-4 mb-3">
+          <div class="text-uppercase text-muted small">Email</div>
+          <div class="fw-semibold mb-2">
+            {% if person.email %}
+              <a href="mailto:{{ person.email }}">{{ person.email }}</a>
+            {% else %}
+              —
+            {% endif %}
+          </div>
+
+          <div class="text-uppercase text-muted small">Phone</div>
+          <div class="fw-semibold mb-2">
+            {{ person.phone|default:"—" }}
+          </div>
+        </div>
+
+        <!-- Column 3: WhatsApp / Marketing -->
+        <div class="col-md-4 mb-3">
+          <div class="text-uppercase text-muted small">WhatsApp</div>
+          <div class="fw-semibold mb-2">
+            {{ person.whatsapp|default:"—" }}
+          </div>
+
+          <div class="text-uppercase text-muted small">Marketing</div>
+          <div class="fw-semibold mb-2">
+            {% if person.allow_marketing %}
+              <span class="badge bg-success">Opted in</span>
+            {% else %}
+              <span class="badge bg-secondary">Opted out</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Notes -->
+      <div class="mt-2">
+        <div class="text-uppercase text-muted small mb-1">Notes</div>
+        <div class="fw-semibold">
+          {{ person.notes|default:"—" }}
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Action Buttons -->
+  <div class="d-flex justify-content-center gap-2">
+    {% if is_admin or is_manager %}
+      <a href="{% url 'events:event_person_update' person.pk %}" class="btn btn-primary">
+        Edit Person
+      </a>
+    {% endif %}
+    <a href="{% url 'events:event_person_list' %}" class="btn btn-outline-secondary">
+      Back to People
+    </a>
+  </div>
+
+</div>
+{% endblock %}

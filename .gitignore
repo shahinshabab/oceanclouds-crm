@@ -1,0 +1,21 @@
+# Python venv
+crmenv/
+
+# Environment variables
+.env
+
+# Python junk
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# VS Code settings
+.vscode/
+
+# Django stuff (optional)
+staticfiles/
+media/
+
+# db data
+db.sqlite3

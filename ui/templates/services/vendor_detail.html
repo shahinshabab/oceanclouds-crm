@@ -1,0 +1,150 @@
+{% extends "ui/base.html" %}
+{% load roles_tags %}
+
+{% block title %}Vendor – {{ vendor.company_name|default:vendor.name }}{% endblock %}
+
+{% block content %}
+{% is_admin as is_admin %}
+{% is_manager as is_manager %}
+{% is_employee as is_employee %}
+
+<div class="container py-4">
+
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h2 class="fw-semibold mb-1">
+        {{ vendor.company_name|default:vendor.name }}
+      </h2>
+      <span class="badge bg-light text-dark">
+        {{ vendor.get_vendor_type_display }}
+      </span>
+      {% if vendor.is_preferred %}
+        <span class="badge bg-success ms-1">Preferred</span>
+      {% endif %}
+    </div>
+
+    {# Only Admin & Manager can see Edit Vendor button #}
+    {% has_role user ROLE_ADMIN ROLE_MANAGER as can_manage_vendors %}
+    {% if can_manage_vendors %}
+      <a href="{% url 'services:vendor_update' vendor.pk %}" class="btn btn-primary btn-sm">
+        Edit Vendor
+      </a>
+    {% endif %}
+  </div>
+
+  <!-- Main details -->
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="row gy-3">
+
+        <div class="col-md-4">
+          <div class="text-uppercase text-muted small">Name</div>
+          <div class="fw-semibold">{{ vendor.name }}</div>
+        </div>
+
+        <div class="col-md-4">
+          <div class="text-uppercase text-muted small">Email</div>
+          <div class="fw-semibold">{{ vendor.email|default:"—" }}</div>
+        </div>
+
+        <div class="col-md-4">
+          <div class="text-uppercase text-muted small">Phone</div>
+          <div class="fw-semibold">{{ vendor.phone|default:"—" }}</div>
+        </div>
+
+        <div class="col-md-4">
+          <div class="text-uppercase text-muted small">Alt Phone</div>
+          <div class="fw-semibold">{{ vendor.alt_phone|default:"—" }}</div>
+        </div>
+
+        <div class="col-md-4">
+          <div class="text-uppercase text-muted small">WhatsApp</div>
+          <div class="fw-semibold">{{ vendor.whatsapp|default:"—" }}</div>
+        </div>
+
+        <div class="col-md-4">
+          <div class="text-uppercase text-muted small">City</div>
+          <div class="fw-semibold">{{ vendor.city|default:"—" }}</div>
+        </div>
+
+        <div class="col-md-4">
+          <div class="text-uppercase text-muted small">District</div>
+          <div class="fw-semibold">{{ vendor.district|default:"—" }}</div>
+        </div>
+
+        <div class="col-md-4">
+          <div class="text-uppercase text-muted small">State</div>
+          <div class="fw-semibold">{{ vendor.state|default:"—" }}</div>
+        </div>
+
+        <div class="col-md-4">
+          <div class="text-uppercase text-muted small">Country</div>
+          <div class="fw-semibold">{{ vendor.country|default:"—" }}</div>
+        </div>
+
+        <div class="col-12">
+          <div class="text-uppercase text-muted small">Address</div>
+          <div class="fw-semibold">
+            {% if vendor.address_line1 or vendor.address_line2 %}
+              {{ vendor.address_line1 }}{% if vendor.address_line2 %}, {{ vendor.address_line2 }}{% endif %}
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="col-12">
+          <div class="text-uppercase text-muted small">Notes</div>
+          <div>
+            {% if vendor.notes %}
+              {{ vendor.notes|linebreaksbr }}
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Related services -->
+  <div class="card mb-4">
+    <div class="card-header">
+      <span class="fw-semibold">Services Provided</span>
+    </div>
+    <div class="card-body">
+      {% if vendor.services.all %}
+        <ul class="list-group list-group-flush">
+          {% for service in vendor.services.all %}
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+              <a href="{% url 'services:service_detail' service.pk %}">
+                {{ service.name }}
+              </a>
+              <span class="text-muted small">
+                {{ service.get_category_display }}
+              </span>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="text-muted mb-0">No services linked to this vendor.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Actions -->
+  <div class="text-center">
+    <a href="{% url 'services:vendor_list' %}" class="btn btn-outline-secondary me-2">
+      Back to Vendors
+    </a>
+    {% if is_admin or is_manager %}
+      <a href="{% url 'services:vendor_update' vendor.pk %}" class="btn btn-primary">
+        Edit Vendor
+      </a>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

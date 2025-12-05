@@ -1,0 +1,136 @@
+{% extends "ui/base.html" %}
+{% load roles_tags %}
+{% block title %}Venue – {{ venue.name }}{% endblock %}
+{% block content %}
+{% is_admin as is_admin %}
+{% is_manager as is_manager %}
+{% is_employee as is_employee %}
+<div class="container py-3 max-w-2xl">
+
+  <!-- Page Heading -->
+  <h2 class="fw-semibold mb-4">{{ venue.name }}</h2>
+
+  <!-- Single Info Card -->
+  <div class="card shadow-sm mb-3">
+    <div class="card-body">
+
+      <!-- General + Contact in grid -->
+      <div class="row">
+        <!-- General -->
+        <div class="col-md-6 mb-3">
+          <h6 class="text-uppercase text-muted small mb-2">General</h6>
+
+          <div class="mb-2">
+            <div class="text-uppercase text-muted small">Type</div>
+            <div class="fw-semibold">{{ venue.get_venue_type_display }}</div>
+          </div>
+
+          <div class="mb-2">
+            <div class="text-uppercase text-muted small">Capacity</div>
+            <div class="fw-semibold">
+              {% if venue.capacity %}
+                {{ venue.capacity }}
+              {% else %}
+                -
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="mb-2">
+            <div class="text-uppercase text-muted small">Notes</div>
+            <div class="fw-semibold">
+              {{ venue.notes|default:"-" }}
+            </div>
+          </div>
+        </div>
+
+        <!-- Contact -->
+        <div class="col-md-6 mb-3">
+          <h6 class="text-uppercase text-muted small mb-2">Contact</h6>
+
+          <div class="mb-2">
+            <div class="text-uppercase text-muted small">Contact Person</div>
+            <div class="fw-semibold">{{ venue.contact_name|default:"-" }}</div>
+          </div>
+
+          <div class="mb-2">
+            <div class="text-uppercase text-muted small">Phone</div>
+            <div class="fw-semibold">{{ venue.phone|default:"-" }}</div>
+          </div>
+
+          <div class="mb-2">
+            <div class="text-uppercase text-muted small">Email</div>
+            <div class="fw-semibold">
+              {% if venue.email %}
+                <a href="mailto:{{ venue.email }}">{{ venue.email }}</a>
+              {% else %}
+                -
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Address -->
+      <div class="mt-3">
+        <h6 class="text-uppercase text-muted small mb-2">Address</h6>
+        <div class="fw-semibold">
+          {% if venue.address_line1 %}{{ venue.address_line1 }}<br>{% endif %}
+          {% if venue.address_line2 %}{{ venue.address_line2 }}<br>{% endif %}
+
+          {% if venue.city or venue.district or venue.state or venue.country %}
+            {% if venue.city %}{{ venue.city }}{% endif %}
+            {% if venue.district %}
+              {% if venue.city %}, {% endif %}{{ venue.district }}
+            {% endif %}
+            {% if venue.state %}
+              {% if venue.city or venue.district %}, {% endif %}{{ venue.state }}
+            {% endif %}
+            {% if venue.country %}
+              {% if venue.city or venue.district or venue.state %}, {% endif %}{{ venue.country }}
+            {% endif %}
+          {% else %}
+            -
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Related Events -->
+      <div class="mt-3">
+        <h6 class="text-uppercase text-muted small mb-2">Events at this Venue</h6>
+        {% if venue.events.all %}
+          <ul class="list-group list-group-flush">
+            {% for event in venue.events.all %}
+              <li class="list-group-item px-0">
+                <a href="{% url 'events:event_detail' event.pk %}">
+                  {{ event.name }} – {{ event.date }}
+                </a>
+              </li>
+            {% empty %}
+              <li class="list-group-item px-0 text-muted">
+                No events linked yet.
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="text-muted mb-0">No events linked yet.</p>
+        {% endif %}
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Action Buttons (centered) -->
+  <div class="d-flex justify-content-center gap-2">
+    {% if is_admin or is_manager %}
+      <a href="{% url 'events:venue_update' venue.pk %}" class="btn btn-primary">
+        Edit Venue
+      </a>
+    {% endif %}
+    <a href="{% url 'events:venue_list' %}" class="btn btn-outline-secondary">
+      Back to Venues
+    </a>
+  </div>
+
+</div>
+{% endblock %}
