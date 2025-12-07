@@ -242,6 +242,13 @@
                     <a class="nav-link" href="{% url 'services:inventory_list' %}">Inventory</a>
                 </nav>
 
+                <p class="text-uppercase text-white-50 small mb-2">messaging</p>
+                <nav class="nav flex-column mb-3">
+                    <a class="nav-link" href="{% url 'messaging:template_list' %}">Templates</a>
+                    <a class="nav-link" href="{% url 'messaging:campaign_list' %}">Campign</a>
+                    <a class="nav-link" href="{% url 'messaging:integration_settings' %}">Settings</a>
+                </nav>
+
                 <p class="text-uppercase text-white-50 small mb-2">Communication &amp; Docs</p>
                 <nav class="nav flex-column mb-3">
                     <a class="nav-link" href="{% url 'common:ticket_list' %}">Rise a Ticket</a>

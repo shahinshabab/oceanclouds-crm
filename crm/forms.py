@@ -68,6 +68,7 @@ class ContactForm(BootstrapModelForm):
             "phone",
             "whatsapp",
             "is_primary",
+            "allow_marketing",
             "notes",
         ]
         widgets = {

@@ -1,0 +1,92 @@
+{% extends "ui/base.html" %}
+{% load roles_tags %}
+
+{% block title %}Template – {{ template_obj.name }}{% endblock %}
+
+{% block content %}
+{% is_admin request.user as is_admin %}
+{% is_manager request.user as is_manager %}
+{% is_employee request.user as is_employee %}
+
+<div class="container py-3">
+
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h2 class="fw-semibold mb-1">{{ template_obj.name }}</h2>
+      <small class="text-muted">
+        Code: <code>{{ template_obj.code }}</code> ·
+        Usage: {{ template_obj.get_usage_display }} ·
+        Channel: {{ template_obj.get_channel_display }}
+      </small>
+    </div>
+    <div class="text-end">
+      {% if is_admin or is_manager %}
+        <a href="{% url 'messaging:template_update' template_obj.pk %}"
+           class="btn btn-primary btn-sm">
+          Edit Template
+        </a>
+      {% endif %}
+      <a href="{% url 'messaging:template_list' %}" class="btn btn-secondary btn-sm">
+        Back to Templates
+      </a>
+    </div>
+  </div>
+
+  <div class="card mb-4 shadow-sm">
+    <div class="card-body">
+
+      <div class="row mb-3">
+        <div class="col-md-4 mb-3 mb-md-0">
+          <div class="text-muted small text-uppercase">Usage</div>
+          <div class="fw-semibold mt-1">{{ template_obj.get_usage_display }}</div>
+        </div>
+        <div class="col-md-4 mb-3 mb-md-0">
+          <div class="text-muted small text-uppercase">Channel</div>
+          <div class="fw-semibold mt-1">{{ template_obj.get_channel_display }}</div>
+        </div>
+        <div class="col-md-4">
+          <div class="text-muted small text-uppercase">Status</div>
+          <div class="fw-semibold mt-1">
+            {% if template_obj.is_active %}
+              <span class="badge bg-success">Active</span>
+            {% else %}
+              <span class="badge bg-secondary">Inactive</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <div class="mb-3">
+        <div class="text-muted small text-uppercase">Subject</div>
+        <div class="fw-semibold mt-1">
+          {{ template_obj.subject|default:"—" }}
+        </div>
+      </div>
+
+      <div class="mb-3">
+        <div class="text-muted small text-uppercase">Plain Text Body</div>
+        <div class="mt-1">
+          {{ template_obj.body_text|linebreaks|default:"<span class='text-muted'>—</span>"|safe }}
+        </div>
+      </div>
+
+      <div class="mb-3">
+        <div class="text-muted small text-uppercase">HTML Body</div>
+        <div class="mt-1 border rounded p-2 bg-light">
+          {{ template_obj.body_html|safe|default:"<span class='text-muted'>—</span>" }}
+        </div>
+      </div>
+
+      <div class="mb-3">
+        <div class="text-muted small text-uppercase">Description</div>
+        <div class="mt-1">
+          {{ template_obj.description|linebreaks|default:"<span class='text-muted'>—</span>"|safe }}
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+{% endblock %}

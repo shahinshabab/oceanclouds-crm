@@ -62,6 +62,7 @@ LOCAL_APPS = [
     "sales",
     "events",
     "services",
+    "messaging",
     "projects.apps.ProjectsConfig",
     "ui",
 ]
