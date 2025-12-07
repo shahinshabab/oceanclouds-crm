@@ -22,8 +22,6 @@ from django.contrib.auth.models import Group  # kept if you later need
 from .forms import ProjectForm, TaskForm, TaskStatusForm, DeliverableForm
 from .models import (
     Project,
-    ProjectSnapshot,
-    ProjectSnapshotStatus,
     Task,
     Deliverable,
     TaskStatus,
@@ -1168,62 +1166,3 @@ class DeliverableStatusUpdateView(StaffAllMixin, View):
         deliverable.save(update_fields=["status", "delivered_at", "first_started_at"])
 
         return JsonResponse({"success": True, "status": new_status})
-
-
-
-
-class ProjectSnapshotListView(AdminOnlyMixin, ListView):
-    model = ProjectSnapshot
-    template_name = "projects/project_snapshot_list.html"
-    context_object_name = "snapshots"
-    paginate_by = 20
-
-    def get_queryset(self):
-        qs = (
-            ProjectSnapshot.objects
-            .select_related("project", "client", "main_event")
-            # ❌ removed invalid .prefetch_related("project__events__persons")
-        )
-
-        request = self.request
-        q = request.GET.get("q")
-        status = request.GET.get("status")
-        payment_state = request.GET.get("payment_state")
-
-        if q:
-            # ✅ Safe: search only on snapshot.client_name for now
-            qs = qs.filter(
-                Q(client_name__icontains=q)
-            )
-            # If you later confirm EventPerson relations, we can extend this to bride/groom.
-
-        if status:
-            qs = qs.filter(status=status)
-
-        if payment_state == "fully_paid":
-            qs = qs.filter(is_fully_paid=True)
-        elif payment_state == "not_fully_paid":
-            qs = qs.filter(is_fully_paid=False)
-
-        return qs.distinct()
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["status_choices"] = ProjectSnapshotStatus.choices
-        context["current_status"] = self.request.GET.get("status", "")
-        context["current_payment_state"] = self.request.GET.get("payment_state", "")
-        context["q"] = self.request.GET.get("q", "")
-        return context
-
-
-class ProjectSnapshotDetailView(AdminOnlyMixin, DetailView):
-    model = ProjectSnapshot
-    template_name = "projects/project_snapshot_detail.html"
-    context_object_name = "snapshot"
-
-    def get_queryset(self):
-        return (
-            ProjectSnapshot.objects
-            .select_related("project", "client", "main_event")
-        )
-

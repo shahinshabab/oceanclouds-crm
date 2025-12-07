@@ -89,7 +89,11 @@ class Contact(TimeStamped, Owned):
         default=False,
         help_text="Main decision maker / primary point of contact for this client.",
     )
-
+    # For marketing / offers
+    allow_marketing = models.BooleanField(
+        default=True,
+        help_text="Allow anniversary wishes, offers, and follow-up messages.",
+    )
     notes = models.TextField(blank=True)
 
     class Meta:

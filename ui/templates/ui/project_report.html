@@ -1,0 +1,278 @@
+{% extends "ui/base.html" %}
+{% load roles_tags %}
+
+{% block title %}Project Report{% endblock %}
+
+{% block content %}
+{% is_admin request.user as is_admin %}
+{% is_manager request.user as is_manager %}
+{% is_employee request.user as is_employee %}
+
+<div class="container py-3">
+
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h2 class="fw-semibold mb-0">Project Report</h2>
+      <small class="text-muted">
+        Analytics for projects between
+        <strong>{{ date_from }}</strong> and <strong>{{ date_to }}</strong>.
+      </small>
+    </div>
+    <div>
+      <a href="{% url 'common:project_report_pdf' %}?status={{ status_filter }}&date_from={{ date_from }}&date_to={{ date_to }}"
+         class="btn btn-outline-secondary btn-sm">
+        Download PDF
+      </a>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <form method="get" class="row g-2 align-items-end mb-3">
+    <!-- Status -->
+    <div class="col-md-3">
+      <label class="form-label mb-1 small text-muted">Project Status</label>
+      <select name="status" class="form-select">
+        <option value="">All statuses</option>
+        {% for value,label in project_status_choices %}
+          <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>
+            {{ label }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <!-- From date -->
+    <div class="col-md-3">
+      <label class="form-label mb-1 small text-muted">From date</label>
+      <input type="date"
+             name="date_from"
+             value="{{ date_from|date:'Y-m-d' }}"
+             class="form-control">
+    </div>
+
+    <!-- To date -->
+    <div class="col-md-3">
+      <label class="form-label mb-1 small text-muted">To date</label>
+      <input type="date"
+             name="date_to"
+             value="{{ date_to|date:'Y-m-d' }}"
+             class="form-control">
+    </div>
+
+    <!-- Apply button -->
+    <div class="col-md-3">
+      <button type="submit" class="btn btn-outline-secondary w-100">
+        Apply
+      </button>
+    </div>
+  </form>
+
+  <!-- SECTION 1: Projects started in period -->
+  <div class="card mb-3 border-0 shadow-sm">
+    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+      <span class="fw-semibold">Projects started in this period</span>
+      <span class="badge bg-secondary">
+        {{ started_metrics|length }} project{{ started_metrics|length|pluralize }}
+      </span>
+    </div>
+    <div class="card-body p-0">
+      {% if started_metrics %}
+        <div class="table-responsive" style="max-height: 360px; overflow-y: auto;">
+          <table class="table table-sm mb-0 align-middle">
+            <thead class="table-light">
+              <tr>
+                <th>Project</th>
+                <th>Client</th>
+                <th>Manager</th>
+                <th>Progress</th>
+                <th>Tasks</th>
+                <th>Deliverables</th>
+                <th>Avg start delay (Task / Deliv)</th>
+                <th>Avg Task completion (Photo / Video)</th>
+                <th>Avg Deliv completion (Dig / Phys / Mix)</th>
+                <th>Files (Img / Vid)</th>
+                <th>Deliverables size (MB)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in started_metrics %}
+                <tr>
+                  <td>
+                    <a href="{{ row.project.get_absolute_url }}">
+                      {{ row.project.name }}
+                    </a>
+                    <div class="progress mt-1" style="height: 4px;">
+                      <div class="progress-bar"
+                           role="progressbar"
+                           style="width: {{ row.progress_percent }}%;"
+                           aria-valuenow="{{ row.progress_percent }}"
+                           aria-valuemin="0"
+                           aria-valuemax="100">
+                      </div>
+                    </div>
+                    <small class="text-muted">{{ row.project.status|capfirst }}</small>
+                  </td>
+                  <td>{{ row.project.client }}</td>
+                  <td>{{ row.project.manager|default:"—" }}</td>
+                  <td>{{ row.progress_percent }}%</td>
+                  <td>
+                    {{ row.tasks_completed }}/{{ row.tasks_total }}
+                  </td>
+                  <td>
+                    {{ row.deliverables_delivered }}/{{ row.deliverables_total }}
+                  </td>
+                  <td>
+                    {% if row.avg_task_start_delay_hours %}
+                      {{ row.avg_task_start_delay_hours|floatformat:1 }}h
+                    {% else %}-{% endif %}
+                    /
+                    {% if row.avg_deliv_start_delay_hours %}
+                      {{ row.avg_deliv_start_delay_hours|floatformat:1 }}h
+                    {% else %}-{% endif %}
+                  </td>
+                  <td>
+                    {% if row.avg_image_task_hours %}
+                      {{ row.avg_image_task_hours|floatformat:1 }}h
+                    {% else %}-{% endif %}
+                    /
+                    {% if row.avg_video_task_hours %}
+                      {{ row.avg_video_task_hours|floatformat:1 }}h
+                    {% else %}-{% endif %}
+                  </td>
+                  <td>
+                    {% if row.avg_digital_deliv_hours %}
+                      {{ row.avg_digital_deliv_hours|floatformat:1 }}h
+                    {% else %}-{% endif %}
+                    /
+                    {% if row.avg_physical_deliv_hours %}
+                      {{ row.avg_physical_deliv_hours|floatformat:1 }}h
+                    {% else %}-{% endif %}
+                    /
+                    {% if row.avg_mixed_deliv_hours %}
+                      {{ row.avg_mixed_deliv_hours|floatformat:1 }}h
+                    {% else %}-{% endif %}
+                  </td>
+                  <td>
+                    {{ row.image_file_count }} / {{ row.video_file_count }}
+                    <br>
+                    <small class="text-muted">Total: {{ row.total_file_count }}</small>
+                  </td>
+                  <td>
+                    {{ row.total_deliverable_size_mb|floatformat:2 }}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="p-3 text-muted small">
+          No projects started in this period with the selected filters.
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- SECTION 2: Projects completed in period -->
+  <div class="card mb-3 border-0 shadow-sm">
+    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+      <span class="fw-semibold">Projects completed in this period</span>
+      <span class="badge bg-secondary">
+        {{ completed_metrics|length }} project{{ completed_metrics|length|pluralize }}
+      </span>
+    </div>
+    <div class="card-body p-0">
+      {% if completed_metrics %}
+        <div class="table-responsive" style="max-height: 360px; overflow-y: auto;">
+          <table class="table table-sm mb-0 align-middle">
+            <thead class="table-light">
+              <tr>
+                <th>Project</th>
+                <th>Client</th>
+                <th>Manager</th>
+                <th>Progress</th>
+                <th>Tasks</th>
+                <th>Deliverables</th>
+                <th>Avg start delay (Task / Deliv)</th>
+                <th>Avg Task completion (Photo / Video)</th>
+                <th>Avg Deliv completion (Dig / Phys / Mix)</th>
+                <th>Files (Img / Vid)</th>
+                <th>Deliverables size (MB)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in completed_metrics %}
+                <tr>
+                  <td>
+                    <a href="{{ row.project.get_absolute_url }}">
+                      {{ row.project.name }}
+                    </a>
+                    <div class="progress mt-1" style="height: 4px;">
+                      <div class="progress-bar bg-success"
+                           role="progressbar"
+                           style="width: {{ row.progress_percent }}%;"
+                           aria-valuenow="{{ row.progress_percent }}"
+                           aria-valuemin="0"
+                           aria-valuemax="100">
+                      </div>
+                    </div>
+                    <small class="text-muted">{{ row.project.status|capfirst }}</small>
+                  </td>
+                  <td>{{ row.project.client }}</td>
+                  <td>{{ row.project.manager|default:"—" }}</td>
+                  <td>{{ row.progress_percent }}%</td>
+                  <td>{{ row.tasks_completed }}/{{ row.tasks_total }}</td>
+                  <td>{{ row.deliverables_delivered }}/{{ row.deliverables_total }}</td>
+                  <td>
+                    {% if row.avg_task_start_delay_hours %}
+                      {{ row.avg_task_start_delay_hours|floatformat:1 }}h
+                    {% else %}-{% endif %}
+                    /
+                    {% if row.avg_deliv_start_delay_hours %}
+                      {{ row.avg_deliv_start_delay_hours|floatformat:1 }}h
+                    {% else %}-{% endif %}
+                  </td>
+                  <td>
+                    {% if row.avg_image_task_hours %}
+                      {{ row.avg_image_task_hours|floatformat:1 }}h
+                    {% else %}-{% endif %}
+                    /
+                    {% if row.avg_video_task_hours %}
+                      {{ row.avg_video_task_hours|floatformat:1 }}h
+                    {% else %}-{% endif %}
+                  </td>
+                  <td>
+                    {% if row.avg_digital_deliv_hours %}
+                      {{ row.avg_digital_deliv_hours|floatformat:1 }}h
+                    {% else %}-{% endif %}
+                    /
+                    {% if row.avg_physical_deliv_hours %}
+                      {{ row.avg_physical_deliv_hours|floatformat:1 }}h
+                    {% else %}-{% endif %}
+                    /
+                    {% if row.avg_mixed_deliv_hours %}
+                      {{ row.avg_mixed_deliv_hours|floatformat:1 }}h
+                    {% else %}-{% endif %}
+                  </td>
+                  <td>
+                    {{ row.image_file_count }} / {{ row.video_file_count }}
+                    <br>
+                    <small class="text-muted">Total: {{ row.total_file_count }}</small>
+                  </td>
+                  <td>{{ row.total_deliverable_size_mb|floatformat:2 }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="p-3 text-muted small">
+          No projects completed in this period with the selected filters.
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}

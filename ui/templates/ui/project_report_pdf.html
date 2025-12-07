@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Project Report</title>
+  <style>
+    body { font-family: sans-serif; font-size: 12px; }
+    h1, h2, h3 { margin: 0 0 6px 0; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+    th, td { border: 1px solid #ccc; padding: 4px 6px; }
+    th { background: #f3f3f3; }
+    .section-title { margin-top: 16px; margin-bottom: 4px; }
+    .small { font-size: 10px; color: #666; }
+  </style>
+</head>
+<body>
+  <h1>Project Report</h1>
+  <p class="small">
+    Period: {{ date_from }} to {{ date_to }}
+  </p>
+
+  <!-- Started projects -->
+  <h2 class="section-title">Projects started in this period ({{ started_metrics|length }})</h2>
+  {% if started_metrics %}
+    <table>
+      <thead>
+        <tr>
+          <th>Project</th>
+          <th>Client</th>
+          <th>Manager</th>
+          <th>Progress</th>
+          <th>Tasks (done/total)</th>
+          <th>Deliv (done/total)</th>
+          <th>Delay start T/D (h)</th>
+          <th>Task comp P/V (h)</th>
+          <th>Deliv comp D/P/M (h)</th>
+          <th>Files Img/Vid (Tot)</th>
+          <th>Deliv size (MB)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in started_metrics %}
+          <tr>
+            <td>{{ row.project.name }}</td>
+            <td>{{ row.project.client }}</td>
+            <td>{{ row.project.manager|default:"—" }}</td>
+            <td>{{ row.progress_percent }}%</td>
+            <td>{{ row.tasks_completed }}/{{ row.tasks_total }}</td>
+            <td>{{ row.deliverables_delivered }}/{{ row.deliverables_total }}</td>
+            <td>
+              {% if row.avg_task_start_delay_hours %}
+                {{ row.avg_task_start_delay_hours|floatformat:1 }}
+              {% else %}-{% endif %}
+              /
+              {% if row.avg_deliv_start_delay_hours %}
+                {{ row.avg_deliv_start_delay_hours|floatformat:1 }}
+              {% else %}-{% endif %}
+            </td>
+            <td>
+              {% if row.avg_image_task_hours %}
+                {{ row.avg_image_task_hours|floatformat:1 }}
+              {% else %}-{% endif %}
+              /
+              {% if row.avg_video_task_hours %}
+                {{ row.avg_video_task_hours|floatformat:1 }}
+              {% else %}-{% endif %}
+            </td>
+            <td>
+              {% if row.avg_digital_deliv_hours %}
+                {{ row.avg_digital_deliv_hours|floatformat:1 }}
+              {% else %}-{% endif %}
+              /
+              {% if row.avg_physical_deliv_hours %}
+                {{ row.avg_physical_deliv_hours|floatformat:1 }}
+              {% else %}-{% endif %}
+              /
+              {% if row.avg_mixed_deliv_hours %}
+                {{ row.avg_mixed_deliv_hours|floatformat:1 }}
+              {% else %}-{% endif %}
+            </td>
+            <td>
+              {{ row.image_file_count }}/{{ row.video_file_count }}
+              ({{ row.total_file_count }})
+            </td>
+            <td>{{ row.total_deliverable_size_mb|floatformat:2 }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="small">No projects started in this period.</p>
+  {% endif %}
+
+  <!-- Completed projects -->
+  <h2 class="section-title">Projects completed in this period ({{ completed_metrics|length }})</h2>
+  {% if completed_metrics %}
+    <table>
+      <thead>
+        <tr>
+          <th>Project</th>
+          <th>Client</th>
+          <th>Manager</th>
+          <th>Progress</th>
+          <th>Tasks (done/total)</th>
+          <th>Deliv (done/total)</th>
+          <th>Delay start T/D (h)</th>
+          <th>Task comp P/V (h)</th>
+          <th>Deliv comp D/P/M (h)</th>
+          <th>Files Img/Vid (Tot)</th>
+          <th>Deliv size (MB)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in completed_metrics %}
+          <tr>
+            <td>{{ row.project.name }}</td>
+            <td>{{ row.project.client }}</td>
+            <td>{{ row.project.manager|default:"—" }}</td>
+            <td>{{ row.progress_percent }}%</td>
+            <td>{{ row.tasks_completed }}/{{ row.tasks_total }}</td>
+            <td>{{ row.deliverables_delivered }}/{{ row.deliverables_total }}</td>
+            <td>
+              {% if row.avg_task_start_delay_hours %}
+                {{ row.avg_task_start_delay_hours|floatformat:1 }}
+              {% else %}-{% endif %}
+              /
+              {% if row.avg_deliv_start_delay_hours %}
+                {{ row.avg_deliv_start_delay_hours|floatformat:1 }}
+              {% else %}-{% endif %}
+            </td>
+            <td>
+              {% if row.avg_image_task_hours %}
+                {{ row.avg_image_task_hours|floatformat:1 }}
+              {% else %}-{% endif %}
+              /
+              {% if row.avg_video_task_hours %}
+                {{ row.avg_video_task_hours|floatformat:1 }}
+              {% else %}-{% endif %}
+            </td>
+            <td>
+              {% if row.avg_digital_deliv_hours %}
+                {{ row.avg_digital_deliv_hours|floatformat:1 }}
+              {% else %}-{% endif %}
+              /
+              {% if row.avg_physical_deliv_hours %}
+                {{ row.avg_physical_deliv_hours|floatformat:1 }}
+              {% else %}-{% endif %}
+              /
+              {% if row.avg_mixed_deliv_hours %}
+                {{ row.avg_mixed_deliv_hours|floatformat:1 }}
+              {% else %}-{% endif %}
+            </td>
+            <td>
+              {{ row.image_file_count }}/{{ row.video_file_count }}
+              ({{ row.total_file_count }})
+            </td>
+            <td>{{ row.total_deliverable_size_mb|floatformat:2 }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="small">No projects completed in this period.</p>
+  {% endif %}
+
+</body>
+</html>

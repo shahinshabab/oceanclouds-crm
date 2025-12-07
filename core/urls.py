@@ -44,6 +44,7 @@ urlpatterns = [
 
     # Common (tickets, communications, notifications)
     path("common/", include("common.urls", namespace="common")),  
+    path("messaging/", include("messaging.urls", namespace="messaging")),
 ]
 
 

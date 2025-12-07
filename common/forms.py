@@ -3,7 +3,7 @@ from django import forms
 from django.contrib.auth import get_user_model
 from django.contrib.auth.forms import UserCreationForm, UserChangeForm
 from django.contrib.auth.models import Group, Permission
- 
+from django.db.models import Q
 from .models import SystemSetting ,Ticket
 
 User = get_user_model()
@@ -117,3 +117,74 @@ class TicketForm(BootstrapModelForm):
             "description": forms.Textarea(attrs={"rows": 4}),
             # screenshot uses default ClearableFileInput
         }
+
+
+
+class AnalyticsReportFilterForm(forms.Form):
+    REPORT_CRM = "crm"
+    REPORT_PERFORMANCE = "performance"
+
+    REPORT_CHOICES = [
+        (REPORT_CRM, "CRM Report"),
+        (REPORT_PERFORMANCE, "Performance Report"),
+    ]
+
+    report_type = forms.ChoiceField(
+        choices=REPORT_CHOICES,
+        required=True,
+        label="Report Type",
+        widget=forms.Select(attrs={"class": "form-select", "id": "id_report_type"}),
+    )
+
+    # One dropdown for managers + employees
+    employee = forms.ModelChoiceField(
+        queryset=User.objects.none(),      # set in __init__
+        required=False,
+        label="Manager / Employee",
+        widget=forms.Select(attrs={"class": "form-select", "id": "id_employee"}),
+    )
+
+    date_from = forms.DateField(
+        required=False,
+        label="Date From",
+        widget=forms.DateInput(
+            attrs={"type": "date", "class": "form-control", "id": "id_date_from"}
+        ),
+    )
+
+    date_to = forms.DateField(
+        required=False,
+        label="Date To",
+        widget=forms.DateInput(
+            attrs={"type": "date", "class": "form-control", "id": "id_date_to"}
+        ),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # Include ALL managers + employees in the dropdown
+        qs = (
+            User.objects.filter(
+                Q(groups__name="Manager") | Q(groups__name="Employee")
+            )
+            .distinct()
+            .order_by("first_name", "username")
+        )
+        self.fields["employee"].queryset = qs
+
+        # This is the "All" option (used for CRM only, JS hides it for performance)
+        self.fields["employee"].empty_label = "All Managers"
+
+        # Label options as "Name (Manager)" / "Name (Employee)"
+        def label_from_instance(user):
+            name = user.get_full_name() or user.username
+            groups = set(user.groups.values_list("name", flat=True))
+            if "Manager" in groups:
+                return f"{name} (Manager)"
+            elif "Employee" in groups:
+                return f"{name} (Employee)"
+            return name
+
+        self.fields["employee"].label_from_instance = label_from_instance
+

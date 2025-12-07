@@ -65,16 +65,6 @@ urlpatterns = [
     ),
     path("ajax/load-tasks/", views.ajax_load_tasks, name="ajax_load_tasks"),
     path(
-        "snapshots/",
-        views.ProjectSnapshotListView.as_view(),
-        name="project_snapshot_list",
-    ),
-    path(
-        "snapshots/<int:pk>/",
-        views.ProjectSnapshotDetailView.as_view(),
-        name="project_snapshot_detail",
-    ),
-    path(
         "overview/<int:pk>/",
         views.ProjectOverviewView.as_view(),
         name="project_overview",
