@@ -1,0 +1,629 @@
+{% extends "ui/base.html" %}
+
+{% block title %}Analytics & Reports | Wedding CRM{% endblock %}
+
+{% block content %}
+<div class="container py-3">
+
+  <!-- Page Header -->
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h1 class="h3 mb-0">Analytics & Reports</h1>
+      <small class="text-muted">
+        Filter CRM and performance data, then generate on-screen and PDF reports.
+      </small>
+    </div>
+  </div>
+
+  <!-- Filters Row -->
+  <form method="get" class="card border-0 shadow-sm mb-3">
+    <div class="card-body">
+      <div class="row g-3 align-items-end">
+
+        <!-- 1. Report Type -->
+        <div class="col-md-3">
+          <label class="form-label" for="{{ form.report_type.id_for_label }}">
+            {{ form.report_type.label }}
+          </label>
+          {{ form.report_type }}
+        </div>
+
+        <!-- 2. Manager / Employee filter -->
+        <div class="col-md-3">
+          <label class="form-label" for="{{ form.employee.id_for_label }}">
+            {{ form.employee.label }}
+          </label>
+          {{ form.employee }}
+        </div>
+
+        <!-- 3. Date From -->
+        <div class="col-md-2">
+          <label class="form-label" for="{{ form.date_from.id_for_label }}">
+            {{ form.date_from.label }}
+          </label>
+          {{ form.date_from }}
+        </div>
+
+        <!-- 4. Date To -->
+        <div class="col-md-2">
+          <label class="form-label" for="{{ form.date_to.id_for_label }}">
+            {{ form.date_to.label }}
+          </label>
+          {{ form.date_to }}
+        </div>
+
+        <!-- Apply / Generate Button -->
+        <div class="col-md-2 d-grid">
+          <button type="submit" class="btn btn-primary">
+            Apply / Generate
+          </button>
+        </div>
+      </div>
+    </div>
+  </form>
+
+  <!-- Results + Download Section -->
+  <div class="card border-0 shadow-sm">
+    <div class="card-body">
+
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <div>
+          <h5 class="mb-0">
+            {% if report_type == "crm" %}
+              CRM & Sales Summary
+            {% elif report_type == "performance" %}
+              Performance Summary
+            {% elif report_type %}
+              {{ report_type|title }} Summary
+            {% else %}
+              Report Output
+            {% endif %}
+          </h5>
+          {% if subject_label %}
+            <small class="text-muted">
+              For: <strong>{{ subject_label }}</strong>
+            </small>
+          {% endif %}
+        </div>
+
+        {% if report and report.has_any_data %}
+          <!-- Download PDF button (enabled when we have data) -->
+          <a
+            href="{% url 'common:analytics_report_pdf' %}?{{ request.GET.urlencode }}"
+            class="btn btn-outline-secondary btn-sm"
+          >
+            Download PDF
+          </a>
+        {% else %}
+          <!-- Disabled button state -->
+          <button class="btn btn-outline-secondary btn-sm" disabled>
+            Download PDF
+          </button>
+        {% endif %}
+      </div>
+
+      {% if not report_type %}
+        <p class="text-muted mb-0">
+          Select a <strong>Report Type</strong>, owner, and date range, then click
+          <strong>Apply / Generate</strong> to see a report.
+        </p>
+      {% else %}
+        {% if show_no_data %}
+          <div class="alert alert-warning mb-0">
+            {% if report_type == "performance" and not selected_user %}
+              Please select a Manager or Employee to view performance.
+            {% else %}
+              No data found for the selected filters.
+            {% endif %}
+          </div>
+        {% elif report %}
+          {% if report_type == "crm" %}
+            {# ===================== CRM + SALES REPORT ===================== #}
+
+            <!-- Top summary row -->
+            <div class="row g-3 mb-3">
+              <div class="col-md-3">
+                <div class="border rounded p-2 h-100">
+                  <div class="small text-muted">Inquiries</div>
+                  <div class="h5 mb-1">{{ report.crm.inquiries.total }}</div>
+                  <div class="small text-success">
+                    Converted to Lead: {{ report.crm.inquiries.converted }}
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="border rounded p-2 h-100">
+                  <div class="small text-muted">Leads</div>
+                  <div class="h5 mb-1">{{ report.crm.leads.total }}</div>
+                  <div class="small text-success">
+                    Converted to Client: {{ report.crm.leads.converted_to_client }}
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="border rounded p-2 h-100">
+                  <div class="small text-muted">Clients</div>
+                  <div class="h5 mb-1">{{ report.crm.clients.total }}</div>
+                  <div class="small text-muted">
+                    Total active clients in selected period.
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="border rounded p-2 h-100">
+                  <div class="small text-muted">Client Reviews</div>
+                  <div class="h5 mb-1">{{ report.crm.reviews.total }}</div>
+                  <div class="small text-muted">
+                    Avg rating:
+                    {% if report.crm.reviews.avg_rating %}
+                      <strong>{{ report.crm.reviews.avg_rating }}</strong> / 5
+                    {% else %}
+                      <span class="text-muted">n/a</span>
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Sales summary row -->
+            <div class="row g-3 mb-3">
+              <div class="col-md-3">
+                <div class="border rounded p-2 h-100">
+                  <div class="small text-muted">Deals</div>
+                  <div class="h5 mb-1">{{ report.sales.deals.total }}</div>
+                  <div class="small">
+                    Won: <span class="text-success">{{ report.sales.deals.won }}</span> ·
+                    Lost: <span class="text-danger">{{ report.sales.deals.lost }}</span> ·
+                    On Hold: {{ report.sales.deals.on_hold }}
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="border rounded p-2 h-100">
+                  <div class="small text-muted">Proposals</div>
+                  <div class="h5 mb-1">{{ report.sales.proposals.total }}</div>
+                  <div class="small">
+                    Sent: {{ report.sales.proposals.sent }} ·
+                    Accepted: <span class="text-success">{{ report.sales.proposals.accepted }}</span> ·
+                    Rejected: <span class="text-danger">{{ report.sales.proposals.rejected }}</span>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="border rounded p-2 h-100">
+                  <div class="small text-muted">Contracts</div>
+                  <div class="h5 mb-1">{{ report.sales.contracts.total }}</div>
+                  <div class="small">
+                    Signed: <span class="text-success">{{ report.sales.contracts.signed }}</span>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="border rounded p-2 h-100">
+                  <div class="small text-muted">Invoices</div>
+                  <div class="h5 mb-1">{{ report.sales.invoices.total }}</div>
+                  <div class="small">
+                    Invoiced: {{ report.sales.invoices.total_invoiced_amount }} ·
+                    Paid: <span class="text-success">{{ report.sales.invoices.total_amount_paid }}</span> ·
+                    Due: <span class="text-danger">{{ report.sales.invoices.outstanding_balance }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Breakdown tables -->
+            <div class="row g-3">
+              <!-- Inquiries by channel -->
+              <div class="col-md-6">
+                <h6 class="mb-1">Inquiries by Channel</h6>
+                {% if report.crm.inquiries.by_channel %}
+                  <table class="table table-sm table-bordered mb-0">
+                    <thead class="table-light">
+                      <tr>
+                        <th>Channel</th>
+                        <th class="text-end">Count</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for row in report.crm.inquiries.by_channel %}
+                        <tr>
+                          <td>{{ row.label }}</td>
+                          <td class="text-end">{{ row.total }}</td>
+                        </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                {% else %}
+                  <p class="text-muted small mb-0">No inquiries in this period.</p>
+                {% endif %}
+              </div>
+
+              <!-- Leads by source -->
+              <div class="col-md-6">
+                <h6 class="mb-1">Leads by Source</h6>
+                {% if report.crm.leads.by_source %}
+                  <table class="table table-sm table-bordered mb-0">
+                    <thead class="table-light">
+                      <tr>
+                        <th>Source</th>
+                        <th class="text-end">Count</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for row in report.crm.leads.by_source %}
+                        <tr>
+                          <td>{{ row.label }}</td>
+                          <td class="text-end">{{ row.total }}</td>
+                        </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                {% else %}
+                  <p class="text-muted small mb-0">No leads in this period.</p>
+                {% endif %}
+              </div>
+            </div>
+
+          {% elif report_type == "performance" %}
+            {# ===================== PERFORMANCE REPORT ===================== #}
+
+            <!-- High-level summary -->
+            <div class="row g-3 mb-3">
+              <div class="col-md-3">
+                <div class="border rounded p-2 h-100">
+                  <div class="small text-muted">Role (for this report)</div>
+                  <div class="h5 mb-1 text-capitalize">
+                    {{ report.mode|default:"unknown" }}
+                  </div>
+                  <div class="small text-muted">
+                    Manager → created items · Employee → assigned items
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="border rounded p-2 h-100">
+                  <div class="small text-muted">
+                    {% if report.mode == "manager" %}
+                      Tasks Created
+                    {% else %}
+                      Tasks Assigned
+                    {% endif %}
+                  </div>
+                  <div class="h5 mb-1">{{ report.summary.tasks_count }}</div>
+                  <div class="small text-muted">
+                    Total tasks in selected period.
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="border rounded p-2 h-100">
+                  <div class="small text-muted">
+                    {% if report.mode == "manager" %}
+                      Deliverables Created
+                    {% else %}
+                      Deliverables Assigned
+                    {% endif %}
+                  </div>
+                  <div class="h5 mb-1">{{ report.summary.deliverables_count }}</div>
+                  <div class="small text-muted">
+                    Total deliverables in selected period.
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="border rounded p-2 h-100">
+                  <div class="small text-muted">Total Logged Hours</div>
+                  <div class="h5 mb-1">
+                    {{ report.worklog.total_hours|floatformat:1 }}
+                  </div>
+                  <div class="small text-muted">
+                    Across {{ report.worklog.sessions }} work sessions.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Time performance row -->
+            <div class="row g-3 mb-3">
+              <div class="col-md-4">
+                <div class="border rounded p-2 h-100">
+                  <div class="small text-muted">Active Days</div>
+                  <div class="h5 mb-1">{{ report.worklog.days_with_activity }}</div>
+                  <div class="small text-muted">
+                    Avg hours / active day:
+                    {{ report.worklog.avg_hours_per_active_day|floatformat:1 }}
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="border rounded p-2 h-100">
+                  <div class="small text-muted">Avg Delay to Start (hrs)</div>
+                  <div class="h5 mb-1">
+                    {{ report.timing.avg_start_delay_hours|floatformat:1 }}
+                  </div>
+                  <div class="small text-muted">
+                    From creation → first time set to In Progress.
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="border rounded p-2 h-100">
+                  <div class="small text-muted">Avg Time to Complete (hrs)</div>
+                  <div class="h5 mb-1">
+                    {{ report.timing.avg_completion_time_hours|floatformat:1 }}
+                  </div>
+                  <div class="small text-muted">
+                    From first start → Completed/Delivered.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Status breakdown -->
+            <div class="row g-3 mb-3">
+              <div class="col-md-6">
+                <h6 class="mb-1">
+                  Tasks by Status ({{ report.tasks.total }})
+                </h6>
+                {% if report.tasks.by_status %}
+                  <table class="table table-sm table-bordered mb-0">
+                    <thead class="table-light">
+                      <tr>
+                        <th>Status</th>
+                        <th class="text-end">Count</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for row in report.tasks.by_status %}
+                        <tr>
+                          <td>{{ row.label }}</td>
+                          <td class="text-end">{{ row.total }}</td>
+                        </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                {% else %}
+                  <p class="text-muted small mb-0">No tasks in this period.</p>
+                {% endif %}
+              </div>
+
+              <div class="col-md-6">
+                <h6 class="mb-1">
+                  Deliverables by Status ({{ report.deliverables.total }})
+                </h6>
+                {% if report.deliverables.by_status %}
+                  <table class="table table-sm table-bordered mb-0">
+                    <thead class="table-light">
+                      <tr>
+                        <th>Status</th>
+                        <th class="text-end">Count</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for row in report.deliverables.by_status %}
+                        <tr>
+                          <td>{{ row.label }}</td>
+                          <td class="text-end">{{ row.total }}</td>
+                        </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                {% else %}
+                  <p class="text-muted small mb-0">No deliverables in this period.</p>
+                {% endif %}
+              </div>
+            </div>
+
+            <!-- Completion time by category -->
+            <div class="row g-3">
+              <div class="col-md-6">
+                <h6 class="mb-1">Avg Completion Time by Task Type (hrs)</h6>
+                {% if report.timing.task_type_completion %}
+                  <table class="table table-sm table-bordered mb-0">
+                    <thead class="table-light">
+                      <tr>
+                        <th>Type</th>
+                        <th class="text-end">Avg Hours</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for row in report.timing.task_type_completion %}
+                        <tr>
+                          <td>{{ row.label }}</td>
+                          <td class="text-end">{{ row.avg_hours|floatformat:1 }}</td>
+                        </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                {% else %}
+                  <p class="text-muted small mb-0">No completed tasks with timing.</p>
+                {% endif %}
+              </div>
+
+              <div class="col-md-6">
+                <h6 class="mb-1">Avg Completion Time by Deliverable Type (hrs)</h6>
+                {% if report.timing.deliverable_type_completion %}
+                  <table class="table table-sm table-bordered mb-0">
+                    <thead class="table-light">
+                      <tr>
+                        <th>Type</th>
+                        <th class="text-end">Avg Hours</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for row in report.timing.deliverable_type_completion %}
+                        <tr>
+                          <td>{{ row.label }}</td>
+                          <td class="text-end">{{ row.avg_hours|floatformat:1 }}</td>
+                        </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                {% else %}
+                  <p class="text-muted small mb-0">No completed deliverables with timing.</p>
+                {% endif %}
+              </div>
+            </div>
+
+          {% else %}
+            <p class="text-muted mb-0">
+              Unknown report type selected.
+            </p>
+          {% endif %}
+        {% else %}
+          <p class="text-muted mb-0">
+            No data available for the selected filters.
+          </p>
+        {% endif %}
+      {% endif %}
+
+    </div>
+  </div>
+
+</div>
+<script>
+(function () {
+  function debugLog() {
+    if (window.ANALYTICS_DEBUG) {
+      console.log.apply(console, arguments);
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    // Try multiple selectors so it works with crispy / form prefixes
+    const reportSelect =
+      document.querySelector('select#id_report_type') ||
+      document.querySelector('select[name$="report_type"]') ||
+      document.querySelector('select[name*="report_type"]');
+
+    const userSelect =
+      document.querySelector('select#id_employee') ||
+      document.querySelector('select[name$="employee"]') ||
+      document.querySelector('select[name*="employee"]');
+
+    if (!reportSelect || !userSelect) {
+      console.warn('Analytics filters: report_type or employee select not found');
+      return;
+    }
+
+    debugLog('Found reportSelect:', reportSelect);
+    debugLog('Found userSelect:', userSelect);
+
+    // Build metadata for each option: kind ("all" / "user"), role ("manager" / "employee")
+    const allOptions = Array.from(userSelect.options).map(function (opt) {
+      let kind = opt.dataset.kind || '';
+      let role = opt.dataset.role || '';
+
+      const value = (opt.value || '').toLowerCase();
+      const text = (opt.textContent || '').toLowerCase();
+
+      // Guess "All" option if not explicitly tagged
+      if (!kind) {
+        if (value === '' || value === 'all') {
+          kind = 'all';
+        } else {
+          kind = 'user';
+        }
+      }
+
+      // Guess role from text if not explicitly tagged
+      if (!role) {
+        if (text.includes('manager')) {
+          role = 'manager';
+        } else if (text.includes('employee') || text.includes('staff')) {
+          role = 'employee';
+        }
+      }
+
+      debugLog('Option meta:', {
+        value: opt.value,
+        text: opt.textContent.trim(),
+        kind: kind,
+        role: role
+      });
+
+      return {
+        opt: opt,
+        kind: kind,
+        role: role
+      };
+    });
+
+    function applyVisibility(reportType) {
+      debugLog('applyVisibility → reportType =', reportType);
+
+      const previousValue = userSelect.value;
+
+      // Reset
+      allOptions.forEach(function (item) {
+        item.opt.hidden = false;
+        item.opt.disabled = false;
+        item.opt.style.display = '';
+      });
+
+      if (reportType === 'crm') {
+        // CRM:
+        //  - show "All" (kind="all")
+        //  - show only MANAGERS (role="manager")
+        //  - hide EMPLOYEES
+        allOptions.forEach(function (item) {
+          if (item.kind === 'all') {
+            return; // keep visible
+          }
+          if (item.role !== 'manager') {
+            item.opt.hidden = true;
+            item.opt.disabled = true;
+            item.opt.style.display = 'none';
+          }
+        });
+      } else if (reportType === 'performance') {
+        // PERFORMANCE:
+        //  - hide "All"
+        //  - show managers + employees ("user")
+        allOptions.forEach(function (item) {
+          if (item.kind === 'all') {
+            item.opt.hidden = true;
+            item.opt.disabled = true;
+            item.opt.style.display = 'none';
+          }
+        });
+      } else {
+        // Unknown / empty type → do nothing extra
+      }
+
+      // If selected option is now hidden, pick first visible option
+      const stillVisible = allOptions.find(function (item) {
+        return (
+          item.opt.value === previousValue &&
+          !item.opt.disabled &&
+          !item.opt.hidden
+        );
+      });
+
+      if (!stillVisible) {
+        const firstVisible = allOptions.find(function (item) {
+          return !item.opt.disabled && !item.opt.hidden;
+        });
+        userSelect.value = firstVisible ? firstVisible.opt.value : '';
+      }
+
+      debugLog('Final selected value:', userSelect.value);
+    }
+
+    // Initial run
+    applyVisibility(reportSelect.value);
+
+    // Attach change handler — **even if base.js also attaches events, this is independent**
+    reportSelect.addEventListener('change', function () {
+      applyVisibility(reportSelect.value);
+    });
+
+    // Optional: expose function globally in case you want to call from HTML:
+    // <select ... onchange="window.updateAnalyticsEmployeeOptions(this.value)">
+    window.updateAnalyticsEmployeeOptions = applyVisibility;
+  });
+})();
+</script>
+
+
+{% endblock %}

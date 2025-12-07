@@ -192,7 +192,8 @@
                 <p class="text-uppercase text-white-50 small mb-2">Overview</p>
                 <nav class="nav flex-column mb-3">
                     <a class="nav-link" href="{% url 'ui:home' %}">Dashboard</a>
-                    <a class="nav-link" href="#">Analytics & Reports</a>
+                    <a class="nav-link" href="{% url 'common:analytics_report' %}">Analytics & Reports</a>
+                    <a class="nav-link" href="{% url 'common:project_report' %}">Project Reports</a>
                 </nav>
 
                 <p class="text-uppercase text-white-50 small mb-2">CRM</p>
@@ -225,7 +226,6 @@
 
                 <p class="text-uppercase text-white-50 small mb-2">Projects &amp; Tasks</p>
                 <nav class="nav flex-column mb-3">
-                    <a class="nav-link" href="{% url 'projects:project_snapshot_list' %}">Project Snapshot</a>
                     <a class="nav-link" href="{% url 'projects:project_list' %}">Projects</a>
                     <a class="nav-link" href="{% url 'projects:project_kanban' %}">Project Kanban</a>
                     <a class="nav-link" href="{% url 'projects:task_list' %}">Tasks</a>
@@ -261,8 +261,7 @@
                 <p class="text-uppercase text-white-50 small mb-2">Overview</p>
                 <nav class="nav flex-column mb-3">
                     <a class="nav-link active" href="{% url 'ui:home' %}">Dashboard</a>
-                    <a class="nav-link" href="#">Team Overview</a>
-                    <a class="nav-link" href="#">Performance</a>
+                    <a class="nav-link" href="{% url 'common:analytics_report' %}">Analytics & Reports</a>
                 </nav>
 
                 <p class="text-uppercase text-white-50 small mb-2">CRM</p>
@@ -323,7 +322,6 @@
                 <p class="text-uppercase text-white-50 small mb-2">My Day</p>
                 <nav class="nav flex-column mb-3">
                     <a class="nav-link active" href="{% url 'ui:home' %}">My Dashboard</a>
-                    <a class="nav-link" href="#">Today&apos;s Schedule</a>
                 </nav>
                 <p class="text-uppercase text-white-50 small mb-2">Tasks</p>
                 <nav class="nav flex-column mb-3">
@@ -340,13 +338,12 @@
                 <p class="text-uppercase text-white-50 small mb-2">Events</p>
                 <nav class="nav flex-column mb-3">
                     <a class="nav-link" href="{% url 'events:event_calendar' %}">Event Calendar</a>
-                    <a class="nav-link" href="#">Event Checklists</a>
+                    <a class="nav-link" href="{% url 'events:checklist_list' %}">Event Checklists</a>
                 </nav>
 
                 <p class="text-uppercase text-white-50 small mb-2">Communication</p>
                 <nav class="nav flex-column mb-3">
                     <a class="nav-link" href="{% url 'common:ticket_list' %}">Rise a Ticket</a>
-                    <a class="nav-link" href="#">My Notes</a>
                     <a class="nav-link" href="#">Team Messages</a>
                 </nav>
             {% endif %}

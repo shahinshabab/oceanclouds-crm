@@ -2,7 +2,7 @@
 
 from django.urls import path
 from .views_support import TicketListView, TicketCreateView, TicketDetailView
-from .views import NotificationListView, mark_notification_read
+from .views import NotificationListView,mark_notification_read,analytics_report,analytics_report_pdf,project_report,project_report_pdf
 
 app_name = "common"
 
@@ -16,4 +16,16 @@ urlpatterns = [
         mark_notification_read,
         name="notification_mark_read",
     ),
+    path(
+        "analytics/",
+        analytics_report,
+        name="analytics_report",
+    ),
+    path(
+        "analytics/pdf/",
+        analytics_report_pdf,
+        name="analytics_report_pdf",
+    ),
+    path("report/", project_report, name="project_report"),
+    path("report/pdf/", project_report_pdf, name="project_report_pdf"),
 ]

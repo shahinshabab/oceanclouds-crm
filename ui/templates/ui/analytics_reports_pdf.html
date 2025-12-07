@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>
+    {% if report_type == "performance" %}
+      Performance Analytics Report
+    {% else %}
+      CRM &amp; Sales Analytics Report
+    {% endif %}
+  </title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 11px;
+      margin: 20px;
+    }
+    h1 {
+      font-size: 18px;
+      margin-bottom: 4px;
+    }
+    h2 {
+      font-size: 14px;
+      margin-top: 14px;
+      margin-bottom: 4px;
+    }
+    h3 {
+      font-size: 12px;
+      margin-top: 10px;
+      margin-bottom: 3px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 4px;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 4px 6px;
+      text-align: left;
+    }
+    th {
+      background: #f3f3f3;
+    }
+    .meta {
+      margin-top: 4px;
+      font-size: 10px;
+    }
+    .grid {
+      display: table;
+      width: 100%;
+      table-layout: fixed;
+    }
+    .grid-col {
+      display: table-cell;
+      vertical-align: top;
+      padding-right: 8px;
+    }
+    .grid-col:last-child {
+      padding-right: 0;
+    }
+    .small {
+      font-size: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>
+    {% if report_type == "performance" %}
+      Performance Analytics Report
+    {% else %}
+      CRM &amp; Sales Analytics Report
+    {% endif %}
+  </h1>
+
+  <div class="meta">
+    <div><strong>For:</strong> {{ subject_label }}</div>
+    <div>
+      <strong>Date Range:</strong>
+      {% if form.cleaned_data.date_from %}
+        {{ form.cleaned_data.date_from }}
+      {% else %}
+        (no start date)
+      {% endif %}
+      &rarr;
+      {% if form.cleaned_data.date_to %}
+        {{ form.cleaned_data.date_to }}
+      {% else %}
+        (no end date)
+      {% endif %}
+    </div>
+  </div>
+
+  {% if not report or not report.has_any_data %}
+    <p class="small" style="margin-top: 10px;">
+      No data found for the selected filters.
+    </p>
+  {% else %}
+    {% if report_type == "performance" %}
+      {# ===================== PERFORMANCE REPORT (PDF) ===================== #}
+
+      <h2>Summary</h2>
+      <table>
+        <tbody>
+          <tr>
+            <th style="width: 40%;">Role (for this report)</th>
+            <td style="width: 60%; text-transform: capitalize;">
+              {{ report.mode|default:"unknown" }}
+            </td>
+          </tr>
+          <tr>
+            <th>
+              {% if report.mode == "manager" %}
+                Tasks Created
+              {% else %}
+                Tasks Assigned
+              {% endif %}
+            </th>
+            <td>{{ report.summary.tasks_count }}</td>
+          </tr>
+          <tr>
+            <th>
+              {% if report.mode == "manager" %}
+                Deliverables Created
+              {% else %}
+                Deliverables Assigned
+              {% endif %}
+            </th>
+            <td>{{ report.summary.deliverables_count }}</td>
+          </tr>
+          <tr>
+            <th>Total Logged Hours</th>
+            <td>{{ report.worklog.total_hours|floatformat:1 }}</td>
+          </tr>
+          <tr>
+            <th>Work Sessions</th>
+            <td>{{ report.worklog.sessions }}</td>
+          </tr>
+          <tr>
+            <th>Active Days</th>
+            <td>{{ report.worklog.days_with_activity }}</td>
+          </tr>
+          <tr>
+            <th>Avg Hours per Active Day</th>
+            <td>{{ report.worklog.avg_hours_per_active_day|floatformat:1 }}</td>
+          </tr>
+          <tr>
+            <th>Avg Delay to Start (hrs)</th>
+            <td>{{ report.timing.avg_start_delay_hours|floatformat:1 }}</td>
+          </tr>
+          <tr>
+            <th>Avg Time to Complete (hrs)</th>
+            <td>{{ report.timing.avg_completion_time_hours|floatformat:1 }}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>Status Breakdown</h2>
+      <div class="grid">
+        <div class="grid-col">
+          <h3>Tasks by Status ({{ report.tasks.total }})</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Status</th>
+                <th style="text-align: right;">Count</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% if report.tasks.by_status %}
+                {% for row in report.tasks.by_status %}
+                  <tr>
+                    <td>{{ row.label }}</td>
+                    <td style="text-align: right;">{{ row.total }}</td>
+                  </tr>
+                {% endfor %}
+              {% else %}
+                <tr>
+                  <td colspan="2">No tasks in this period.</td>
+                </tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="grid-col">
+          <h3>Deliverables by Status ({{ report.deliverables.total }})</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Status</th>
+                <th style="text-align: right;">Count</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% if report.deliverables.by_status %}
+                {% for row in report.deliverables.by_status %}
+                  <tr>
+                    <td>{{ row.label }}</td>
+                    <td style="text-align: right;">{{ row.total }}</td>
+                  </tr>
+                {% endfor %}
+              {% else %}
+                <tr>
+                  <td colspan="2">No deliverables in this period.</td>
+                </tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <h2>Completion Time by Category</h2>
+      <div class="grid">
+        <div class="grid-col">
+          <h3>Tasks</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th style="text-align: right;">Avg Hours</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% if report.timing.task_type_completion %}
+                {% for row in report.timing.task_type_completion %}
+                  <tr>
+                    <td>{{ row.label }}</td>
+                    <td style="text-align: right;">{{ row.avg_hours|floatformat:1 }}</td>
+                  </tr>
+                {% endfor %}
+              {% else %}
+                <tr>
+                  <td colspan="2">No completed tasks with timing.</td>
+                </tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="grid-col">
+          <h3>Deliverables</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th style="text-align: right;">Avg Hours</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% if report.timing.deliverable_type_completion %}
+                {% for row in report.timing.deliverable_type_completion %}
+                  <tr>
+                    <td>{{ row.label }}</td>
+                    <td style="text-align: right;">{{ row.avg_hours|floatformat:1 }}</td>
+                  </tr>
+                {% endfor %}
+              {% else %}
+                <tr>
+                  <td colspan="2">No completed deliverables with timing.</td>
+                </tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    {% else %}
+      {# ===================== CRM & SALES REPORT (PDF) ===================== #}
+
+      <!-- CRM Summary -->
+      <h2>CRM Summary</h2>
+      <div class="grid">
+        <div class="grid-col">
+          <h3>Inquiries</h3>
+          <table>
+            <tbody>
+              <tr>
+                <th>Total Inquiries</th>
+                <td>{{ report.crm.inquiries.total }}</td>
+              </tr>
+              <tr>
+                <th>Converted to Lead</th>
+                <td>{{ report.crm.inquiries.converted }}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h3>Inquiries by Channel</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Channel</th>
+                <th style="text-align: right;">Count</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% if report.crm.inquiries.by_channel %}
+                {% for row in report.crm.inquiries.by_channel %}
+                  <tr>
+                    <td>{{ row.label }}</td>
+                    <td style="text-align: right;">{{ row.total }}</td>
+                  </tr>
+                {% endfor %}
+              {% else %}
+                <tr>
+                  <td colspan="2">No inquiries in this period.</td>
+                </tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="grid-col">
+          <h3>Leads &amp; Clients</h3>
+          <table>
+            <tbody>
+              <tr>
+                <th>Total Leads</th>
+                <td>{{ report.crm.leads.total }}</td>
+              </tr>
+              <tr>
+                <th>Leads Converted to Client</th>
+                <td>{{ report.crm.leads.converted_to_client }}</td>
+              </tr>
+              <tr>
+                <th>Total Clients</th>
+                <td>{{ report.crm.clients.total }}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h3>Leads by Source</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Source</th>
+                <th style="text-align: right;">Count</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% if report.crm.leads.by_source %}
+                {% for row in report.crm.leads.by_source %}
+                  <tr>
+                    <td>{{ row.label }}</td>
+                    <td style="text-align: right;">{{ row.total }}</td>
+                  </tr>
+                {% endfor %}
+              {% else %}
+                <tr>
+                  <td colspan="2">No leads in this period.</td>
+                </tr>
+              {% endif %}
+            </tbody>
+          </table>
+
+          <h3>Client Reviews</h3>
+          <table>
+            <tbody>
+              <tr>
+                <th>Total Reviews</th>
+                <td>{{ report.crm.reviews.total }}</td>
+              </tr>
+              <tr>
+                <th>Average Rating</th>
+                <td>
+                  {% if report.crm.reviews.avg_rating %}
+                    {{ report.crm.reviews.avg_rating }} / 5
+                  {% else %}
+                    n/a
+                  {% endif %}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Sales Summary -->
+      <h2>Sales Summary</h2>
+      <div class="grid">
+        <div class="grid-col">
+          <h3>Deals</h3>
+          <table>
+            <tbody>
+              <tr>
+                <th>Total Deals</th>
+                <td>{{ report.sales.deals.total }}</td>
+              </tr>
+              <tr>
+                <th>Won</th>
+                <td>{{ report.sales.deals.won }}</td>
+              </tr>
+              <tr>
+                <th>Lost</th>
+                <td>{{ report.sales.deals.lost }}</td>
+              </tr>
+              <tr>
+                <th>On Hold</th>
+                <td>{{ report.sales.deals.on_hold }}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h3>Proposals</h3>
+          <table>
+            <tbody>
+              <tr>
+                <th>Total Proposals</th>
+                <td>{{ report.sales.proposals.total }}</td>
+              </tr>
+              <tr>
+                <th>Sent</th>
+                <td>{{ report.sales.proposals.sent }}</td>
+              </tr>
+              <tr>
+                <th>Accepted</th>
+                <td>{{ report.sales.proposals.accepted }}</td>
+              </tr>
+              <tr>
+                <th>Rejected</th>
+                <td>{{ report.sales.proposals.rejected }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="grid-col">
+          <h3>Contracts</h3>
+          <table>
+            <tbody>
+              <tr>
+                <th>Total Contracts</th>
+                <td>{{ report.sales.contracts.total }}</td>
+              </tr>
+              <tr>
+                <th>Signed</th>
+                <td>{{ report.sales.contracts.signed }}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h3>Invoices &amp; Payments</h3>
+          <table>
+            <tbody>
+              <tr>
+                <th>Total Invoices</th>
+                <td>{{ report.sales.invoices.total }}</td>
+              </tr>
+              <tr>
+                <th>Total Invoiced Amount</th>
+                <td>{{ report.sales.invoices.total_invoiced_amount }}</td>
+              </tr>
+              <tr>
+                <th>Total Amount Paid</th>
+                <td>{{ report.sales.invoices.total_amount_paid }}</td>
+              </tr>
+              <tr>
+                <th>Outstanding Balance</th>
+                <td>{{ report.sales.invoices.outstanding_balance }}</td>
+              </tr>
+              <tr>
+                <th>Total Payments</th>
+                <td>{{ report.sales.payments.total }}</td>
+              </tr>
+              <tr>
+                <th>Sum of Payments</th>
+                <td>{{ report.sales.payments.total_amount }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    {% endif %}
+  {% endif %}
+
+</body>
+</html>
