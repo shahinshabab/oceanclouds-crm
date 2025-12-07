@@ -128,6 +128,59 @@
     </div>
   </div>
 
+  <!-- Related: Vendors -->
+  <div class="card mb-3">
+    <div class="card-header bg-white border-0">
+      <h6 class="text-uppercase text-muted small mb-0">Vendors</h6>
+    </div>
+    <div class="card-body">
+      {% if event.event_vendors.all %}
+        <ul class="list-group list-group-flush">
+          {% for ev in event.event_vendors.all %}
+            <li class="list-group-item px-0">
+              <div class="fw-semibold">
+                {{ ev.vendor }} – {{ ev.role }}
+                {% if ev.is_confirmed %}
+                  <span class="badge bg-success ms-2">Confirmed</span>
+                {% endif %}
+              </div>
+              {% if ev.service %}
+                <div class="small text-muted">Service: {{ ev.service }}</div>
+              {% endif %}
+            </li>
+          {% empty %}
+            <li class="list-group-item px-0 text-muted">No vendors assigned.</li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="text-muted mb-0">No vendors assigned.</p>
+      {% endif %}
+    </div>
+  </div>
+  <!-- Related: Checklist -->
+  <div class="card mb-4">
+    <div class="card-header bg-white border-0">
+      <h6 class="text-uppercase text-muted small mb-0">Checklist</h6>
+    </div>
+    <div class="card-body">
+      {% if event.checklist_items.all %}
+        <ul class="list-group list-group-flush">
+          {% for item in event.checklist_items.all %}
+            <li class="list-group-item px-0 d-flex align-items-center">
+              <input class="form-check-input me-2" type="checkbox" disabled {% if item.is_done %}checked{% endif %}>
+              <span{% if item.is_done %} class="text-muted text-decoration-line-through"{% endif %}>
+                {{ item.title }}
+              </span>
+            </li>
+          {% empty %}
+            <li class="list-group-item px-0 text-muted">No checklist items.</li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="text-muted mb-0">No checklist items.</p>
+      {% endif %}
+    </div>
+  </div>
   <!-- Related: Timeline -->
   <div class="card mb-3">
     <div class="card-header bg-white border-0">
@@ -160,61 +213,6 @@
         </ul>
       {% else %}
         <p class="text-muted mb-0">No timeline items defined.</p>
-      {% endif %}
-    </div>
-  </div>
-
-  <!-- Related: Vendors -->
-  <div class="card mb-3">
-    <div class="card-header bg-white border-0">
-      <h6 class="text-uppercase text-muted small mb-0">Vendors</h6>
-    </div>
-    <div class="card-body">
-      {% if event.event_vendors.all %}
-        <ul class="list-group list-group-flush">
-          {% for ev in event.event_vendors.all %}
-            <li class="list-group-item px-0">
-              <div class="fw-semibold">
-                {{ ev.vendor }} – {{ ev.role }}
-                {% if ev.is_confirmed %}
-                  <span class="badge bg-success ms-2">Confirmed</span>
-                {% endif %}
-              </div>
-              {% if ev.service %}
-                <div class="small text-muted">Service: {{ ev.service }}</div>
-              {% endif %}
-            </li>
-          {% empty %}
-            <li class="list-group-item px-0 text-muted">No vendors assigned.</li>
-          {% endfor %}
-        </ul>
-      {% else %}
-        <p class="text-muted mb-0">No vendors assigned.</p>
-      {% endif %}
-    </div>
-  </div>
-
-  <!-- Related: Checklist -->
-  <div class="card mb-4">
-    <div class="card-header bg-white border-0">
-      <h6 class="text-uppercase text-muted small mb-0">Checklist</h6>
-    </div>
-    <div class="card-body">
-      {% if event.checklist_items.all %}
-        <ul class="list-group list-group-flush">
-          {% for item in event.checklist_items.all %}
-            <li class="list-group-item px-0 d-flex align-items-center">
-              <input class="form-check-input me-2" type="checkbox" disabled {% if item.is_done %}checked{% endif %}>
-              <span{% if item.is_done %} class="text-muted text-decoration-line-through"{% endif %}>
-                {{ item.title }}
-              </span>
-            </li>
-          {% empty %}
-            <li class="list-group-item px-0 text-muted">No checklist items.</li>
-          {% endfor %}
-        </ul>
-      {% else %}
-        <p class="text-muted mb-0">No checklist items.</p>
       {% endif %}
     </div>
   </div>
