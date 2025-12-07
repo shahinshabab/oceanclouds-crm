@@ -73,39 +73,3 @@ def has_role(context, user=None, *roles):
     user_obj = _get_user_from_context(context, user)
     return bool(user_has_role(user_obj, *roles))
 
-
-def _in_group(user, group_name: str) -> bool:
-    """
-    Small helper: check if a user belongs to a given Django Group.
-    """
-    if not user or not getattr(user, "is_authenticated", False):
-        return False
-    return user.groups.filter(name=group_name).exists()
-
-
-@register.simple_tag(takes_context=True)
-def is_crm_manager(context, user=None):
-    """
-    A manager whose scope is CRM (clients/leads/deals/etc.).
-    Uses:
-      {% is_crm_manager as is_crm_manager %}
-      or
-      {% is_crm_manager request.user as is_crm_manager %}
-    """
-    user_obj = _get_user_from_context(context, user)
-    if not user_has_role(user_obj, ROLE_MANAGER):
-        return False
-    return _in_group(user_obj, "CRM_MANAGER")
-
-
-@register.simple_tag(takes_context=True)
-def is_project_manager(context, user=None):
-    """
-    A manager whose scope is Projects (projects/tasks/deliverables).
-    Uses:
-      {% is_project_manager as is_project_manager %}
-    """
-    user_obj = _get_user_from_context(context, user)
-    if not user_has_role(user_obj, ROLE_MANAGER):
-        return False
-    return _in_group(user_obj, "PROJECT_MANAGER")

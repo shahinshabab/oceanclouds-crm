@@ -37,33 +37,3 @@ class StaffAllMixin(RolesRequiredMixin):
     allowed_roles = [ROLE_ADMIN, ROLE_MANAGER, ROLE_EMPLOYEE]
 
 
-class CRMManagerMixin(RolesRequiredMixin):
-    """
-    Manager who handles CRM (clients, leads, deals, invoices).
-    Requires:
-        - ROLE_MANAGER
-        - Group = "CRM_MANAGER"
-    """
-    allowed_roles = [ROLE_MANAGER]
-
-    def test_func(self):
-        user = self.request.user
-        if not user_has_role(user, ROLE_MANAGER):
-            return False
-        return Group.objects.filter(name="CRM_MANAGER", user=user).exists()
-
-
-class ProjectManagerMixin(RolesRequiredMixin):
-    """
-    Manager who handles Projects (projects, tasks, deliverables).
-    Requires:
-        - ROLE_MANAGER
-        - Group = "PROJECT_MANAGER"
-    """
-    allowed_roles = [ROLE_MANAGER]
-
-    def test_func(self):
-        user = self.request.user
-        if not user_has_role(user, ROLE_MANAGER):
-            return False
-        return Group.objects.filter(name="PROJECT_MANAGER", user=user).exists()

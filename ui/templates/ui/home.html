@@ -1,65 +1,685 @@
+{# ui/home.html #}
 {% extends "ui/base.html" %}
 
 {% block title %}Dashboard | OCEAN CLOUDS{% endblock %}
 
 {% block content %}
-<div class="mb-4">
-    <h1 class="h3 mb-1">Dashboard</h1>
-    <p class="text-muted mb-0">
-        It works 🎉 — welcome to your Wedding CRM.<br>
-        <span class="fw-semibold">
-            You are logged in as: {{ role_label }}
-        </span>
-    </p>
-</div>
 
-<div class="row g-3">
+<style>
+  .kpi-card-body {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 100%;
+  }
+  .kpi-card-separator {
+    border-top: 1px solid rgba(0, 0, 0, 0.05);
+    margin-top: 0.5rem;
+    padding-top: 0.35rem;
+  }
+  .kpi-trend-label {
+    font-size: 0.8rem;
+  }
+  .dashboard-table-wrapper {
+    height: 260px;        /* fixed height → ~6 rows visible */
+    overflow-y: auto;     /* scroll if more */
+    overflow-x: auto;     /* safety for many columns */
+  }
+</style>
 
-    {# Example: you can later customize these cards per role if you like #}
+{% if is_admin or is_manager %}
+  {# -------- ADMIN / MANAGER: Row 1 (pending ONLY) -------- #}
+  <div class="row g-3 mb-2">
     <div class="col-md-4">
-        <div class="card border-0 shadow-sm">
-            <div class="card-body">
-                <div class="small text-muted mb-1">Leads</div>
-                <div class="h4 mb-0">0</div>
-                <div class="small text-muted">
-                    {% if is_admin or is_crm_manager %}
-                        New this week (all clients)
-                    {% elif is_employee %}
-                        New leads assigned to you
-                    {% else %}
-                        New this week
-                    {% endif %}
-                </div>
-            </div>
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body kpi-card-body">
+          <div>
+            <div class="small text-muted mb-1">Pending Projects</div>
+            <div class="h3 mb-0">{{ pending_projects_count|default:0 }}</div>
+          </div>
+          <div class="kpi-card-separator">
+            <span class="kpi-trend-label text-muted">
+              Currently open projects
+            </span>
+          </div>
         </div>
+      </div>
     </div>
 
     <div class="col-md-4">
-        <div class="card border-0 shadow-sm">
-            <div class="card-body">
-                <div class="small text-muted mb-1">Active Deals / Projects</div>
-                <div class="h4 mb-0">0</div>
-                <div class="small text-muted">
-                    {% if is_project_manager %}
-                        Active projects you manage
-                    {% elif is_crm_manager %}
-                        Active deals in pipeline
-                    {% else %}
-                        In pipeline
-                    {% endif %}
-                </div>
-            </div>
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body kpi-card-body">
+          <div>
+            <div class="small text-muted mb-1">Pending Tasks</div>
+            <div class="h3 mb-0">{{ pending_tasks_count|default:0 }}</div>
+          </div>
+          <div class="kpi-card-separator">
+            <span class="kpi-trend-label text-muted">
+              Currently open tasks
+            </span>
+          </div>
         </div>
+      </div>
     </div>
 
     <div class="col-md-4">
-        <div class="card border-0 shadow-sm">
-            <div class="card-body">
-                <div class="small text-muted mb-1">Upcoming Events</div>
-                <div class="h4 mb-0">0</div>
-                <div class="small text-muted">Next 30 days</div>
-            </div>
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body kpi-card-body">
+          <div>
+            <div class="small text-muted mb-1">Pending Deliverables</div>
+            <div class="h3 mb-0">{{ pending_deliverables_count|default:0 }}</div>
+          </div>
+          <div class="kpi-card-separator">
+            <span class="kpi-trend-label text-muted">
+              Currently open deliverables
+            </span>
+          </div>
         </div>
+      </div>
     </div>
-</div>
+  </div>
+
+  {# -------- ADMIN / MANAGER: Row 2 (monthly totals with comparison) -------- #}
+  <div class="row g-3">
+    {# Total Leads #}
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body kpi-card-body">
+          {% with current=total_leads_count prev=total_leads_prev_count pct=total_leads_pct_change %}
+            <div>
+              <div class="small text-muted mb-1">Total Leads (this month)</div>
+              <div class="d-flex justify-content-between align-items-baseline mb-1">
+                <div class="h3 mb-0">{{ current|default:0 }}</div>
+                {% if pct > 0 %}
+                  <span class="fw-semibold text-success small">
+                    <i class="bi bi-arrow-up-right"></i> {{ pct }}%
+                  </span>
+                {% elif pct < 0 %}
+                  {% with pct_str=pct|stringformat:"d" %}
+                    {% with pct_abs=pct_str|cut:"-" %}
+                      <span class="fw-semibold text-danger small">
+                        <i class="bi bi-arrow-down-right"></i> {{ pct_abs }}%
+                      </span>
+                    {% endwith %}
+                  {% endwith %}
+                {% else %}
+                  <span class="fw-semibold text-muted small">
+                    0%
+                  </span>
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="kpi-card-separator">
+              {% if pct > 0 %}
+                <span class="kpi-trend-label text-success">
+                  Higher than last month
+                </span>
+              {% elif pct < 0 %}
+                <span class="kpi-trend-label text-danger">
+                  Lower than last month
+                </span>
+              {% else %}
+                <span class="kpi-trend-label text-muted">
+                  Same as last month
+                </span>
+              {% endif %}
+            </div>
+          {% endwith %}
+        </div>
+      </div>
+    </div>
+
+    {# Total Clients #}
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body kpi-card-body">
+          {% with current=total_clients_count prev=total_clients_prev_count pct=total_clients_pct_change %}
+            <div>
+              <div class="small text-muted mb-1">Total Clients (this month)</div>
+              <div class="d-flex justify-content-between align-items-baseline mb-1">
+                <div class="h3 mb-0">{{ current|default:0 }}</div>
+                {% if pct > 0 %}
+                  <span class="fw-semibold text-success small">
+                    <i class="bi bi-arrow-up-right"></i> {{ pct }}%
+                  </span>
+                {% elif pct < 0 %}
+                  {% with pct_str=pct|stringformat:"d" %}
+                    {% with pct_abs=pct_str|cut:"-" %}
+                      <span class="fw-semibold text-danger small">
+                        <i class="bi bi-arrow-down-right"></i> {{ pct_abs }}%
+                      </span>
+                    {% endwith %}
+                  {% endwith %}
+                {% else %}
+                  <span class="fw-semibold text-muted small">
+                    0%
+                  </span>
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="kpi-card-separator">
+              {% if pct > 0 %}
+                <span class="kpi-trend-label text-success">
+                  Higher than last month
+                </span>
+              {% elif pct < 0 %}
+                <span class="kpi-trend-label text-danger">
+                  Lower than last month
+                </span>
+              {% else %}
+                <span class="kpi-trend-label text-muted">
+                  Same as last month
+                </span>
+              {% endif %}
+            </div>
+          {% endwith %}
+        </div>
+      </div>
+    </div>
+
+    {# Total Deals #}
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body kpi-card-body">
+          {% with current=total_deals_count prev=total_deals_prev_count pct=total_deals_pct_change %}
+            <div>
+              <div class="small text-muted mb-1">Total Deals (this month)</div>
+              <div class="d-flex justify-content-between align-items-baseline mb-1">
+                <div class="h3 mb-0">{{ current|default:0 }}</div>
+                {% if pct > 0 %}
+                  <span class="fw-semibold text-success small">
+                    <i class="bi bi-arrow-up-right"></i> {{ pct }}%
+                  </span>
+                {% elif pct < 0 %}
+                  {% with pct_str=pct|stringformat:"d" %}
+                    {% with pct_abs=pct_str|cut:"-" %}
+                      <span class="fw-semibold text-danger small">
+                        <i class="bi bi-arrow-down-right"></i> {{ pct_abs }}%
+                      </span>
+                    {% endwith %}
+                  {% endwith %}
+                {% else %}
+                  <span class="fw-semibold text-muted small">
+                    0%
+                  </span>
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="kpi-card-separator">
+              {% if pct > 0 %}
+                <span class="kpi-trend-label text-success">
+                  Higher than last month
+                </span>
+              {% elif pct < 0 %}
+                <span class="kpi-trend-label text-danger">
+                  Lower than last month
+                </span>
+              {% else %}
+                <span class="kpi-trend-label text-muted">
+                  Same as last month
+                </span>
+              {% endif %}
+            </div>
+          {% endwith %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+{% else %}
+  {# -------- EMPLOYEE: Row 1 (pending ONLY) -------- #}
+  <div class="row g-3 mb-2">
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body kpi-card-body">
+          <div>
+            <div class="small text-muted mb-1">My Pending Tasks</div>
+            <div class="h3 mb-0">{{ my_pending_tasks_count|default:0 }}</div>
+          </div>
+          <div class="kpi-card-separator">
+            <span class="kpi-trend-label text-muted">
+              Currently open tasks
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body kpi-card-body">
+          <div>
+            <div class="small text-muted mb-1">My Pending Deliverables</div>
+            <div class="h3 mb-0">{{ my_pending_deliverables_count|default:0 }}</div>
+          </div>
+          <div class="kpi-card-separator">
+            <span class="kpi-trend-label text-muted">
+              Currently open deliverables
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body kpi-card-body">
+          <div>
+            <div class="small text-muted mb-1">My Open Inquiries</div>
+            <div class="h3 mb-0">{{ my_inquiries_count|default:0 }}</div>
+          </div>
+          <div class="kpi-card-separator">
+            <span class="kpi-trend-label text-muted">
+              Currently open inquiries
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# -------- EMPLOYEE: Row 2 (monthly totals with comparison) -------- #}
+  <div class="row g-3">
+    {# My Completed Tasks #}
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body kpi-card-body">
+          {% with current=my_completed_tasks_count prev=my_completed_tasks_prev_count pct=my_completed_tasks_pct_change %}
+            <div>
+              <div class="small text-muted mb-1">My Completed Tasks (this month)</div>
+              <div class="d-flex justify-content-between align-items-baseline mb-1">
+                <div class="h3 mb-0">{{ current|default:0 }}</div>
+                {% if pct > 0 %}
+                  <span class="fw-semibold text-success small">
+                    <i class="bi bi-arrow-up-right"></i> {{ pct }}%
+                  </span>
+                {% elif pct < 0 %}
+                  {% with pct_str=pct|stringformat:"d" %}
+                    {% with pct_abs=pct_str|cut:"-" %}
+                      <span class="fw-semibold text-danger small">
+                        <i class="bi bi-arrow-down-right"></i> {{ pct_abs }}%
+                      </span>
+                    {% endwith %}
+                  {% endwith %}
+                {% else %}
+                  <span class="fw-semibold text-muted small">
+                    0%
+                  </span>
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="kpi-card-separator">
+              {% if pct > 0 %}
+                <span class="kpi-trend-label text-success">
+                  Higher than last month
+                </span>
+              {% elif pct < 0 %}
+                <span class="kpi-trend-label text-danger">
+                  Lower than last month
+                </span>
+              {% else %}
+                <span class="kpi-trend-label text-muted">
+                  Same as last month
+                </span>
+              {% endif %}
+            </div>
+          {% endwith %}
+        </div>
+      </div>
+    </div>
+
+    {# My Completed Deliverables #}
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body kpi-card-body">
+          {% with current=my_completed_deliverables_count prev=my_completed_deliverables_prev_count pct=my_completed_deliverables_pct_change %}
+            <div>
+              <div class="small text-muted mb-1">My Completed Deliverables (this month)</div>
+              <div class="d-flex justify-content-between align-items-baseline mb-1">
+                <div class="h3 mb-0">{{ current|default:0 }}</div>
+                {% if pct > 0 %}
+                  <span class="fw-semibold text-success small">
+                    <i class="bi bi-arrow-up-right"></i> {{ pct }}%
+                  </span>
+                {% elif pct < 0 %}
+                  {% with pct_str=pct|stringformat:"d" %}
+                    {% with pct_abs=pct_str|cut:"-" %}
+                      <span class="fw-semibold text-danger small">
+                        <i class="bi bi-arrow-down-right"></i> {{ pct_abs }}%
+                      </span>
+                    {% endwith %}
+                  {% endwith %}
+                {% else %}
+                  <span class="fw-semibold text-muted small">
+                    0%
+                  </span>
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="kpi-card-separator">
+              {% if pct > 0 %}
+                <span class="kpi-trend-label text-success">
+                  Higher than last month
+                </span>
+              {% elif pct < 0 %}
+                <span class="kpi-trend-label text-danger">
+                  Lower than last month
+                </span>
+              {% else %}
+                <span class="kpi-trend-label text-muted">
+                  Same as last month
+                </span>
+              {% endif %}
+            </div>
+          {% endwith %}
+        </div>
+      </div>
+    </div>
+
+    {# My Total Inquiries Handled #}
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body kpi-card-body">
+          {% with current=my_total_inquiries_count prev=my_total_inquiries_prev_count pct=my_total_inquiries_pct_change %}
+            <div>
+              <div class="small text-muted mb-1">Total Inquiries Handled (this month)</div>
+              <div class="d-flex justify-content-between align-items-baseline mb-1">
+                <div class="h3 mb-0">{{ current|default:0 }}</div>
+                {% if pct > 0 %}
+                  <span class="fw-semibold text-success small">
+                    <i class="bi bi-arrow-up-right"></i> {{ pct }}%
+                  </span>
+                {% elif pct < 0 %}
+                  {% with pct_str=pct|stringformat:"d" %}
+                    {% with pct_abs=pct_str|cut:"-" %}
+                      <span class="fw-semibold text-danger small">
+                        <i class="bi bi-arrow-down-right"></i> {{ pct_abs }}%
+                      </span>
+                    {% endwith %}
+                  {% endwith %}
+                {% else %}
+                  <span class="fw-semibold text-muted small">
+                    0%
+                  </span>
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="kpi-card-separator">
+              {% if pct > 0 %}
+                <span class="kpi-trend-label text-success">
+                  Higher than last month
+                </span>
+              {% elif pct < 0 %}
+                <span class="kpi-trend-label text-danger">
+                  Lower than last month
+                </span>
+              {% else %}
+                <span class="kpi-trend-label text-muted">
+                  Same as last month
+                </span>
+              {% endif %}
+            </div>
+          {% endwith %}
+        </div>
+      </div>
+    </div>
+  </div>
+{% endif %}
+
+{% if is_admin or is_manager %}
+
+  {# ----- List 1: Pending Projects (full width, with completion %) ----- #}
+  <div class="mt-3 mb-4">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h5 class="mb-0">Pending Projects</h5>
+          <span class="small text-muted">Top 10 by due date</span>
+        </div>
+
+        {% if pending_projects_list %}
+          <div class="table-responsive dashboard-table-wrapper">
+            <table class="table table-sm align-middle mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>Project</th>
+                  <th>Client</th>
+                  <th>Manager</th>
+                  <th>Due Date</th>
+                  <th>Completion</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for project in pending_projects_list %}
+                  <tr>
+                    <td>
+                      <a href="{{ project.get_absolute_url }}">
+                        {{ project.name }}
+                      </a>
+                    </td>
+                    <td>{{ project.client }}</td>
+                    <td>{{ project.manager|default:"—" }}</td>
+                    <td>
+                      {{ project.due_date|date:"d M Y"|default:"—" }}
+                    </td>
+                    <td>
+                      {{ project.completion_percent }}%
+                    </td>
+                    <td>
+                      <span class="badge bg-secondary text-capitalize">
+                        {{ project.get_status_display }}
+                      </span>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p class="text-muted mb-0">No pending projects found.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  {# ----- List 2: Pending Tasks + Deliverables (full width, 2 cols) ----- #}
+  <div class="mt-3 mb-4">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h5 class="mb-0">Pending Tasks &amp; Deliverables</h5>
+          <span class="small text-muted">Top 10 of each</span>
+        </div>
+
+        <div class="row g-3">
+          <div class="col-md-6">
+            <h6 class="small text-muted text-uppercase mb-2">Tasks</h6>
+            {% if pending_tasks_list %}
+              <div class="table-responsive dashboard-table-wrapper">
+                <table class="table table-sm align-middle mb-0">
+                  <thead class="table-light">
+                    <tr>
+                      <th>Task</th>
+                      <th>Project</th>
+                      <th>Assigned To</th>
+                      <th>Due</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for task in pending_tasks_list %}
+                      <tr>
+                        <td>
+                          <a href="{{ task.get_absolute_url }}">
+                            {{ task.name }}
+                          </a>
+                        </td>
+                        <td>{{ task.project.name }}</td>
+                        <td>{{ task.assigned_to|default:"—" }}</td>
+                        <td>{{ task.due_date|date:"d M"|default:"—" }}</td>
+                        <td>
+                          <span class="badge bg-secondary text-capitalize">
+                            {{ task.get_status_display }}
+                          </span>
+                        </td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            {% else %}
+              <p class="text-muted small mb-0">No pending tasks.</p>
+            {% endif %}
+          </div>
+
+          <div class="col-md-6">
+            <h6 class="small text-muted text-uppercase mb-2">Deliverables</h6>
+            {% if pending_deliverables_list %}
+              <div class="table-responsive dashboard-table-wrapper">
+                <table class="table table-sm align-middle mb-0">
+                  <thead class="table-light">
+                    <tr>
+                      <th>Deliverable</th>
+                      <th>Project</th>
+                      <th>Assigned To</th>
+                      <th>Due</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for d in pending_deliverables_list %}
+                      <tr>
+                        <td>
+                          <a href="{{ d.get_absolute_url }}">
+                            {{ d.name }}
+                          </a>
+                        </td>
+                        <td>{{ d.project.name }}</td>
+                        <td>{{ d.assigned_to|default:"—" }}</td>
+                        <td>{{ d.due_date|date:"d M"|default:"—" }}</td>
+                        <td>
+                          <span class="badge bg-secondary text-capitalize">
+                            {{ d.get_status_display }}
+                          </span>
+                        </td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            {% else %}
+              <p class="text-muted small mb-0">No pending deliverables.</p>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+{% elif is_employee %}
+  {# ================= EMPLOYEE LISTS (ROW 3) ================= #}
+  <div class="mt-3 mb-4">
+    <div class="row g-3">
+      <div class="col-md-6">
+        <div class="card border-0 shadow-sm h-100">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h5 class="mb-0">My Pending Tasks</h5>
+              <span class="small text-muted">Top 10 by due date</span>
+            </div>
+
+            {% if my_pending_tasks_list %}
+              <div class="table-responsive dashboard-table-wrapper">
+                <table class="table table-sm align-middle mb-0">
+                  <thead class="table-light">
+                    <tr>
+                      <th>Task</th>
+                      <th>Project</th>
+                      <th>Due Date</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for task in my_pending_tasks_list %}
+                      <tr>
+                        <td>
+                          <a href="{{ task.get_absolute_url }}">
+                            {{ task.name }}
+                          </a>
+                        </td>
+                        <td>{{ task.project.name }}</td>
+                        <td>{{ task.due_date|date:"d M Y"|default:"—" }}</td>
+                        <td>
+                          <span class="badge bg-secondary text-capitalize">
+                            {{ task.get_status_display }}
+                          </span>
+                        </td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            {% else %}
+              <p class="text-muted mb-0">You have no pending tasks. 🎉</p>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-6">
+        <div class="card border-0 shadow-sm h-100">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h5 class="mb-0">My Pending Deliverables</h5>
+              <span class="small text-muted">Top 10 by due date</span>
+            </div>
+
+            {% if my_pending_deliverables_list %}
+              <div class="table-responsive dashboard-table-wrapper">
+                <table class="table table-sm align-middle mb-0">
+                  <thead class="table-light">
+                    <tr>
+                      <th>Deliverable</th>
+                      <th>Project</th>
+                      <th>Due Date</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for d in my_pending_deliverables_list %}
+                      <tr>
+                        <td>
+                          <a href="{{ d.get_absolute_url }}">
+                            {{ d.name }}
+                          </a>
+                        </td>
+                        <td>{{ d.project.name }}</td>
+                        <td>{{ d.due_date|date:"d M Y"|default:"—" }}</td>
+                        <td>
+                          <span class="badge bg-secondary text-capitalize">
+                            {{ d.get_status_display }}
+                          </span>
+                        </td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            {% else %}
+              <p class="text-muted mb-0">You have no pending deliverables. 🎉</p>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endif %}
+
 {% endblock %}
