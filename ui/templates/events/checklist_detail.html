@@ -84,10 +84,10 @@
       <a href="{% url 'events:checklist_update' item.pk %}" class="btn btn-primary">
         Edit Checklist Item
       </a>
+      <a href="{% url 'events:checklist_list' %}" class="btn btn-outline-secondary">
+        Back to Checklist
+      </a>
     {% endif %}
-    <a href="{% url 'events:checklist_list' %}" class="btn btn-outline-secondary">
-      Back to Checklist
-    </a>
   </div>
 
 </div>

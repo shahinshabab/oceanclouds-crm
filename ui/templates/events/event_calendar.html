@@ -3,7 +3,7 @@
 {% block title %}Event Calendar{% endblock %}
 
 {% block content %}
-<div class="container py-3">
+<div class="container-fluid px-3 pt-0 pb-3">
 
   <!-- Calendar styles -->
   <style>
@@ -58,12 +58,12 @@
     }
 
     .calendar-table th.date-col {
-      white-space: normal;
+      white-space: nowrap;  /* keep "Dec 8 - Mon" on one line */
       font-size: 0.85rem;
       text-align: center;
     }
 
-    /* Fixed height for each time row */
+    /* Fixed height for each time row – ORIGINAL GAP RESTORED */
     .calendar-table .slot-row td {
       height: 60px;
       vertical-align: top;
@@ -77,13 +77,8 @@
     }
   </style>
 
-  <!-- Header Row -->
-  <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2 class="fw-semibold mb-0">Event Calendar</h2>
-  </div>
-
   <!-- Filters Row -->
-  <form method="get" class="row g-2 mb-3">
+  <form method="get" class="row g-2 mb-2">
 
     <div class="col-md-4">
       <label class="form-label small text-muted mb-1">View Range</label>
@@ -142,8 +137,7 @@
               </th>
               {% for d in dates %}
                 <th scope="col" class="date-col">
-                  {{ d|date:"M d" }}<br>
-                  <span class="text-muted small">{{ d|date:"D" }}</span>
+                  {{ d|date:"M d" }} - <span class="text-muted small">{{ d|date:"D" }}</span>
                 </th>
               {% endfor %}
             </tr>
@@ -152,47 +146,50 @@
           <tbody>
             {% if dates %}
               {% for row in time_rows %}
-                <tr class="slot-row">
-                  <!-- Y axis: Time label (fixed left) -->
-                  <td class="fw-semibold text-nowrap time-cell">
-                    {{ row.hour|stringformat:"02d" }}:00
-                  </td>
-
-                  <!-- X axis: Dates (scroll horizontally) -->
-                  {% for cell in row.cells %}
-                    <td class="date-cell">
-                      {% if cell.events %}
-                        {% for ev in cell.events %}
-                          <a href="{% url 'events:event_detail' ev.pk %}"
-                             class="text-decoration-none d-block mb-1">
-                            {% with ev.status as st %}
-                              <div class="calendar-event-pill text-white px-2 py-1
-                                {% if st == 'completed' %} bg-success
-                                {% elif st == 'confirmed' %} bg-primary
-                                {% elif st == 'tentative' %} bg-warning text-dark
-                                {% elif st == 'cancelled' %} bg-danger
-                                {% else %} bg-secondary
-                                {% endif %}
-                              ">
-                                <div class="fw-semibold small">
-                                  {{ ev.name|truncatechars:28 }}
-                                </div>
-                                <div class="small">
-                                  {% if ev.start_time %}
-                                    {{ ev.start_time|time:"H:i" }}
-                                  {% endif %}
-                                  {% if ev.client %}
-                                    • {{ ev.client }}
-                                  {% endif %}
-                                </div>
-                              </div>
-                            {% endwith %}
-                          </a>
-                        {% endfor %}
-                      {% endif %}
+                {# Show only 10:00–19:00 (10 AM–7 PM) #}
+                {% if row.hour >= 10 and row.hour <= 19 %}
+                  <tr class="slot-row">
+                    <!-- Y axis: Time label (fixed left) -->
+                    <td class="fw-semibold text-nowrap time-cell">
+                      {{ row.hour|stringformat:"02d" }}:00
                     </td>
-                  {% endfor %}
-                </tr>
+
+                    <!-- X axis: Dates (scroll horizontally) -->
+                    {% for cell in row.cells %}
+                      <td class="date-cell">
+                        {% if cell.events %}
+                          {% for ev in cell.events %}
+                            <a href="{% url 'events:event_detail' ev.pk %}"
+                               class="text-decoration-none d-block mb-1">
+                              {% with ev.status as st %}
+                                <div class="calendar-event-pill text-white px-2 py-1
+                                  {% if st == 'completed' %} bg-success
+                                  {% elif st == 'confirmed' %} bg-primary
+                                  {% elif st == 'tentative' %} bg-warning text-dark
+                                  {% elif st == 'cancelled' %} bg-danger
+                                  {% else %} bg-secondary
+                                  {% endif %}
+                                ">
+                                  <div class="fw-semibold small">
+                                    {{ ev.name|truncatechars:28 }}
+                                  </div>
+                                  <div class="small">
+                                    {% if ev.start_time %}
+                                      {{ ev.start_time|time:"H:i" }}
+                                    {% endif %}
+                                    {% if ev.client %}
+                                      • {{ ev.client }}
+                                    {% endif %}
+                                  </div>
+                                </div>
+                              {% endwith %}
+                            </a>
+                          {% endfor %}
+                        {% endif %}
+                      </td>
+                    {% endfor %}
+                  </tr>
+                {% endif %}
               {% endfor %}
             {% else %}
               <tr>
