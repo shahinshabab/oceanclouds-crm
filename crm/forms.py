@@ -1,7 +1,9 @@
 from django import forms
 
 from .models import Client, Contact, Lead, Inquiry, ClientReview
+from django.contrib.auth import get_user_model
 
+from common.roles import ROLE_MANAGER
 
 class BootstrapModelForm(forms.ModelForm):
     """
@@ -110,8 +112,6 @@ class LeadForm(BootstrapModelForm):
                 }
             ),
         }
-
-
 class InquiryForm(BootstrapModelForm):
     class Meta:
         model = Inquiry
@@ -135,6 +135,26 @@ class InquiryForm(BootstrapModelForm):
             "wedding_date": forms.DateInput(attrs={"type": "date"}),
             "message": forms.Textarea(attrs={"rows": 3}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        User = get_user_model()
+
+        # Queryset = all active managers
+        managers_qs = User.objects.filter(
+            groups__name=ROLE_MANAGER,
+            is_active=True,
+        ).order_by("first_name", "last_name", "id")
+
+        self.fields["handled_by"].queryset = managers_qs
+        self.fields["handled_by"].label = "Assigned manager"
+        self.fields["handled_by"].empty_label = None  # remove "---------" option
+
+        # For NEW inquiries: default to first manager
+        if not self.instance.pk and managers_qs.exists():
+            if not (self.initial.get("handled_by") or self.instance.handled_by_id):
+                self.initial["handled_by"] = managers_qs.first().pk
 
 class ClientReviewForm(BootstrapModelForm):
     class Meta:

@@ -126,35 +126,20 @@
           </div>
         </div>
 
-        <!-- Row 4: Handled by -->
+        {# Row 4: Handled by / Assigned manager #}
         <div class="row">
-          {% if is_admin or is_manager %}
-            <div class="col-md-4 mb-3">
-              <label class="form-label">
-                {{ form.handled_by.label }}
-              </label>
-              {{ form.handled_by }}
-              {% for error in form.handled_by.errors %}
-                <div class="text-danger small">{{ error }}</div>
-              {% endfor %}
-            </div>
-            <div class="col-md-8 mb-3">
-              <!-- empty / future use -->
-            </div>
-          {% else %}
-            {# Employee: show read-only info, let view logic set/keep handled_by #}
-            <div class="col-md-4 mb-3">
-              <div class="text-muted small text-uppercase d-block mb-1">
-                Handled By
-              </div>
-              <div class="fw-semibold">
-                {{ request.user.get_full_name|default:request.user.username }}
-              </div>
-            </div>
-            <div class="col-md-8 mb-3">
-              <!-- empty / future use -->
-            </div>
-          {% endif %}
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.handled_by.label }}
+            </label>
+            {{ form.handled_by }}
+            {% for error in form.handled_by.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
+          <div class="col-md-8 mb-3">
+            <!-- empty / future use -->
+          </div>
         </div>
 
         <!-- Row 5: Message full width -->
