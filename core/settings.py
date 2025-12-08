@@ -31,13 +31,14 @@ env = environ.Env(
     DB_PASSWORD=(str, ""),
     DB_HOST=(str, ""),
     DB_PORT=(str, ""),
+    APP_VERSION=(str, "dev"),
 )
 environ.Env.read_env(BASE_DIR / ".env")
 
 DEBUG = env("DJANGO_DEBUG")
 SECRET_KEY = env("DJANGO_SECRET_KEY")
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS")
-
+APP_VERSION = env("APP_VERSION")
 # ------------------------------------------------------------------------------
 # Apps
 # ------------------------------------------------------------------------------
@@ -101,6 +102,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "common.context_processors.notifications",
                 "django.contrib.messages.context_processors.messages",
+                "ui.context_processors.app_version",
             ],
         },
     },

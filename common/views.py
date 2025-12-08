@@ -44,11 +44,12 @@ from sales.models import (
 User = get_user_model()
 NUMBER_RE = re.compile(r"(\d+)")
 
+
 class NotificationListView(LoginRequiredMixin, ListView):
     model = Notification
     template_name = "common/notification_list.html"
     context_object_name = "notifications"
-    paginate_by = 25  # nice to have
+    paginate_by = 20  # changed from 25 to 20
 
     def get_queryset(self):
         user = self.request.user
