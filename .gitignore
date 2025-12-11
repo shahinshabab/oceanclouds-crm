@@ -19,3 +19,7 @@ media/
 
 # db data
 db.sqlite3
+
+
+# work space
+oceanclouds-crm.code-workspace
