@@ -404,12 +404,10 @@ class InquiryCreateView(StaffAllMixin, CreateView):
     success_url = reverse_lazy("crm:inquiry_list")
 
     def form_valid(self, form):
-        # Default responsible user = current user if empty
-        if not form.instance.handled_by:
-            form.instance.handled_by = self.request.user
+        # DO NOT set handled_by to current user anymore.
+        # It must always be one of the managers from the form.
 
-        # Owned mixin: if Inquiry also uses Owned (via TimeStamped, Owned),
-        # you can also set owner here similarly:
+        # Set owner if Inquiry uses Owned
         if hasattr(form.instance, "owner") and not form.instance.owner_id:
             form.instance.owner = self.request.user
 
