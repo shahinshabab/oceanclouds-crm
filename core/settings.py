@@ -32,6 +32,10 @@ env = environ.Env(
     DB_HOST=(str, ""),
     DB_PORT=(str, ""),
     APP_VERSION=(str, "dev"),
+    AWS_REGION=(str, ""),
+    AWS_SES_SENDER=(str, ""),
+    AWS_ACCESS_KEY_ID=(str, ""),
+    AWS_SECRET_ACCESS_KEY=(str, ""),
 )
 environ.Env.read_env(BASE_DIR / ".env")
 
@@ -39,6 +43,11 @@ DEBUG = env("DJANGO_DEBUG")
 SECRET_KEY = env("DJANGO_SECRET_KEY")
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS")
 APP_VERSION = env("APP_VERSION")
+AWS_REGION = env("AWS_REGION")
+AWS_SES_SENDER = env("AWS_SES_SENDER")
+AWS_ACCESS_KEY_ID = env("AWS_ACCESS_KEY_ID")
+AWS_SECRET_ACCESS_KEY = env("AWS_SECRET_ACCESS_KEY")
+
 # ------------------------------------------------------------------------------
 # Apps
 # ------------------------------------------------------------------------------
@@ -190,6 +199,10 @@ CRONJOBS = [
     # minute hour day month weekday
     ("0 0 * * *", "django.core.management.call_command", ["notify_overdue"]),
 ]
+"""CRONJOBS = [
+    ("0 0 * * *", "django.core.management.call_command", ["notify_overdue"]),
+    ("0 7 * * *", "django.core.management.call_command", ["send_anniversary_wishes"]),
+]"""
 
 SESSION_COOKIE_AGE = 8 * 60 * 60      # 8 hours
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False

@@ -3,182 +3,133 @@ from django.conf import settings
 from django.db import models
 from django.utils import timezone
 
-from events.models import EventPerson  # add this import
-from crm.models import Client, Contact  # adjust if your actual paths differ
+from common.models import TimeStamped, Owned  # 🔹 use your shared mixins
 
-class Channel(models.TextChoices):
-    EMAIL = "email", "Email"
-    WHATSAPP = "whatsapp", "WhatsApp"
-    SMS = "sms", "SMS"
-
-
-class EmailIntegration(models.Model):
+class EmailTemplate(TimeStamped, Owned):
     """
-    Stores SMTP/API details so you can manage them from a UI page.
-    You can have multiple configs, and mark one as default.
+    Store reusable email templates for different purposes:
+    - campaign
+    - proposal
+    - contract
+    - invoice
+    - payment
+    - anniversary
     """
-    name = models.CharField(max_length=100, unique=True)
-    is_default = models.BooleanField(default=False)
 
-    # generic channel
-    channel = models.CharField(
-        max_length=20, choices=Channel.choices, default=Channel.EMAIL
-    )
+    class TemplateType(models.TextChoices):
+        CAMPAIGN = "campaign", "Campaign"
+        PROPOSAL = "proposal", "Proposal"
+        CONTRACT = "contract", "Contract"
+        INVOICE = "invoice", "Invoice"
+        PAYMENT = "payment", "Payment"
+        ANNIVERSARY = "anniversary", "Anniversary"
 
-    # Basic SMTP fields (works with Django's EmailBackend)
-    host = models.CharField(max_length=255, blank=True)
-    port = models.PositiveIntegerField(default=587)
-    username = models.CharField(max_length=255, blank=True)
-    password = models.CharField(max_length=255, blank=True)
-    use_tls = models.BooleanField(default=True)
-    use_ssl = models.BooleanField(default=False)
-    from_email = models.EmailField(blank=True)
-
-    # For API providers (SendGrid, Mailgun, etc.) – optional
-    backend_type = models.CharField(
-        max_length=50,
-        choices=(
-            ("smtp", "SMTP (Django EmailBackend)"),
-            ("sendgrid", "SendGrid"),
-            ("mailgun", "Mailgun"),
-        ),
-        default="smtp",
-    )
-    api_key = models.CharField(max_length=255, blank=True)
-
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        verbose_name = "Email Integration"
-        verbose_name_plural = "Email Integrations"
-
-    def __str__(self):
-        return f"{self.name} ({self.get_backend_type_display()})"
-
-    @classmethod
-    def get_default(cls):
-        return cls.objects.filter(is_default=True).first()
-
-
-class TemplateUsage(models.TextChoices):
-    GENERIC = "generic", "Generic / Campaign"
-    CONTRACT = "contract", "Contract Email"
-    PROPOSAL = "proposal", "Proposal Email"
-    ANNIVERSARY = "anniversary", "Anniversary Email (Event Person)"
-    REMINDER = "reminder", "Reminder / Follow-up"
-
-
-class MessageTemplate(models.Model):
-    """
-    Stores email/SMS/WhatsApp templates in DB.
-
-    You can have:
-      - Contract templates
-      - Proposal templates
-      - Anniversary templates for EventPerson
-      - Generic campaign offers
-    """
-    name = models.CharField(max_length=150)
-    code = models.SlugField(
-        max_length=100,
+    name = models.CharField(max_length=200)
+    slug = models.SlugField(
         unique=True,
-        help_text="Stable identifier (e.g. 'proposal_default', 'anniversary_basic')",
-    )
-    channel = models.CharField(
-        max_length=20, choices=Channel.choices, default=Channel.EMAIL
-    )
-    usage = models.CharField(
-        max_length=50,
-        choices=TemplateUsage.choices,
-        default=TemplateUsage.GENERIC,
+        help_text=(
+            "Unique identifier used by the system and automation. "
+            "Use lowercase letters, numbers and hyphens only "
+            "(e.g. 'campaign-welcome')."
+        ),
     )
 
-    subject = models.CharField(max_length=255, blank=True)
-    body_text = models.TextField(blank=True)
+
+    type = models.CharField(
+        max_length=20,
+        choices=TemplateType.choices,
+        default=TemplateType.CAMPAIGN,
+        help_text="Where this template is used.",
+    )
+    subject = models.CharField(max_length=255)
     body_html = models.TextField(
+        help_text=(
+            "HTML body. You can use Django template variables like "
+            "{{ client.name }}, {{ deal.title }}, {{ event.date }}."
+        )
+    )
+    body_text = models.TextField(
         blank=True,
-        help_text="You can use Django template variables like {{ client.name }}.",
+        help_text="Optional plain-text version (for clients that do not support HTML).",
     )
 
     is_active = models.BooleanField(default=True)
-    description = models.TextField(blank=True)
-
-    created_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
-        related_name="created_templates",
+    is_default_for_type = models.BooleanField(
+        default=False,
+        help_text=(
+            "If true, this will be used as the default template for this type "
+            "(e.g. default proposal template)."
+        ),
     )
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ["name"]
+        ordering = ["type", "name"]
+        verbose_name = "Email template"
+        verbose_name_plural = "Email templates"
 
     def __str__(self):
-        return f"{self.name} ({self.get_usage_display()})"
+        return f"{self.get_type_display()} - {self.name}"
 
 
-class CampaignStatus(models.TextChoices):
-    DRAFT = "draft", "Draft"
-    SCHEDULED = "scheduled", "Scheduled"
-    SENDING = "sending", "Sending"
-    COMPLETED = "completed", "Completed"
-    FAILED = "failed", "Failed"
+class Campaign(TimeStamped, Owned):
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        SCHEDULED = "scheduled", "Scheduled"
+        RUNNING = "running", "Running"
+        PAUSED = "paused", "Paused"
+        COMPLETED = "completed", "Completed"
 
+    class TargetType(models.TextChoices):
+        CUSTOM_LIST = "custom_list", "Custom list (paste recipients)"
+        CLIENT_MARKETING = "client_marketing", "Clients (contacts with allow marketing)"
 
-class Campaign(models.Model):
-    """
-    Mass email campaign.
+    name = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
 
-    Examples:
-      - 'Diwali Wedding Offer 2025'
-      - 'New Photography Package Launch'
-    """
-    name = models.CharField(max_length=150)
     template = models.ForeignKey(
-        MessageTemplate,
+        EmailTemplate,
         on_delete=models.PROTECT,
-        limit_choices_to={"channel": Channel.EMAIL},
+        related_name="campaigns",
+        limit_choices_to={"type": EmailTemplate.TemplateType.CAMPAIGN},
     )
-    integration = models.ForeignKey(
-        EmailIntegration,
-        on_delete=models.PROTECT,
-        null=True,
+
+    from_email = models.EmailField(
+        default="noreply@oceanclouds.in",
+        help_text="Sender email. Defaults to AWS_SES_SENDER if left blank.",
         blank=True,
-        help_text="If blank, uses default integration",
     )
-
-    subject_override = models.CharField(
-        max_length=255,
+    reply_to = models.EmailField(
+        default="help@oceanclouds.in",
+        help_text="Reply-to email. Defaults to AWS_SES_SENDER if left blank.",
         blank=True,
-        help_text="Optional subject override; leave empty to use template subject.",
     )
 
-    status = models.CharField(
-        max_length=20,
-        choices=CampaignStatus.choices,
-        default=CampaignStatus.DRAFT,
+    target_type = models.CharField(
+        max_length=30,
+        choices=TargetType.choices,
+        default=TargetType.CUSTOM_LIST,
+        help_text="How recipients are selected for this campaign.",
     )
-    scheduled_for = models.DateTimeField(null=True, blank=True)
-    started_at = models.DateTimeField(null=True, blank=True)
-    finished_at = models.DateTimeField(null=True, blank=True)
 
-    # Filters (optional): store your selection logic, e.g. a tag, segment name, etc.
-    segment_description = models.CharField(
-        max_length=255,
+    # NEW: store pasted list
+    custom_list_raw = models.TextField(
         blank=True,
-        help_text="Human-readable description of which clients/contacts are targeted.",
+        help_text=(
+            "Used only when Target Type is Custom list. "
+            "Enter one recipient per line as: Name, email@example.com (or just email@example.com)."
+        ),
     )
 
-    created_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        null=True,
-        on_delete=models.SET_NULL,
-        related_name="campaigns_created",
-    )
-    created_at = models.DateTimeField(auto_now_add=True)
+    # scheduling / throttling
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
+    start_date = models.DateField(null=True, blank=True)
+    start_time = models.TimeField(null=True, blank=True)
+    weekdays_only = models.BooleanField(default=True)
+    daily_limit = models.PositiveIntegerField(default=20)
+    delay_seconds = models.PositiveIntegerField(default=5)
+
+    last_run_at = models.DateTimeField(null=True, blank=True)
+    total_sent = models.PositiveIntegerField(default=0)
 
     class Meta:
         ordering = ["-created_at"]
@@ -187,59 +138,51 @@ class Campaign(models.Model):
         return self.name
 
     @property
-    def subject(self):
-        return self.subject_override or self.template.subject
+    def effective_from_email(self):
+        return self.from_email or getattr(settings, "AWS_SES_SENDER", "")
 
 
-class RecipientStatus(models.TextChoices):
-    PENDING = "pending", "Pending"
-    SENT = "sent", "Sent"
-    FAILED = "failed", "Failed"
+class CampaignRecipient(TimeStamped):
+    """
+    Concrete recipients for a campaign.
 
-class CampaignRecipient(models.Model):
+    For TargetType.CUSTOM_LIST, these are the main source.
+    For other target types, you can pre-populate from crm.Client / crm.Contact etc.
+    """
+
+    class SendStatus(models.TextChoices):
+        PENDING = "pending", "Pending"
+        SENT = "sent", "Sent"
+        FAILED = "failed", "Failed"
+        SKIPPED = "skipped", "Skipped"
+
     campaign = models.ForeignKey(
         Campaign,
         on_delete=models.CASCADE,
         related_name="recipients",
     )
-    client = models.ForeignKey(
-        Client,
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
-        related_name="campaign_recipients",
-    )
-    contact = models.ForeignKey(
-        Contact,
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
-        related_name="campaign_recipients",
-    )
-    # NEW: event_person (for anniversary / event-based targeting)
-    event_person = models.ForeignKey(
-        EventPerson,
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
-        related_name="campaign_recipients",
-    )
-
     email = models.EmailField()
+    first_name = models.CharField(max_length=150, blank=True)
+    last_name = models.CharField(max_length=150, blank=True)
+    company = models.CharField(max_length=255, blank=True)
 
     status = models.CharField(
         max_length=20,
-        choices=RecipientStatus.choices,
-        default=RecipientStatus.PENDING,
+        choices=SendStatus.choices,
+        default=SendStatus.PENDING,
     )
     last_error = models.TextField(blank=True)
     sent_at = models.DateTimeField(null=True, blank=True)
 
-    opened = models.BooleanField(default=False)
-    clicked = models.BooleanField(default=False)
-
     class Meta:
         unique_together = ("campaign", "email")
+        ordering = ["campaign", "email"]
 
     def __str__(self):
         return f"{self.email} ({self.campaign.name})"
+
+    def mark_sent(self):
+        self.status = self.SendStatus.SENT
+        self.sent_at = timezone.now()
+        self.last_error = ""
+        self.save(update_fields=["status", "sent_at", "last_error"])

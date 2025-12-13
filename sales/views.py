@@ -35,6 +35,18 @@ from .forms import (
     PaymentForm,
 )
 
+
+
+from django.contrib import messages
+from django.shortcuts import redirect, get_object_or_404
+from django.views import View
+
+from django.views.decorators.http import require_POST
+from django.utils.decorators import method_decorator
+from messaging.utils import send_templated_email
+from messaging.models import EmailTemplate
+
+
 # Optional: HTML-to-PDF with WeasyPrint (you need to install it)
 try:
     from weasyprint import HTML
@@ -648,3 +660,174 @@ class PaymentUpdateView(AdminManagerMixin, UpdateView):
     form_class = PaymentForm
     template_name = "sales/payment_form.html"
     success_url = reverse_lazy("sales:payment_list")
+
+# =============================================================================
+# Send Email Actions (Proposal / Contract / Invoice / Payment)
+# Admin + Manager only
+# =============================================================================
+
+
+def _resolve_client_email(client) -> str:
+    """
+    Prefer client.email, else fallback to client's primary contact email (if exists).
+    """
+    if not client:
+        return ""
+
+    email = (getattr(client, "email", "") or "").strip()
+    if email:
+        return email
+
+    primary = getattr(client, "primary_contact", None)
+    if primary:
+        primary_email = (getattr(primary, "email", "") or "").strip()
+        if primary_email:
+            return primary_email
+
+    return ""
+
+
+def _flash_send_result(request, *, label: str, to_email: str, result):
+    """
+    Standardized UI messages for send action.
+    """
+    if result.ok:
+        messages.success(request, f"{label} email sent to {to_email}.")
+    else:
+        messages.error(request, f"Failed to send {label.lower()} email: {result.error}")
+
+
+@method_decorator(require_POST, name="dispatch")
+class ProposalSendEmailView(AdminManagerMixin, View):
+    """
+    Send proposal email immediately using default PROPOSAL template.
+    """
+    def post(self, request, pk: int):
+        proposal = get_object_or_404(
+            Proposal.objects.select_related("deal", "deal__client"),
+            pk=pk,
+        )
+
+        deal = proposal.deal
+        client = deal.client if deal else None
+        to_email = _resolve_client_email(client)
+
+        if not to_email:
+            messages.error(request, "Client email not found. Please add client email (or primary contact email).")
+            return redirect("sales:proposal_detail", pk=proposal.pk)
+
+        result = send_templated_email(
+            template_type=EmailTemplate.TemplateType.PROPOSAL,
+            to_emails=to_email,
+            context={
+                "proposal": proposal,
+                "deal": deal,
+                "client": client,
+            },
+        )
+
+        _flash_send_result(request, label="Proposal", to_email=to_email, result=result)
+        return redirect("sales:proposal_detail", pk=proposal.pk)
+
+
+@method_decorator(require_POST, name="dispatch")
+class ContractSendEmailView(AdminManagerMixin, View):
+    """
+    Send contract email immediately using default CONTRACT template.
+    """
+    def post(self, request, pk: int):
+        contract = get_object_or_404(
+            Contract.objects.select_related("deal", "deal__client", "proposal"),
+            pk=pk,
+        )
+
+        deal = contract.deal
+        client = deal.client if deal else None
+        to_email = _resolve_client_email(client)
+
+        if not to_email:
+            messages.error(request, "Client email not found. Please add client email (or primary contact email).")
+            return redirect("sales:contract_detail", pk=contract.pk)
+
+        result = send_templated_email(
+            template_type=EmailTemplate.TemplateType.CONTRACT,
+            to_emails=to_email,
+            context={
+                "contract": contract,
+                "proposal": contract.proposal,
+                "deal": deal,
+                "client": client,
+            },
+        )
+
+        _flash_send_result(request, label="Contract", to_email=to_email, result=result)
+        return redirect("sales:contract_detail", pk=contract.pk)
+
+
+@method_decorator(require_POST, name="dispatch")
+class InvoiceSendEmailView(AdminManagerMixin, View):
+    """
+    Send invoice email immediately using default INVOICE template.
+    """
+    def post(self, request, pk: int):
+        invoice = get_object_or_404(
+            Invoice.objects.select_related("deal", "deal__client", "contract"),
+            pk=pk,
+        )
+
+        deal = invoice.deal
+        client = deal.client if deal else None
+        to_email = _resolve_client_email(client)
+
+        if not to_email:
+            messages.error(request, "Client email not found. Please add client email (or primary contact email).")
+            return redirect("sales:invoice_detail", pk=invoice.pk)
+
+        result = send_templated_email(
+            template_type=EmailTemplate.TemplateType.INVOICE,
+            to_emails=to_email,
+            context={
+                "invoice": invoice,
+                "deal": deal,
+                "client": client,
+                "contract": getattr(invoice, "contract", None),
+            },
+        )
+
+        _flash_send_result(request, label="Invoice", to_email=to_email, result=result)
+        return redirect("sales:invoice_detail", pk=invoice.pk)
+
+
+@method_decorator(require_POST, name="dispatch")
+class PaymentSendEmailView(AdminManagerMixin, View):
+    """
+    Send payment receipt email immediately using default PAYMENT template.
+    """
+    def post(self, request, pk: int):
+        payment = get_object_or_404(
+            Payment.objects.select_related("invoice", "invoice__deal", "invoice__deal__client"),
+            pk=pk,
+        )
+
+        invoice = payment.invoice
+        deal = invoice.deal if invoice else None
+        client = deal.client if deal else None
+        to_email = _resolve_client_email(client)
+
+        if not to_email:
+            messages.error(request, "Client email not found. Please add client email (or primary contact email).")
+            return redirect("sales:payment_detail", pk=payment.pk)
+
+        result = send_templated_email(
+            template_type=EmailTemplate.TemplateType.PAYMENT,
+            to_emails=to_email,
+            context={
+                "payment": payment,
+                "invoice": invoice,
+                "deal": deal,
+                "client": client,
+            },
+        )
+
+        _flash_send_result(request, label="Payment", to_email=to_email, result=result)
+        return redirect("sales:payment_detail", pk=payment.pk)

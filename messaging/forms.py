@@ -1,65 +1,63 @@
 # messaging/forms.py
 from django import forms
 
-from crm.forms import BootstrapModelForm  # reuse your base form
-from .models import MessageTemplate, Campaign, EmailIntegration
+from common.forms import BootstrapModelForm  # 🔁 adjust path if needed
+from .models import EmailTemplate, Campaign
 
-class MessageTemplateForm(BootstrapModelForm):
+
+class EmailTemplateForm(BootstrapModelForm):
     class Meta:
-        model = MessageTemplate
+        model = EmailTemplate
         fields = [
             "name",
-            "code",
-            "channel",
-            "usage",
+            "slug",
+            "type",
             "subject",
-            "body_text",
             "body_html",
-            "description",
+            "body_text",
             "is_active",
+            "is_default_for_type",
         ]
         widgets = {
-            "body_text": forms.Textarea(attrs={"rows": 3}),
-            "body_html": forms.Textarea(attrs={"rows": 6}),
-            "description": forms.Textarea(attrs={"rows": 2}),
+            # BootstrapModelForm will add classes; we only control type/rows here
+            "body_html": forms.Textarea(attrs={"rows": 12}),
+            "body_text": forms.Textarea(attrs={"rows": 6}),
         }
-
 
 class CampaignForm(BootstrapModelForm):
     class Meta:
         model = Campaign
         fields = [
-            "name",
-            "template",
-            "integration",
-            "subject_override",
-            "segment_description",
-            "scheduled_for",
+            "name", "template", "target_type",
+            "custom_list_raw",
+            "description",
+            "from_email", "reply_to", "status",
+            "start_date", "start_time", "weekdays_only",
+            "daily_limit", "delay_seconds",
         ]
         widgets = {
-            "segment_description": forms.Textarea(attrs={"rows": 2}),
-            "scheduled_for": forms.DateTimeInput(attrs={"type": "datetime-local"}),
+            "custom_list_raw": forms.Textarea(attrs={"rows": 6}),
+            "description": forms.Textarea(attrs={"rows": 3}),
+
+            # ✅ HTML5 pickers
+            "start_date": forms.DateInput(attrs={"type": "date"}),
+            "start_time": forms.TimeInput(attrs={"type": "time"}),
         }
 
+    def clean_from_email(self):
+        from_email = self.cleaned_data.get("from_email") or ""
+        return from_email.strip()
 
+    def clean(self):
+        cleaned = super().clean()
+        status = cleaned.get("status")
+        start_date = cleaned.get("start_date")
+        start_time = cleaned.get("start_time")
 
+        if status in {"scheduled", "running"}:
+            if not start_date:
+                self.add_error("start_date", "Start date is required when campaign is scheduled or running.")
+            if not start_time:
+                self.add_error("start_time", "Start time is required when campaign is scheduled or running.")
 
-class EmailIntegrationForm(BootstrapModelForm):
-    class Meta:
-        model = EmailIntegration
-        fields = [
-            "name",
-            "backend_type",
-            "channel",
-            "host",
-            "port",
-            "username",
-            "password",
-            "use_tls",
-            "use_ssl",
-            "from_email",
-            "is_default",
-        ]
-        widgets = {
-            "password": forms.PasswordInput(render_value=True),
-        }
+        return cleaned

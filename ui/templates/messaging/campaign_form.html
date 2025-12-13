@@ -1,116 +1,179 @@
+{# messaging/templates/messaging/campaign_form.html #}
 {% extends "ui/base.html" %}
-{% load roles_tags %}
 
 {% block title %}
   {% if form.instance.pk %}Edit Campaign{% else %}New Campaign{% endif %}
 {% endblock %}
 
 {% block content %}
-{% is_admin request.user as is_admin %}
-{% is_manager request.user as is_manager %}
-{% is_employee request.user as is_employee %}
+<div class="container-fluid py-3">
 
-<div class="container py-3 max-w-2xl">
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="fw-semibold mb-0">
+      {% if form.instance.pk %}Edit Campaign{% else %}New Campaign{% endif %}
+    </h2>
 
-  <h2 class="fw-semibold mb-4">
-    {% if form.instance.pk %}Edit Campaign{% else %}New Campaign{% endif %}
-  </h2>
+    <a href="{% url 'messaging:campaign_list' %}" class="btn btn-outline-secondary btn-sm">
+      Back to list
+    </a>
+  </div>
 
-  <form method="post" novalidate>
-    {% csrf_token %}
-    {% if form.non_field_errors %}
-      <div class="alert alert-danger">
-        {{ form.non_field_errors }}
-      </div>
-    {% endif %}
+  {% if form.non_field_errors %}
+    <div class="alert alert-danger">
+      {{ form.non_field_errors }}
+    </div>
+  {% endif %}
 
-    <div class="card shadow-sm">
-      <div class="card-body">
+  <!-- Full width card -->
+  <div class="card shadow-sm">
+    <div class="card-body">
+      <form method="post" novalidate>
+        {% csrf_token %}
 
-        <div class="row">
-          <div class="col-md-8 mb-3">
-            <label class="form-label">
-              {{ form.name.label }}{% if form.name.field.required %} *{% endif %}
-            </label>
+        <div class="row g-3">
+
+          <div class="col-md-4">
+            <label class="form-label">Name <span class="text-danger">*</span></label>
             {{ form.name }}
-            {% for error in form.name.errors %}
-              <div class="text-danger small">{{ error }}</div>
-            {% endfor %}
+            {% for error in form.name.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
           </div>
-          <div class="col-md-4 mb-3">
-            <label class="form-label">
-              {{ form.integration.label }}
-            </label>
-            {{ form.integration }}
-            {% for error in form.integration.errors %}
-              <div class="text-danger small">{{ error }}</div>
-            {% endfor %}
-          </div>
-        </div>
 
-        <div class="row">
-          <div class="col-md-6 mb-3">
-            <label class="form-label">
-              {{ form.template.label }}
-            </label>
+          <div class="col-md-4">
+            <label class="form-label">Template <span class="text-danger">*</span></label>
             {{ form.template }}
-            {% for error in form.template.errors %}
-              <div class="text-danger small">{{ error }}</div>
-            {% endfor %}
+            {% if form.template.help_text %}<div class="form-text">{{ form.template.help_text }}</div>{% endif %}
+            {% for error in form.template.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
           </div>
-          <div class="col-md-6 mb-3">
-            <label class="form-label">
-              {{ form.scheduled_for.label }}
-            </label>
-            {{ form.scheduled_for }}
-            {% for error in form.scheduled_for.errors %}
-              <div class="text-danger small">{{ error }}</div>
-            {% endfor %}
+
+          <div class="col-md-4">
+            <label class="form-label">Target Type <span class="text-danger">*</span></label>
+            {{ form.target_type }}
+            {% if form.target_type.help_text %}<div class="form-text">{{ form.target_type.help_text }}</div>{% endif %}
+            {% for error in form.target_type.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
           </div>
+
+          {# ✅ Custom list box (auto show/hide) #}
+          <div class="col-12" id="custom-list-wrap">
+            <div class="card border">
+              <div class="card-header bg-light">
+                <strong>Custom recipients</strong>
+                <div class="text-muted small">Paste one recipient per line</div>
+              </div>
+              <div class="card-body">
+                <label class="form-label mb-1">Custom List (Name, Email)</label>
+                {{ form.custom_list_raw }}
+                {% if form.custom_list_raw.help_text %}
+                  <div class="form-text">{{ form.custom_list_raw.help_text }}</div>
+                {% else %}
+                  <div class="form-text">
+                    Format examples:
+                    <code>John Doe, john@example.com</code> or <code>john@example.com</code>
+                  </div>
+                {% endif %}
+                {% for error in form.custom_list_raw.errors %}
+                  <div class="text-danger small">{{ error }}</div>
+                {% endfor %}
+
+                <div class="alert alert-info mt-3 mb-0 small">
+                  <strong>Note:</strong> When you save this campaign, recipients will be created in the campaign recipient list.
+                  Duplicate emails are automatically ignored.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-12">
+            <label class="form-label">Description</label>
+            {{ form.description }}
+            {% for error in form.description.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label">From Email</label>
+            {{ form.from_email }}
+            <div class="form-text">Leave blank to use default SES sender.</div>
+            {% for error in form.from_email.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label">Reply-To</label>
+            {{ form.reply_to }}
+            {% for error in form.reply_to.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label">Status <span class="text-danger">*</span></label>
+            {{ form.status }}
+            {% for error in form.status.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label">Start Date</label>
+            {{ form.start_date }}
+            {% for error in form.start_date.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label">Start Time</label>
+            {{ form.start_time }}
+            {% for error in form.start_time.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+          </div>
+
+          <div class="col-md-4 d-flex align-items-center">
+            <div class="form-check mt-3">
+              {{ form.weekdays_only }}
+              <label class="form-check-label ms-1">Weekdays only (Mon–Fri)</label>
+            </div>
+            {% for error in form.weekdays_only.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Daily Limit <span class="text-danger">*</span></label>
+            {{ form.daily_limit }}
+            {% for error in form.daily_limit.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Delay Between Emails (seconds) <span class="text-danger">*</span></label>
+            {{ form.delay_seconds }}
+            {% for error in form.delay_seconds.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+          </div>
+
         </div>
 
-        <div class="mb-3">
-          <label class="form-label">
-            {{ form.subject_override.label }}
-          </label>
-          {{ form.subject_override }}
-          <small class="form-text text-muted">
-            Optional; leave blank to use template subject.
-          </small>
-          {% for error in form.subject_override.errors %}
-            <div class="text-danger small">{{ error }}</div>
-          {% endfor %}
+        <!-- Buttons -->
+        <div class="d-flex justify-content-center gap-2 mt-4">
+          <button type="submit" class="btn btn-primary px-4">Save</button>
+          <a href="{% url 'messaging:campaign_list' %}" class="btn btn-secondary">Cancel</a>
         </div>
 
-        <div class="mb-3">
-          <label class="form-label">
-            {{ form.segment_description.label }}
-          </label>
-          {{ form.segment_description }}
-          <small class="form-text text-muted">
-            Describe which clients/contacts this campaign targets.
-          </small>
-          {% for error in form.segment_description.errors %}
-            <div class="text-danger small">{{ error }}</div>
-          {% endfor %}
-        </div>
-
-      </div>
+      </form>
     </div>
+  </div>
 
-    <div class="row mt-3">
-      <div class="col-12 d-flex justify-content-center gap-2">
-        {% if is_admin or is_manager %}
-          <button type="submit" class="btn btn-primary px-4">
-            Save
-          </button>
-        {% endif %}
-        <a href="{% url 'messaging:campaign_list' %}" class="btn btn-secondary">
-          Cancel
-        </a>
-      </div>
-    </div>
-
-  </form>
 </div>
+
+<script>
+  (function() {
+    const target = document.getElementById("id_target_type");
+    const wrap = document.getElementById("custom-list-wrap");
+    const textarea = document.getElementById("id_custom_list_raw");
+
+    function toggleCustomList() {
+      const isCustom = (target && target.value === "custom_list");
+      if (!wrap) return;
+
+      wrap.style.display = isCustom ? "" : "none";
+
+      // Optional: clear the textarea if user switches away
+      // if (!isCustom && textarea) textarea.value = "";
+    }
+
+    if (target) {
+      target.addEventListener("change", toggleCustomList);
+    }
+    toggleCustomList();
+  })();
+</script>
 {% endblock %}

@@ -1,5 +1,6 @@
 {% extends "ui/base.html" %}
 {% load static %}
+{% load roles_tags %}
 
 {% block title %}
   {% if form.instance.pk %}Edit Proposal{% else %}New Proposal{% endif %}
