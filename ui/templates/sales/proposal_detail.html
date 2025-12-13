@@ -9,13 +9,45 @@
 
 <div class="container py-4">
 
-  <!-- Header -->
-  <div class="mb-3">
-    <h1 class="h4 mb-1">{{ proposal.title }}</h1>
-    <div class="small text-muted">
-      Deal: {{ proposal.deal }} &middot;
-      v{{ proposal.version }} &middot;
-      <span class="badge bg-secondary">{{ proposal.get_status_display }}</span>
+  {# Messages (success/error from send email) #}
+  {% if messages %}
+    <div class="mb-3">
+      {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} mb-2" role="alert">
+          {{ message }}
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <!-- Header + Actions -->
+  <div class="d-flex justify-content-between align-items-start mb-3">
+    <div>
+      <h1 class="h4 mb-1">{{ proposal.title }}</h1>
+      <div class="small text-muted">
+        Deal: {{ proposal.deal }} &middot;
+        v{{ proposal.version }} &middot;
+        <span class="badge bg-secondary">{{ proposal.get_status_display }}</span>
+      </div>
+    </div>
+
+    <div class="d-flex gap-2">
+      {% if is_admin or is_manager %}
+        <form method="post" action="{% url 'sales:proposal_send_email' proposal.pk %}">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-outline-secondary btn-sm">
+            Send Email
+          </button>
+        </form>
+
+        <a href="{% url 'sales:proposal_update' proposal.pk %}" class="btn btn-primary btn-sm">
+          Edit
+        </a>
+      {% endif %}
+
+      <a href="{% url 'sales:proposal_list' %}" class="btn btn-outline-secondary btn-sm">
+        Back
+      </a>
     </div>
   </div>
 
@@ -36,9 +68,7 @@
 
         <div class="col-md-4">
           <div class="text-uppercase text-muted small mb-1">Status</div>
-          <div>
-            <span class="badge bg-secondary">{{ proposal.get_status_display }}</span>
-          </div>
+          <div><span class="badge bg-secondary">{{ proposal.get_status_display }}</span></div>
         </div>
 
         <div class="col-md-4">
@@ -49,19 +79,13 @@
         <div class="col-md-4">
           <div class="text-uppercase text-muted small mb-1">Valid Until</div>
           <div class="fw-semibold">
-            {% if proposal.valid_until %}
-              {{ proposal.valid_until }}
-            {% else %}
-              <span class="text-muted">—</span>
-            {% endif %}
+            {% if proposal.valid_until %}{{ proposal.valid_until }}{% else %}<span class="text-muted">—</span>{% endif %}
           </div>
         </div>
 
         <div class="col-md-4">
           <div class="text-uppercase text-muted small mb-1">Created</div>
-          <div class="fw-semibold">
-            {{ proposal.created_at|date:"Y-m-d" }}
-          </div>
+          <div class="fw-semibold">{{ proposal.created_at|date:"Y-m-d" }}</div>
         </div>
 
         <!-- Financials -->
@@ -89,11 +113,7 @@
         <div class="col-12 mt-2">
           <div class="text-uppercase text-muted small mb-1">Notes</div>
           <div>
-            {% if proposal.notes %}
-              {{ proposal.notes|linebreaksbr }}
-            {% else %}
-              <span class="text-muted">No notes.</span>
-            {% endif %}
+            {% if proposal.notes %}{{ proposal.notes|linebreaksbr }}{% else %}<span class="text-muted">No notes.</span>{% endif %}
           </div>
         </div>
 
@@ -124,13 +144,9 @@
               <td>{{ item.description }}</td>
               <td>
                 {% if item.service %}
-                  <a href="{% url 'services:service_detail' item.service.pk %}">
-                    {{ item.service.name }}
-                  </a>
+                  <a href="{% url 'services:service_detail' item.service.pk %}">{{ item.service.name }}</a>
                 {% elif item.package %}
-                  <a href="{% url 'services:package_detail' item.package.pk %}">
-                    {{ item.package.name }}
-                  </a>
+                  <a href="{% url 'services:package_detail' item.package.pk %}">{{ item.package.name }}</a>
                 {% else %}
                   <span class="text-muted">—</span>
                 {% endif %}
@@ -143,23 +159,9 @@
           </tbody>
         </table>
       {% else %}
-        <div class="p-3 text-muted small">
-          No items added.
-        </div>
+        <div class="p-3 text-muted small">No items added.</div>
       {% endif %}
     </div>
-  </div>
-
-  <!-- Action Row -->
-  <div class="text-center">
-    {% if is_admin or is_manager %}
-      <a href="{% url 'sales:proposal_update' proposal.pk %}" class="btn btn-primary me-2">
-        Edit Proposal
-      </a>
-    {% endif %}
-    <a href="{% url 'sales:proposal_list' %}" class="btn btn-outline-secondary">
-      Back to Proposals
-    </a>
   </div>
 
 </div>

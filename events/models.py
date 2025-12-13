@@ -8,7 +8,7 @@ from django.utils.translation import gettext_lazy as _
 from common.models import TimeStamped, Owned
 from crm.models import Client, Contact
 from services.models import Vendor, Service
-
+from django.utils import timezone
 
 # -------------------------------------------------------------------
 # Choice enums
@@ -376,3 +376,27 @@ class EventVendor(TimeStamped, Owned):
 
     def __str__(self) -> str:
         return f"{self.vendor} for {self.event}"
+
+
+class AnniversaryWishLog(TimeStamped):
+    """
+    One row per person per year to avoid sending duplicate wishes.
+    """
+    person = models.ForeignKey(
+        EventPerson,
+        on_delete=models.CASCADE,
+        related_name="anniversary_wish_logs",
+    )
+    year = models.PositiveIntegerField()
+    sent_at = models.DateTimeField(default=timezone.now)
+    message_id = models.CharField(max_length=255, blank=True)
+    error = models.TextField(blank=True)
+
+    class Meta:
+        constraints = [
+            UniqueConstraint(fields=["person", "year"], name="uniq_anniversary_wish_per_person_year")
+        ]
+        ordering = ["-sent_at"]
+
+    def __str__(self):
+        return f"{self.person.full_name} - {self.year}"

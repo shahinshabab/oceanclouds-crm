@@ -1,0 +1,144 @@
+{# messaging/templates/messaging/emailtemplate_detail.html #}
+{% extends "ui/base.html" %}
+
+{% block title %}Template: {{ template.name }}{% endblock %}
+
+{% block content %}
+<div class="container py-3">
+
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="fw-semibold mb-0">Template: {{ template.name }}</h2>
+
+    <div>
+      {% if perms.messaging.change_emailtemplate %}
+        <a href="{% url 'messaging:template_update' template.pk %}"
+           class="btn btn-sm btn-outline-primary me-2">
+          Edit
+        </a>
+      {% endif %}
+      <a href="{% url 'messaging:template_list' %}" class="btn btn-sm btn-outline-secondary">
+        Back to list
+      </a>
+    </div>
+  </div>
+
+  <!-- Main details card -->
+  <div class="card shadow-sm mb-3">
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-md-4">
+          <div class="small text-uppercase text-muted mb-1">Name</div>
+          <div class="fw-semibold">{{ template.name }}</div>
+        </div>
+        <div class="col-md-4">
+          <div class="small text-uppercase text-muted mb-1">Type</div>
+          <div class="fw-semibold">{{ template.get_type_display }}</div>
+        </div>
+        <div class="col-md-4">
+          <div class="small text-uppercase text-muted mb-1">Slug</div>
+          <div class="fw-semibold">{{ template.slug }}</div>
+        </div>
+
+        <div class="col-md-4">
+          <div class="small text-uppercase text-muted mb-1">Active</div>
+          <div>
+            {% if template.is_active %}
+              <span class="badge bg-success">Active</span>
+            {% else %}
+              <span class="badge bg-secondary">Inactive</span>
+            {% endif %}
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="small text-uppercase text-muted mb-1">Default for type</div>
+          <div>
+            {% if template.is_default_for_type %}
+              <span class="badge bg-primary">Default</span>
+            {% else %}
+              <span class="text-muted">No</span>
+            {% endif %}
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="small text-uppercase text-muted mb-1">Subject</div>
+          <div class="fw-semibold">{{ template.subject|default:"—" }}</div>
+        </div>
+
+        <div class="col-md-4">
+          <div class="small text-uppercase text-muted mb-1">Created by</div>
+          <div class="fw-semibold">
+            {{ template.created_by|default:"—" }}
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="small text-uppercase text-muted mb-1">Created at</div>
+          <div class="fw-semibold">
+            {{ template.created_at|date:"Y-m-d H:i" }}
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="small text-uppercase text-muted mb-1">Last updated</div>
+          <div class="fw-semibold">
+            {{ template.updated_at|date:"Y-m-d H:i" }}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HTML Body -->
+  <div class="card shadow-sm mb-3">
+    <div class="card-header bg-light">
+      <strong>HTML Body</strong>
+    </div>
+    <div class="card-body">
+      {% if template.body_html %}
+        <pre class="mb-0" style="white-space: pre-wrap; word-wrap: break-word;">
+{{ template.body_html|escape }}
+        </pre>
+      {% else %}
+        <p class="text-muted mb-0">No HTML body defined.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Text Body -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-header bg-light">
+      <strong>Plain Text Body</strong>
+    </div>
+    <div class="card-body">
+      {% if template.body_text %}
+        <pre class="mb-0" style="white-space: pre-wrap; word-wrap: break-word;">
+{{ template.body_text|escape }}
+        </pre>
+      {% else %}
+        <p class="text-muted mb-0">No plain text body defined.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Action row -->
+  <div class="text-center">
+    <div>
+      <a href="{% url 'messaging:template_preview' template.pk %}"
+        class="btn btn-sm btn-outline-dark me-2">
+        Show Template
+      </a>
+
+      {% if perms.messaging.change_emailtemplate %}
+        <a href="{% url 'messaging:template_update' template.pk %}"
+          class="btn btn-sm btn-outline-primary me-2">
+          Edit
+        </a>
+      {% endif %}
+
+      <a href="{% url 'messaging:template_list' %}" class="btn btn-sm btn-outline-secondary">
+        Back to list
+      </a>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

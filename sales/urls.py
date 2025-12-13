@@ -37,4 +37,17 @@ urlpatterns = [
     path("payments/new/", views.PaymentCreateView.as_view(), name="payment_create"),
     path("payments/<int:pk>/", views.PaymentDetailView.as_view(), name="payment_detail"),
     path("payments/<int:pk>/edit/", views.PaymentUpdateView.as_view(), name="payment_update"),
+
+    # Proposal email
+    path("proposals/<int:pk>/send-email/", views.ProposalSendEmailView.as_view(), name="proposal_send_email"),
+
+    # Contract email
+    path("contracts/<int:pk>/send-email/", views.ContractSendEmailView.as_view(), name="contract_send_email"),
+
+    # Invoice email
+    path("invoices/<int:pk>/send-email/", views.InvoiceSendEmailView.as_view(), name="invoice_send_email"),
+
+    # Payment email
+    path("payments/<int:pk>/send-email/", views.PaymentSendEmailView.as_view(), name="payment_send_email"),
+
 ]

@@ -1,117 +1,265 @@
+{# messaging/templates/messaging/campaign_detail.html #}
 {% extends "ui/base.html" %}
-{% load roles_tags %}
 
-{% block title %}Campaign – {{ campaign.name }}{% endblock %}
+{% block title %}Campaign: {{ campaign.name }}{% endblock %}
 
 {% block content %}
-{% is_admin request.user as is_admin %}
-{% is_manager request.user as is_manager %}
-{% is_employee request.user as is_employee %}
-
 <div class="container py-3">
 
   <!-- Header -->
-  <div class="d-flex justify-content-between align-items-center mb-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="fw-semibold mb-0">Campaign: {{ campaign.name }}</h2>
+
     <div>
-      <h2 class="fw-semibold mb-1">{{ campaign.name }}</h2>
-      <small class="text-muted">
-        Status: {{ campaign.get_status_display }} ·
-        Template: {{ campaign.template.name }} ·
-        Created: {{ campaign.created_at|date:"Y-m-d H:i" }}
-      </small>
-    </div>
-    <div class="text-end">
-      {% if is_admin or is_manager %}
-        <a href="{% url 'messaging:campaign_update' campaign.pk %}"
-           class="btn btn-primary btn-sm">
-          Edit Campaign
-        </a>
-        <form action="{% url 'messaging:campaign_send_now' campaign.pk %}"
-              method="post" class="d-inline">
+      {% if perms.messaging.change_campaign %}
+        <form action="{% url 'messaging:campaign_pause' campaign.pk %}"
+              method="post"
+              class="d-inline">
           {% csrf_token %}
-          <button class="btn btn-success btn-sm">
-            Send Now
-          </button>
+          {% if campaign.status == 'running' or campaign.status == 'scheduled' %}
+            <button type="submit" class="btn btn-sm btn-outline-warning me-2">
+              Pause
+            </button>
+          {% endif %}
         </form>
+
+        <form action="{% url 'messaging:campaign_resume' campaign.pk %}"
+              method="post"
+              class="d-inline">
+          {% csrf_token %}
+          {% if campaign.status == 'paused' %}
+            <button type="submit" class="btn btn-sm btn-outline-success me-2">
+              Resume
+            </button>
+          {% endif %}
+        </form>
+
+        <a href="{% url 'messaging:campaign_update' campaign.pk %}"
+           class="btn btn-sm btn-outline-primary me-2">
+          Edit
+        </a>
       {% endif %}
-      <a href="{% url 'messaging:campaign_list' %}" class="btn btn-secondary btn-sm">
-        Back to Campaigns
+      <a href="{% url 'messaging:campaign_list' %}" class="btn btn-sm btn-outline-secondary">
+        Back to list
       </a>
     </div>
   </div>
 
-  <div class="card mb-4 shadow-sm">
+  <!-- Main details -->
+  <div class="card shadow-sm mb-3">
     <div class="card-body">
-
-      <div class="row mb-3">
-        <div class="col-md-4 mb-3 mb-md-0">
-          <div class="text-muted small text-uppercase">Template</div>
-          <div class="fw-semibold mt-1">{{ campaign.template.name }}</div>
+      <div class="row g-3">
+        <div class="col-md-4">
+          <div class="small text-uppercase text-muted mb-1">Name</div>
+          <div class="fw-semibold">{{ campaign.name }}</div>
         </div>
-        <div class="col-md-4 mb-3 mb-md-0">
-          <div class="text-muted small text-uppercase">Integration</div>
-          <div class="fw-semibold mt-1">
-            {{ campaign.integration|default:"Default" }}
+        <div class="col-md-4">
+          <div class="small text-uppercase text-muted mb-1">Template</div>
+          <div class="fw-semibold">
+            {% if campaign.template %}
+              {{ campaign.template.name }}
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
           </div>
         </div>
         <div class="col-md-4">
-          <div class="text-muted small text-uppercase">Scheduled For</div>
-          <div class="fw-semibold mt-1">
-            {{ campaign.scheduled_for|date:"Y-m-d H:i"|default:"—" }}
+          <div class="small text-uppercase text-muted mb-1">Status</div>
+          <div>
+            <span class="badge
+              {% if campaign.status == 'running' %} bg-success
+              {% elif campaign.status == 'scheduled' %} bg-primary
+              {% elif campaign.status == 'paused' %} bg-warning text-dark
+              {% elif campaign.status == 'completed' %} bg-secondary
+              {% else %} bg-light text-dark
+              {% endif %}
+            ">
+              {{ campaign.get_status_display }}
+            </span>
+          </div>
+        </div>
+
+        <div class="col-md-4">
+          <div class="small text-uppercase text-muted mb-1">Target Type</div>
+          <div class="fw-semibold">{{ campaign.get_target_type_display }}</div>
+        </div>
+        <div class="col-md-4">
+          <div class="small text-uppercase text-muted mb-1">From Email</div>
+          <div class="fw-semibold">
+            {{ campaign.effective_from_email|default:"—" }}
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="small text-uppercase text-muted mb-1">Reply-To</div>
+          <div class="fw-semibold">
+            {{ campaign.reply_to|default:"—" }}
+          </div>
+        </div>
+
+        <div class="col-md-4">
+          <div class="small text-uppercase text-muted mb-1">Start Date</div>
+          <div class="fw-semibold">
+            {{ campaign.start_date|date:"Y-m-d"|default:"—" }}
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="small text-uppercase text-muted mb-1">Start Time</div>
+          <div class="fw-semibold">
+            {{ campaign.start_time|time:"H:i"|default:"—" }}
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="small text-uppercase text-muted mb-1">Weekdays Only</div>
+          <div class="fw-semibold">
+            {% if campaign.weekdays_only %}
+              Yes (Mon–Fri)
+            {% else %}
+              No
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="col-md-4">
+          <div class="small text-uppercase text-muted mb-1">Daily Limit</div>
+          <div class="fw-semibold">{{ campaign.daily_limit }}</div>
+        </div>
+        <div class="col-md-4">
+          <div class="small text-uppercase text-muted mb-1">Delay (seconds)</div>
+          <div class="fw-semibold">{{ campaign.delay_seconds }}</div>
+        </div>
+        <div class="col-md-4">
+          <div class="small text-uppercase text-muted mb-1">Last Run</div>
+          <div class="fw-semibold">
+            {{ campaign.last_run_at|date:"Y-m-d H:i"|default:"—" }}
+          </div>
+        </div>
+
+        <div class="col-md-4">
+          <div class="small text-uppercase text-muted mb-1">Total Sent</div>
+          <div class="fw-semibold">{{ campaign.total_sent }}</div>
+        </div>
+        <div class="col-md-4">
+          <div class="small text-uppercase text-muted mb-1">Created By</div>
+          <div class="fw-semibold">{{ campaign.created_by|default:"—" }}</div>
+        </div>
+        <div class="col-md-4">
+          <div class="small text-uppercase text-muted mb-1">Created At</div>
+          <div class="fw-semibold">
+            {{ campaign.created_at|date:"Y-m-d H:i" }}
           </div>
         </div>
       </div>
+    </div>
+  </div>
 
-      <div class="mb-3">
-        <div class="text-muted small text-uppercase">Subject</div>
-        <div class="fw-semibold mt-1">
-          {{ campaign.subject }}
+  <!-- Description -->
+  <div class="card shadow-sm mb-3">
+    <div class="card-header bg-light">
+      <strong>Description</strong>
+    </div>
+    <div class="card-body">
+      {% if campaign.description %}
+        <p class="mb-0">{{ campaign.description }}</p>
+      {% else %}
+        <p class="text-muted mb-0">No description provided.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="card shadow-sm mb-3">
+    <div class="card-header bg-light">
+      <strong>Recipient Stats</strong>
+    </div>
+    <div class="card-body">
+      <div class="row g-3 text-center">
+        <div class="col-md-3">
+          <div class="small text-uppercase text-muted mb-1">Total</div>
+          <div class="fw-bold fs-5">{{ total_recipients }}</div>
+        </div>
+        <div class="col-md-3">
+          <div class="small text-uppercase text-muted mb-1">Sent</div>
+          <div class="fw-bold fs-5 text-success">{{ sent_count }}</div>
+        </div>
+        <div class="col-md-3">
+          <div class="small text-uppercase text-muted mb-1">Pending</div>
+          <div class="fw-bold fs-5 text-primary">{{ pending_count }}</div>
+        </div>
+        <div class="col-md-3">
+          <div class="small text-uppercase text-muted mb-1">Failed</div>
+          <div class="fw-bold fs-5 text-danger">{{ failed_count }}</div>
         </div>
       </div>
-
-      <div class="mb-3">
-        <div class="text-muted small text-uppercase">Segment Description</div>
-        <div class="mt-1">
-          {{ campaign.segment_description|linebreaks|default:"<span class='text-muted'>—</span>"|safe }}
-        </div>
-      </div>
-
     </div>
   </div>
 
   <!-- Recipients -->
-  <div class="card mb-4 shadow-sm">
-    <div class="card-header d-flex justify-content-between align-items-center">
-      <span>Recipients ({{ recipients|length }})</span>
+  <div class="card shadow-sm mb-4">
+    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+      <strong>Recipients</strong>
+      <span class="small text-muted">{{ total_recipients }} total</span>
     </div>
-    <div class="card-body p-0" style="max-height: 260px; overflow-y: auto;">
-      <table class="table table-sm mb-0 align-middle">
-        <thead>
+    <div class="card-body p-0">
+      <table class="table table-hover mb-0 align-middle">
+        <thead class="table-light">
           <tr>
             <th>Email</th>
-            <th>Client</th>
+            <th>Name</th>
+            <th>Company</th>
             <th>Status</th>
             <th>Sent At</th>
           </tr>
         </thead>
         <tbody>
-        {% for r in recipients %}
+          {% for r in recipients %}
           <tr>
             <td>{{ r.email }}</td>
-            <td>{{ r.client|default:"—" }}</td>
-            <td>{{ r.get_status_display }}</td>
-            <td>{{ r.sent_at|date:"Y-m-d H:i"|default:"—" }}</td>
-          </tr>
-        {% empty %}
-          <tr>
-            <td colspan="4" class="text-muted text-center py-3">
-              No recipients yet.
+            <td>
+              {{ r.first_name }} {{ r.last_name }}
+            </td>
+            <td>{{ r.company|default:"—" }}</td>
+            <td>
+              <span class="badge
+                {% if r.status == 'sent' %} bg-success
+                {% elif r.status == 'pending' %} bg-primary
+                {% elif r.status == 'failed' %} bg-danger
+                {% else %} bg-light text-dark
+                {% endif %}
+              ">
+                {{ r.get_status_display }}
+              </span>
+            </td>
+            <td>
+              {% if r.sent_at %}
+                {{ r.sent_at|date:"Y-m-d H:i" }}
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
             </td>
           </tr>
-        {% endfor %}
+          {% empty %}
+          <tr>
+            <td colspan="5" class="text-center text-muted py-3">
+              No recipients added yet.
+            </td>
+          </tr>
+          {% endfor %}
         </tbody>
       </table>
     </div>
+  </div>
+
+  <!-- Action row -->
+  <div class="text-center mb-3">
+    {% if perms.messaging.change_campaign %}
+      <a href="{% url 'messaging:campaign_update' campaign.pk %}"
+         class="btn btn-primary me-2">
+        Edit Campaign
+      </a>
+    {% endif %}
+    <a href="{% url 'messaging:campaign_list' %}" class="btn btn-outline-secondary">
+      Back to list
+    </a>
   </div>
 
 </div>
