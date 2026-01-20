@@ -419,17 +419,17 @@ def login_view(request):
 
         if user is not None:
             login(request, user)
-            messages.success(request, "Welcome back!")
+            messages.success(request, "Welcome back!" ,extra_tags="scope:auth")
             return redirect("ui:home")  # redirect to dashboard/home
 
         else:
-            messages.error(request, "Invalid username or password")
+            messages.error(request, "Invalid username or password", extra_tags="scope:auth")
 
     return render(request, "ui/login.html")
 
 
 def logout_view(request):
     logout(request)
-    messages.info(request, "You have been logged out.")
+    messages.info(request, "You have been logged out.", extra_tags="scope:auth")
     return redirect("ui:login")
 

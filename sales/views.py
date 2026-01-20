@@ -687,14 +687,21 @@ def _resolve_client_email(client) -> str:
     return ""
 
 
-def _flash_send_result(request, *, label: str, to_email: str, result):
-    """
-    Standardized UI messages for send action.
-    """
-    if result.ok:
-        messages.success(request, f"{label} email sent to {to_email}.")
+def _flash_send_result(request, label, to_email, result, extra_tags=""):
+    if getattr(result, "ok", False):
+        messages.success(
+            request,
+            f"{label} email sent to {to_email}.",
+            extra_tags=extra_tags,
+        )
     else:
-        messages.error(request, f"Failed to send {label.lower()} email: {result.error}")
+        error_msg = getattr(result, "error", None) or "Email send failed."
+        messages.error(
+            request,
+            f"{label} email failed: {error_msg}",
+            extra_tags=extra_tags,
+        )
+
 
 
 @method_decorator(require_POST, name="dispatch")
@@ -713,7 +720,11 @@ class ProposalSendEmailView(AdminManagerMixin, View):
         to_email = _resolve_client_email(client)
 
         if not to_email:
-            messages.error(request, "Client email not found. Please add client email (or primary contact email).")
+            messages.error(
+                request,
+                "Client email not found. Please add client email (or primary contact email).",
+                extra_tags="scope:proposal scope:email",
+            )
             return redirect("sales:proposal_detail", pk=proposal.pk)
 
         result = send_templated_email(
@@ -726,7 +737,13 @@ class ProposalSendEmailView(AdminManagerMixin, View):
             },
         )
 
-        _flash_send_result(request, label="Proposal", to_email=to_email, result=result)
+        _flash_send_result(
+            request,
+            label="Proposal",
+            to_email=to_email,
+            result=result,
+            extra_tags="scope:proposal scope:email",
+        )
         return redirect("sales:proposal_detail", pk=proposal.pk)
 
 
@@ -746,7 +763,11 @@ class ContractSendEmailView(AdminManagerMixin, View):
         to_email = _resolve_client_email(client)
 
         if not to_email:
-            messages.error(request, "Client email not found. Please add client email (or primary contact email).")
+            messages.error(
+                request,
+                "Client email not found. Please add client email (or primary contact email).",
+                extra_tags="scope:contract scope:email",
+            )
             return redirect("sales:contract_detail", pk=contract.pk)
 
         result = send_templated_email(
@@ -760,7 +781,13 @@ class ContractSendEmailView(AdminManagerMixin, View):
             },
         )
 
-        _flash_send_result(request, label="Contract", to_email=to_email, result=result)
+        _flash_send_result(
+            request,
+            label="Contract",
+            to_email=to_email,
+            result=result,
+            extra_tags="scope:contract scope:email",
+        )
         return redirect("sales:contract_detail", pk=contract.pk)
 
 
@@ -780,7 +807,11 @@ class InvoiceSendEmailView(AdminManagerMixin, View):
         to_email = _resolve_client_email(client)
 
         if not to_email:
-            messages.error(request, "Client email not found. Please add client email (or primary contact email).")
+            messages.error(
+                request,
+                "Client email not found. Please add client email (or primary contact email).",
+                extra_tags="scope:invoice scope:email",
+            )
             return redirect("sales:invoice_detail", pk=invoice.pk)
 
         result = send_templated_email(
@@ -794,7 +825,13 @@ class InvoiceSendEmailView(AdminManagerMixin, View):
             },
         )
 
-        _flash_send_result(request, label="Invoice", to_email=to_email, result=result)
+        _flash_send_result(
+            request,
+            label="Invoice",
+            to_email=to_email,
+            result=result,
+            extra_tags="scope:invoice scope:email",
+        )
         return redirect("sales:invoice_detail", pk=invoice.pk)
 
 
@@ -815,7 +852,11 @@ class PaymentSendEmailView(AdminManagerMixin, View):
         to_email = _resolve_client_email(client)
 
         if not to_email:
-            messages.error(request, "Client email not found. Please add client email (or primary contact email).")
+            messages.error(
+                request,
+                "Client email not found. Please add client email (or primary contact email).",
+                extra_tags="scope:payment scope:email",
+            )
             return redirect("sales:payment_detail", pk=payment.pk)
 
         result = send_templated_email(
@@ -829,5 +870,11 @@ class PaymentSendEmailView(AdminManagerMixin, View):
             },
         )
 
-        _flash_send_result(request, label="Payment", to_email=to_email, result=result)
+        _flash_send_result(
+            request,
+            label="Payment",
+            to_email=to_email,
+            result=result,
+            extra_tags="scope:payment scope:email",
+        )
         return redirect("sales:payment_detail", pk=payment.pk)

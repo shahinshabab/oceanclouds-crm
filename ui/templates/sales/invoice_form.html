@@ -1,4 +1,5 @@
 {% extends "ui/base.html" %}
+{% load roles_tags %}
 {% block title %}
   {% if form.instance.pk %}Edit Invoice{% else %}New Invoice{% endif %}
 {% endblock %}

@@ -12,12 +12,21 @@
   {% if messages %}
     <div class="mb-3">
       {% for message in messages %}
-        <div class="alert alert-{{ message.tags }} mb-2" role="alert">
-          {{ message }}
-        </div>
+        {% if "scope:contract" in message.tags or "scope:email" in message.tags %}
+          {% if message.level_tag == "error" %}
+            <div class="alert alert-danger mb-2" role="alert">
+              {{ message }}
+            </div>
+          {% else %}
+            <div class="alert alert-{{ message.level_tag }} mb-2" role="alert">
+              {{ message }}
+            </div>
+          {% endif %}
+        {% endif %}
       {% endfor %}
     </div>
   {% endif %}
+
 
   <!-- Header + Actions -->
   <div class="d-flex justify-content-between align-items-start mb-3">
