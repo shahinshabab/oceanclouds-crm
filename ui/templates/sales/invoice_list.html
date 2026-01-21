@@ -46,18 +46,18 @@
       </select>
     </div>
 
-    <!-- Filter 2: Client -->
+    <!-- Filter 2: Period -->
     <div class="col-md-3">
-      <label for="id_client" class="form-label small text-muted">Client</label>
-      <select name="client" id="id_client" class="form-select form-select-sm">
-        <option value="">All clients</option>
-        {% for c in clients %}
-          <option value="{{ c.id }}" {% if filter_client|default:''|stringformat:"s" == c.id|stringformat:"s" %}selected{% endif %}>
-            {{ c.name }}
+      <label for="id_period" class="form-label small text-muted">Period</label>
+      <select name="period" id="id_period" class="form-select form-select-sm">
+        {% for value, label in period_choices %}
+          <option value="{{ value }}" {% if filter_period == value %}selected{% endif %}>
+            {{ label }}
           </option>
         {% endfor %}
       </select>
     </div>
+
 
     <!-- Apply Button -->
     <div class="col-md-2 text-md-end">
@@ -128,7 +128,7 @@
         <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
           {% if page_obj.has_previous %}
             <a class="page-link"
-               href="?page={{ page_obj.previous_page_number }}&q={{ q }}&status={{ filter_status }}&client={{ filter_client }}">
+               href="?page={{ page_obj.previous_page_number }}&q={{ q }}&status={{ filter_status }}&period={{ filter_period }}">
               Previous
             </a>
           {% else %}

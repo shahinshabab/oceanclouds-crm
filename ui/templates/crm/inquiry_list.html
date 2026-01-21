@@ -116,7 +116,7 @@
                 View
               </a>
 
-              {% if is_admin or is_manager or inquiry.handled_by_id == request.user.id %}
+              {% if is_admin or is_manager or inquiry.owner_id == request.user.id %}
                 <a href="{% url 'crm:inquiry_update' inquiry.pk %}"
                    class="btn btn-sm btn-outline-primary">
                   Edit

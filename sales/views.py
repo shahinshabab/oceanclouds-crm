@@ -14,7 +14,9 @@ from django.utils.safestring import mark_safe
 from crm.models import Client
 from common.mixins import AdminManagerMixin  # 👈 your roles mixin
 from .forms import get_catalog_choices
+from datetime import date, timedelta
 
+from django.utils import timezone
 
 from .models import (
     Deal,
@@ -435,6 +437,39 @@ class InvoiceListView(AdminManagerMixin, ListView):
     context_object_name = "invoices"
     paginate_by = 20
 
+    def _get_period_dates(self, period_key: str):
+        """
+        Returns (start_date, end_date) inclusive, or (None, None) if no period filter.
+        """
+        today = timezone.localdate()
+
+        if period_key == "this_month":
+            start = today.replace(day=1)
+            end = today
+            return start, end
+
+        if period_key == "last_month":
+            first_this = today.replace(day=1)
+            last_prev = first_this - timedelta(days=1)
+            start_prev = last_prev.replace(day=1)
+            return start_prev, last_prev
+
+        if period_key == "last_3_months":
+            # From first day of the month 2 months ago up to today
+            first_this = today.replace(day=1)
+            approx = first_this - timedelta(days=62)  # safely reaches ~2 months back
+            start = approx.replace(day=1)
+            end = today
+            return start, end
+
+        if period_key == "last_year":
+            # previous calendar year: Jan 1 .. Dec 31 of last year
+            start = date(today.year - 1, 1, 1)
+            end = date(today.year - 1, 12, 31)
+            return start, end
+
+        return None, None
+
     def get_queryset(self):
         qs = (
             super()
@@ -443,26 +478,27 @@ class InvoiceListView(AdminManagerMixin, ListView):
         )
 
         request = self.request
-        q = request.GET.get("q")
-        status = request.GET.get("status")
-        client_id = request.GET.get("client")
+        q = (request.GET.get("q") or "").strip()
+        status = (request.GET.get("status") or "").strip()
+        period = (request.GET.get("period") or "").strip()  # ✅ new
 
-        # Search: invoice number + client name (via deal.client)
+        # Search: invoice number + client name
         if q:
             qs = qs.filter(
                 Q(number__icontains=q)
                 | Q(deal__client__name__icontains=q)
             )
 
-        # Filter: Invoice status
+        # Filter: status
         if status:
             qs = qs.filter(status=status)
 
-        # Filter: Client (via deal.client)
-        if client_id:
-            qs = qs.filter(deal__client_id=client_id)
+        # ✅ Filter: period (issue_date)
+        start_date, end_date = self._get_period_dates(period)
+        if start_date and end_date:
+            qs = qs.filter(issue_date__gte=start_date, issue_date__lte=end_date)
 
-        return qs
+        return qs.order_by("-issue_date", "-id")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -470,11 +506,20 @@ class InvoiceListView(AdminManagerMixin, ListView):
 
         context["q"] = request.GET.get("q", "")
         context["filter_status"] = request.GET.get("status", "")
-        context["filter_client"] = request.GET.get("client", "")
+        context["filter_period"] = request.GET.get("period", "")  # ✅
 
         context["status_choices"] = InvoiceStatus.choices
-        context["clients"] = Client.objects.order_by("name")
+
+        # ✅ dropdown options
+        context["period_choices"] = [
+            ("", "All periods"),
+            ("this_month", "This month"),
+            ("last_month", "Last month"),
+            ("last_3_months", "Last 3 months"),
+            ("last_year", "Last year"),
+        ]
         return context
+
 
 
 class InvoiceDetailView(AdminManagerMixin, DetailView):

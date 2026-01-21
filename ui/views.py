@@ -20,7 +20,15 @@ from projects.models import (
 )
 
 from django.utils import timezone
+from django.contrib.auth import get_user_model
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.views import PasswordChangeView
+from django.urls import reverse_lazy
+from django.views.generic import TemplateView, UpdateView
 
+from .forms import ProfileUpdateForm
+
+User = get_user_model()
 
 
 def _get_month_info():
@@ -433,3 +441,38 @@ def logout_view(request):
     messages.info(request, "You have been logged out.", extra_tags="scope:auth")
     return redirect("ui:login")
 
+
+class ProfileDetailView(LoginRequiredMixin, TemplateView):
+    template_name = "ui/profile_detail.html"
+
+
+class ProfileUpdateView(LoginRequiredMixin, UpdateView):
+    model = User
+    form_class = ProfileUpdateForm
+    template_name = "ui/profile_edit.html"
+    success_url = reverse_lazy("ui:profile")
+
+    def get_object(self, queryset=None):
+        # always edit the currently logged-in user
+        return self.request.user
+
+    def form_valid(self, form):
+        messages.success(self.request, "Profile updated successfully.")
+        return super().form_valid(form)
+
+    def form_invalid(self, form):
+        messages.error(self.request, "Please fix the errors below.")
+        return super().form_invalid(form)
+
+
+class ProfilePasswordChangeView(LoginRequiredMixin, PasswordChangeView):
+    template_name = "ui/profile_password.html"
+    success_url = reverse_lazy("ui:profile")
+
+    def form_valid(self, form):
+        messages.success(self.request, "Password changed successfully.")
+        return super().form_valid(form)
+
+    def form_invalid(self, form):
+        messages.error(self.request, "Please fix the errors below.")
+        return super().form_invalid(form)

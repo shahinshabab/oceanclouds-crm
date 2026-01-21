@@ -200,8 +200,8 @@
                 <nav class="nav flex-column mb-3">
                     <a class="nav-link" href="{% url 'crm:inquiry_list' %}">Inquiries</a>
                     <a class="nav-link" href="{% url 'crm:lead_list' %}">Leads</a>
-                    <a class="nav-link" href="{% url 'crm:contact_list' %}">Contacts</a>
                     <a class="nav-link" href="{% url 'crm:client_list' %}">Clients</a>
+                    <a class="nav-link" href="{% url 'crm:contact_list' %}">Contacts</a>
                     <a class="nav-link" href="{% url 'crm:review_list' %}">Reviews</a>
                 </nav>
 
@@ -274,8 +274,8 @@
                 <nav class="nav flex-column mb-3">
                     <a class="nav-link" href="{% url 'crm:inquiry_list' %}">Inquiries</a>
                     <a class="nav-link" href="{% url 'crm:lead_list' %}">Leads</a>
-                    <a class="nav-link" href="{% url 'crm:contact_list' %}">Contacts</a>
                     <a class="nav-link" href="{% url 'crm:client_list' %}">Clients</a>
+                    <a class="nav-link" href="{% url 'crm:contact_list' %}">Contacts</a>
                     <a class="nav-link" href="{% url 'crm:review_list' %}">Reviews</a>
                 </nav>
 
@@ -408,7 +408,7 @@
                             </div>
                         </div>
 
-                        <a href="#" class="dropdown-item-custom small">View Profile</a>
+                        <a href="{% url 'ui:profile' %}" class="dropdown-item-custom small">View Profile</a>
 
                         <div class="dropdown-footer">
                             <a href="{% url 'ui:logout' %}" class="btn btn-sm btn-outline-dark">

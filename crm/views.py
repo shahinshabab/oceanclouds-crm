@@ -350,12 +350,12 @@ class InquiryListView(StaffAllMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        qs = super().get_queryset().select_related("lead", "client", "handled_by")
+        qs = super().get_queryset().select_related("lead", "client", "handled_by", "owner")
 
         # Employees only see their own inquiries
         user = self.request.user
         if user_has_role(user, ROLE_EMPLOYEE) and not user.is_superuser:
-            qs = qs.filter(handled_by=user)
+            qs = qs.filter(owner=user)   # ✅ not handled_by
 
         # Search: by inquirer name, email, phone, or wedding location
         q = (self.request.GET.get("q") or "").strip()
@@ -387,12 +387,11 @@ class InquiryDetailView(StaffAllMixin, DetailView):
     context_object_name = "inquiry"
 
     def get_queryset(self):
-        qs = super().get_queryset().select_related("lead", "client", "handled_by")
+        qs = super().get_queryset().select_related("lead", "client", "handled_by", "owner")
 
-        # Employees can only open details for their own inquiries
         user = self.request.user
         if user_has_role(user, ROLE_EMPLOYEE) and not user.is_superuser:
-            qs = qs.filter(handled_by=user)
+            qs = qs.filter(owner=user)
 
         return qs
 
@@ -421,11 +420,11 @@ class InquiryUpdateView(StaffAllMixin, UpdateView):
     success_url = reverse_lazy("crm:inquiry_list")
 
     def get_queryset(self):
-        qs = super().get_queryset().select_related("lead", "client", "handled_by")
+        qs = super().get_queryset().select_related("lead", "client", "handled_by", "owner")
 
-        # Employees can only edit their own inquiries
         user = self.request.user
         if user_has_role(user, ROLE_EMPLOYEE) and not user.is_superuser:
-            qs = qs.filter(handled_by=user)
+            qs = qs.filter(owner=user)
 
         return qs
+

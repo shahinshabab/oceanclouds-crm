@@ -106,25 +106,13 @@
             <!-- Bottom row: status (left) + buttons (right) -->
             <div class="d-flex justify-content-between align-items-center">
               <div>
-                {% if not note.is_read %}
-                    <form method="post"
-                            action="{% url 'common:notification_mark_read' note.id %}"
-                            class="d-inline">
-                        {% csrf_token %}
-                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                        <button type="submit"
-                                class="btn btn-sm btn-outline-secondary">
-                        Mark as read
-                        </button>
-                    </form>
-                    {% else %}
-                    <button type="button"
-                            class="btn btn-sm btn-outline-secondary disabled"
-                            disabled>
-                        Read
-                    </button>
+                {% if note.is_read %}
+                  <span class="badge bg-light text-muted border">Read</span>
+                {% else %}
+                  <span class="badge bg-primary">Unread</span>
                 {% endif %}
               </div>
+
 
               <div class="d-flex gap-2">
                 {% if note.target %}
