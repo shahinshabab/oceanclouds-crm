@@ -63,6 +63,7 @@ class ContractItemInline(admin.TabularInline):
 
 @admin.register(Contract)
 class ContractAdmin(admin.ModelAdmin):
+    readonly_fields = ("number", "created_at", "updated_at")
     list_display = ("number", "deal", "status", "signed_date", "start_date", "end_date")
     list_filter = ("status",)
     search_fields = ("number", "deal__name")
@@ -85,6 +86,7 @@ class PaymentInline(admin.TabularInline):
 
 @admin.register(Invoice)
 class InvoiceAdmin(admin.ModelAdmin):
+    readonly_fields = ("number", "created_at", "updated_at")
     list_display = (
         "number",
         "deal_client",

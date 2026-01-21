@@ -49,13 +49,13 @@
           </div>
 
           <div class="col-md-4 mb-3">
-            <label class="form-label">
-              {{ form.number.label }}{% if form.number.field.required %} *{% endif %}
-            </label>
-            {{ form.number }}
-            {% for error in form.number.errors %}
-              <div class="text-danger small">{{ error }}</div>
-            {% endfor %}
+            <label class="form-label">Contract Number</label>
+            <input
+              type="text"
+              class="form-control"
+              value="{% if form.instance.pk %}{{ form.instance.number }}{% else %}Auto-generated after save{% endif %}"
+              readonly
+            >
           </div>
         </div>
 

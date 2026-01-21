@@ -9,9 +9,12 @@ from django.views.generic import (
     CreateView,
     UpdateView,
 )
-
+import json
+from django.utils.safestring import mark_safe
 from crm.models import Client
 from common.mixins import AdminManagerMixin  # 👈 your roles mixin
+from .forms import get_catalog_choices
+
 
 from .models import (
     Deal,
@@ -35,7 +38,8 @@ from .forms import (
     PaymentForm,
 )
 
-
+from decimal import Decimal
+from services.models import Service, Package
 
 from django.contrib import messages
 from django.shortcuts import redirect, get_object_or_404
@@ -141,6 +145,17 @@ class DealUpdateView(AdminManagerMixin, UpdateView):
 # Proposals
 # ============================================================================
 
+def _get_price_maps():
+    services_price_map = {
+        str(s.id): str(s.base_price or Decimal("0.00"))
+        for s in Service.objects.all().only("id", "base_price").order_by("id")
+    }
+    packages_price_map = {
+        str(p.id): str(p.total_price or Decimal("0.00"))
+        for p in Package.objects.all().only("id", "total_price").order_by("id")
+    }
+    return services_price_map, packages_price_map
+
 class ProposalListView(AdminManagerMixin, ListView):
     model = Proposal
     template_name = "sales/proposal_list.html"
@@ -203,7 +218,6 @@ class ProposalCreateView(AdminManagerMixin, CreateView):
 
     def get_initial(self):
         initial = super().get_initial()
-        # Pre-fill deal if ?deal=<id> in query string
         deal_id = self.request.GET.get("deal")
         if deal_id:
             initial["deal"] = deal_id
@@ -212,42 +226,46 @@ class ProposalCreateView(AdminManagerMixin, CreateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
+        services_price_map, packages_price_map = _get_price_maps()
+        context["services_price_map_json"] = mark_safe(json.dumps(services_price_map))
+        context["packages_price_map_json"] = mark_safe(json.dumps(packages_price_map))
+
+        catalog_choices = get_catalog_choices()
+
         if self.request.method == "POST":
-            context["item_formset"] = ProposalItemFormSet(self.request.POST)
+            proposal_instance = getattr(context.get("form"), "instance", None)
+            context["item_formset"] = ProposalItemFormSet(
+                self.request.POST,
+                instance=proposal_instance,
+                catalog_choices=catalog_choices,
+            )
         else:
-            context["item_formset"] = ProposalItemFormSet()
+            context["item_formset"] = ProposalItemFormSet(
+                catalog_choices=catalog_choices
+            )
 
         return context
 
+
     def form_valid(self, form):
-        # Set owner on proposal header
         form.instance.owner = self.request.user
 
         context = self.get_context_data(form=form)
         item_formset = context["item_formset"]
 
         if not item_formset.is_valid():
-            # Re-render with item errors
             return self.render_to_response(context)
 
-        # Save proposal first
         self.object = form.save()
 
-        # Attach proposal to items and save them
         item_formset.instance = self.object
         item_formset.save()
 
-        # Recalculate subtotal & total from items
-        subtotal = sum(item.line_total for item in self.object.items.all())
-        self.object.subtotal = subtotal
-        self.object.total = (
-            self.object.subtotal
-            - (self.object.discount or 0)
-            + (self.object.tax or 0)
-        )
-        self.object.save(update_fields=["subtotal", "total", "updated_at"])
+        # ✅ Always compute totals from items
+        self.object.recalculate_totals(save=True)
 
         return super().form_valid(form)
+
 
 
 class ProposalUpdateView(AdminManagerMixin, UpdateView):
@@ -258,17 +276,28 @@ class ProposalUpdateView(AdminManagerMixin, UpdateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        proposal = self.object
 
+        services_price_map, packages_price_map = _get_price_maps()
+        context["services_price_map_json"] = mark_safe(json.dumps(services_price_map))
+        context["packages_price_map_json"] = mark_safe(json.dumps(packages_price_map))
+
+        catalog_choices = get_catalog_choices()
+
+        proposal = self.object
         if self.request.method == "POST":
             context["item_formset"] = ProposalItemFormSet(
                 self.request.POST,
                 instance=proposal,
+                catalog_choices=catalog_choices,
             )
         else:
-            context["item_formset"] = ProposalItemFormSet(instance=proposal)
+            context["item_formset"] = ProposalItemFormSet(
+                instance=proposal,
+                catalog_choices=catalog_choices,
+            )
 
         return context
+
 
     def form_valid(self, form):
         context = self.get_context_data(form=form)
@@ -277,24 +306,16 @@ class ProposalUpdateView(AdminManagerMixin, UpdateView):
         if not item_formset.is_valid():
             return self.render_to_response(context)
 
-        # Save proposal header
         self.object = form.save()
 
-        # Save items
         item_formset.instance = self.object
         item_formset.save()
 
-        # Recalculate subtotal & total from items
-        subtotal = sum(item.line_total for item in self.object.items.all())
-        self.object.subtotal = subtotal
-        self.object.total = (
-            self.object.subtotal
-            - (self.object.discount or 0)
-            + (self.object.tax or 0)
-        )
-        self.object.save(update_fields=["subtotal", "total", "updated_at"])
+        # ✅ Always compute totals from items
+        self.object.recalculate_totals(save=True)
 
         return super().form_valid(form)
+
 
 
 # ============================================================================

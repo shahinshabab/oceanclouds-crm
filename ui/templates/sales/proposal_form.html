@@ -29,118 +29,74 @@
     <div class="card shadow-sm mb-3">
       <div class="card-body">
 
-        <!-- Row 1: Deal / Title / Status -->
+        <!-- Row 1 -->
         <div class="row">
           <div class="col-md-4 mb-3">
-            <label class="form-label">
-              {{ form.deal.label }}{% if form.deal.field.required %} *{% endif %}
-            </label>
+            <label class="form-label">{{ form.deal.label }}{% if form.deal.field.required %} *{% endif %}</label>
             {{ form.deal }}
-            {% for error in form.deal.errors %}
-              <div class="text-danger small">{{ error }}</div>
-            {% endfor %}
+            {% for error in form.deal.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
           </div>
 
           <div class="col-md-4 mb-3">
-            <label class="form-label">
-              {{ form.title.label }}{% if form.title.field.required %} *{% endif %}
-            </label>
+            <label class="form-label">{{ form.title.label }}{% if form.title.field.required %} *{% endif %}</label>
             {{ form.title }}
-            {% for error in form.title.errors %}
-              <div class="text-danger small">{{ error }}</div>
-            {% endfor %}
+            {% for error in form.title.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
           </div>
 
           <div class="col-md-4 mb-3">
-            <label class="form-label">
-              {{ form.status.label }}{% if form.status.field.required %} *{% endif %}
-            </label>
+            <label class="form-label">{{ form.status.label }}{% if form.status.field.required %} *{% endif %}</label>
             {{ form.status }}
-            {% for error in form.status.errors %}
-              <div class="text-danger small">{{ error }}</div>
-            {% endfor %}
+            {% for error in form.status.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
           </div>
         </div>
 
-        <!-- Row 2: Version / Valid Until / Subtotal -->
+        <!-- Row 2 -->
         <div class="row">
           <div class="col-md-4 mb-3">
-            <label class="form-label">
-              {{ form.version.label }}
-            </label>
+            <label class="form-label">{{ form.version.label }}</label>
             {{ form.version }}
-            {% for error in form.version.errors %}
-              <div class="text-danger small">{{ error }}</div>
-            {% endfor %}
+            {% for error in form.version.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
           </div>
 
           <div class="col-md-4 mb-3">
-            <label class="form-label">
-              {{ form.valid_until.label }}
-            </label>
+            <label class="form-label">{{ form.valid_until.label }}</label>
             {{ form.valid_until }}
-            {% for error in form.valid_until.errors %}
-              <div class="text-danger small">{{ error }}</div>
-            {% endfor %}
+            {% for error in form.valid_until.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
           </div>
 
           <div class="col-md-4 mb-3">
-            <label class="form-label">
-              {{ form.subtotal.label }}
-            </label>
-            {{ form.subtotal }}
-            {% for error in form.subtotal.errors %}
-              <div class="text-danger small">{{ error }}</div>
-            {% endfor %}
+            <label class="form-label">Subtotal</label>
+            <input type="text" id="id_subtotal" class="form-control" value="{{ form.instance.subtotal|default_if_none:'0.00' }}" readonly>
           </div>
         </div>
 
-        <!-- Row 3: Discount / Tax / Total -->
+        <!-- Row 3 -->
         <div class="row">
           <div class="col-md-4 mb-3">
-            <label class="form-label">
-              {{ form.discount.label }}
-            </label>
+            <label class="form-label">{{ form.discount.label }}</label>
             {{ form.discount }}
-            {% for error in form.discount.errors %}
-              <div class="text-danger small">{{ error }}</div>
-            {% endfor %}
+            {% for error in form.discount.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
           </div>
 
           <div class="col-md-4 mb-3">
-            <label class="form-label">
-              {{ form.tax.label }}
-            </label>
+            <label class="form-label">{{ form.tax.label }}</label>
             {{ form.tax }}
-            {% if form.tax.help_text %}
-              <small class="form-text text-muted">{{ form.tax.help_text }}</small>
-            {% endif %}
-            {% for error in form.tax.errors %}
-              <div class="text-danger small">{{ error }}</div>
-            {% endfor %}
+            {% if form.tax.help_text %}<small class="form-text text-muted">{{ form.tax.help_text }}</small>{% endif %}
+            {% for error in form.tax.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
           </div>
 
           <div class="col-md-4 mb-3">
-            <label class="form-label">
-              {{ form.total.label }}
-            </label>
-            {{ form.total }}
-            {% for error in form.total.errors %}
-              <div class="text-danger small">{{ error }}</div>
-            {% endfor %}
+            <label class="form-label">Total</label>
+            <input type="text" id="id_total" class="form-control" value="{{ form.instance.total|default_if_none:'0.00' }}" readonly>
           </div>
         </div>
 
-        <!-- Row 4: Notes (full width) -->
+        <!-- Notes -->
         <div class="row">
           <div class="col-12 mb-3">
-            <label class="form-label">
-              {{ form.notes.label }}
-            </label>
+            <label class="form-label">{{ form.notes.label }}</label>
             {{ form.notes }}
-            {% for error in form.notes.errors %}
-              <div class="text-danger small">{{ error }}</div>
-            {% endfor %}
+            {% for error in form.notes.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
           </div>
         </div>
 
@@ -151,76 +107,64 @@
     <div class="card shadow-sm mb-3">
       <div class="card-header d-flex justify-content-between align-items-center">
         <span class="fw-semibold small text-uppercase text-muted">Items</span>
-        <button type="button"
-                class="btn btn-sm btn-outline-success"
-                id="add-item-row">
-          + Add Item
-        </button>
+        <button type="button" class="btn btn-sm btn-outline-success" id="add-item-row">+ Add Item</button>
       </div>
 
       <div class="card-body p-0">
-
         {{ item_formset.management_form }}
 
         <table class="table table-sm mb-0 align-middle" id="items-table">
           <thead class="table-light">
             <tr>
-              <th style="width: 18%;">Service</th>
-              <th style="width: 18%;">Package</th>
+              <th style="width: 28%;">Item</th>
               <th style="width: 34%;">Description</th>
               <th class="text-end" style="width: 10%;">Qty</th>
               <th class="text-end" style="width: 15%;">Unit Price</th>
+              <th class="text-end" style="width: 13%;">Line Total</th>
               <th class="text-end" style="width: 5%;">Delete</th>
             </tr>
           </thead>
           <tbody>
           {% for form_item in item_formset %}
             <tr class="item-row">
-              {# Hidden id field so edits work correctly #}
               {{ form_item.id }}
 
               <td>
-                {{ form_item.service }}
-                {% for error in form_item.service.errors %}
-                  <div class="text-danger small">{{ error }}</div>
-                {% endfor %}
-              </td>
-
-              <td>
-                {{ form_item.package }}
-                {% for error in form_item.package.errors %}
-                  <div class="text-danger small">{{ error }}</div>
-                {% endfor %}
+                {{ form_item.catalog_item }}
+                {% for error in form_item.catalog_item.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                {% if form_item.non_field_errors %}
+                  <div class="text-danger small">{{ form_item.non_field_errors }}</div>
+                {% endif %}
               </td>
 
               <td>
                 {{ form_item.description }}
-                {% for error in form_item.description.errors %}
-                  <div class="text-danger small">{{ error }}</div>
-                {% endfor %}
+                {% for error in form_item.description.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
               </td>
 
               <td class="text-end">
                 {{ form_item.quantity }}
-                {% for error in form_item.quantity.errors %}
-                  <div class="text-danger small">{{ error }}</div>
-                {% endfor %}
+                {% for error in form_item.quantity.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
               </td>
 
               <td class="text-end">
                 {{ form_item.unit_price }}
-                {% for error in form_item.unit_price.errors %}
-                  <div class="text-danger small">{{ error }}</div>
-                {% endfor %}
+                {% for error in form_item.unit_price.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+              </td>
+
+              <td class="text-end">
+                <span class="line-total text-muted">0.00</span>
               </td>
 
               <td class="text-end">
                 {% if form_item.DELETE %}
-                  <div class="form-check d-flex justify-content-end">
-                    {{ form_item.DELETE }}
-                  </div>
+                  {{ form_item.DELETE }} {# keep hidden for Django #}
+                  <button type="button" class="btn btn-sm btn-outline-danger js-delete-row">
+                    Delete
+                  </button>
                 {% endif %}
               </td>
+
             </tr>
           {% endfor %}
           </tbody>
@@ -233,62 +177,227 @@
     <div class="row mt-3">
       <div class="col-12 d-flex justify-content-center gap-2">
         {% if is_admin or is_manager %}
-          <button type="submit" class="btn btn-primary px-4">
-            Save
-          </button>
-        {% endif %}  
-        <a href="{% url 'sales:proposal_list' %}" class="btn btn-secondary">
-          Cancel
-        </a>
+          <button type="submit" class="btn btn-primary px-4">Save</button>
+        {% endif %}
+        <a href="{% url 'sales:proposal_list' %}" class="btn btn-secondary">Cancel</a>
       </div>
     </div>
 
   </form>
-
 </div>
+<style>
+  input[type="checkbox"][name$="-DELETE"] { display:none; }
+</style>
+
+{# ========= PRICE MAPS (you must pass from view) ========= #}
+<script id="price-data" type="application/json">
+{
+  "services": {{ services_price_map_json }},
+  "packages": {{ packages_price_map_json }}
+}
+</script>
 
 <script>
-  (function () {
-    const addBtn = document.getElementById("add-item-row");
-    const tableBody = document.querySelector("#items-table tbody");
-    if (!addBtn || !tableBody) return;
+(function () {
+  const addBtn = document.getElementById("add-item-row");
+  const table = document.getElementById("items-table");
+  const tableBody = table ? table.querySelector("tbody") : null;
 
+  const subtotalInput = document.getElementById("id_subtotal");
+  const totalInput = document.getElementById("id_total");
+  const discountInput = document.getElementById("id_discount");
+  const taxInput = document.getElementById("id_tax");
+
+  const priceEl = document.getElementById("price-data");
+  const priceData = priceEl ? JSON.parse(priceEl.textContent) : {services:{}, packages:{}};
+
+  function num(v) {
+    const x = parseFloat(v);
+    return isNaN(x) ? 0 : x;
+  }
+  function money(x) {
+    return (Math.round(x * 100) / 100).toFixed(2);
+  }
+
+  function getRowValues(row) {
+    const del = row.querySelector('input[type="checkbox"][name$="-DELETE"]');
+    if (del && del.checked) return {skip:true};
+
+    const qtyEl = row.querySelector('input[name$="-quantity"]');
+    const unitEl = row.querySelector('input[name$="-unit_price"]');
+    const qty = num(qtyEl ? qtyEl.value : 0);
+    const unit = num(unitEl ? unitEl.value : 0);
+    return {skip:false, qty, unit, qtyEl, unitEl};
+  }
+
+  function recalcRow(row) {
+    const v = getRowValues(row);
+    const out = row.querySelector(".line-total");
+    if (!out) return 0;
+
+    if (v.skip) {
+      out.textContent = "0.00";
+      return 0;
+    }
+
+    const line = v.qty * v.unit;
+    out.textContent = money(line);
+    return line;
+  }
+
+  function recalcAll() {
+    let subtotal = 0;
+    tableBody.querySelectorAll("tr.item-row").forEach(row => {
+      subtotal += recalcRow(row);
+    });
+
+    const discount = discountInput ? num(discountInput.value) : 0;
+    const tax = taxInput ? num(taxInput.value) : 0;
+    const total = Math.max(0, subtotal - discount + tax);
+
+    if (subtotalInput) subtotalInput.value = money(subtotal);
+    if (totalInput) totalInput.value = money(total);
+  }
+
+  function applyPriceFromCatalog(row) {
+    const sel = row.querySelector('select[name$="-catalog_item"]');
+    const unitEl = row.querySelector('input[name$="-unit_price"]');
+    if (!sel || !unitEl) return;
+
+    const key = sel.value || "";
+    if (!key) return;
+
+    // If user edited unit price manually, don’t overwrite
+    if (unitEl.dataset.userEdited === "1") {
+      recalcAll();
+      return;
+    }
+
+    const parts = key.split(":");
+    if (parts.length !== 2) return;
+
+    const kind = parts[0];
+    const id = parts[1];
+
+    let price = null;
+    if (kind === "S") price = priceData.services?.[id];
+    if (kind === "P") price = priceData.packages?.[id];
+
+    if (price !== null && price !== undefined) {
+      unitEl.value = money(num(price));
+    }
+    recalcAll();
+  }
+
+  // mark unit_price as user edited when typing
+  table.addEventListener("input", (e) => {
+    const el = e.target;
+
+    if (el && el.name && el.name.endsWith("-unit_price")) {
+      el.dataset.userEdited = "1";
+      recalcAll();
+    }
+    if (el && el.name && el.name.endsWith("-quantity")) {
+      recalcAll();
+    }
+    if (el && (el.id === "id_discount" || el.id === "id_tax")) {
+      recalcAll();
+    }
+  });
+
+  table.addEventListener("change", (e) => {
+    const el = e.target;
+    const row = el.closest("tr.item-row");
+    if (!row) return;
+
+    if (el.name && el.name.endsWith("-catalog_item")) {
+      const unitEl = row.querySelector('input[name$="-unit_price"]');
+      if (unitEl) unitEl.dataset.userEdited = ""; // reset when item changed
+      applyPriceFromCatalog(row);
+    }
+
+    if (el.type === "checkbox" && el.name.endsWith("-DELETE")) {
+      recalcAll();
+    }
+  });
+
+
+  table.addEventListener("click", (e) => {
+    const btn = e.target.closest(".js-delete-row");
+    if (!btn) return;
+
+    const row = btn.closest("tr.item-row");
+    if (!row) return;
+
+    const del = row.querySelector('input[type="checkbox"][name$="-DELETE"]');
+    if (del) {
+      del.checked = true;
+    }
+
+    // hide row visually
+    row.style.display = "none";
+
+    // recalc totals
+    recalcAll();
+  });
+
+  // initial load: apply prices and calc totals
+  tableBody.querySelectorAll("tr.item-row").forEach(row => {
+    // set line totals using existing values
+    recalcRow(row);
+  });
+  recalcAll();
+
+  // Add row (clone)
+  if (addBtn && tableBody) {
     addBtn.addEventListener("click", function () {
       const totalFormsInput = document.querySelector(
         'input[name="{{ item_formset.prefix }}-TOTAL_FORMS"]'
       );
       let totalForms = parseInt(totalFormsInput.value, 10);
 
-      // clone last row
       const lastRow = tableBody.querySelector("tr.item-row:last-child");
       if (!lastRow) return;
 
       const newRow = lastRow.cloneNode(true);
+      // clear hidden id field for new form row
+      const hiddenId = newRow.querySelector('input[type="hidden"][name$="-id"]');
+      if (hiddenId) hiddenId.value = "";
+      const del = newRow.querySelector('input[type="checkbox"][name$="-DELETE"]');
+      if (del) del.checked = false;
 
-      // clear all validation messages
+      newRow.style.display = ""; // ensure visible
+
+
       newRow.querySelectorAll(".text-danger").forEach(el => el.remove());
 
       newRow.querySelectorAll("input, select, textarea").forEach(function (el) {
-        if (el.name) {
-          el.name = el.name.replace(/-\d+-/, "-" + totalForms + "-");
-        }
-        if (el.id) {
-          el.id = el.id.replace(/-\d+-/, "-" + totalForms + "-");
-        }
+        if (el.name) el.name = el.name.replace(/-\d+-/, "-" + totalForms + "-");
+        if (el.id) el.id = el.id.replace(/-\d+-/, "-" + totalForms + "-");
 
-        // For DELETE checkbox: always unchecked
         if (el.type === "checkbox") {
           el.checked = false;
         } else {
-          // clear value
           el.value = "";
+        }
+
+        // reset userEdited marker
+        if (el.name && el.name.endsWith("-unit_price")) {
+          el.dataset.userEdited = "";
         }
       });
 
+      // reset line total
+      const lt = newRow.querySelector(".line-total");
+      if (lt) lt.textContent = "0.00";
+
       tableBody.appendChild(newRow);
       totalFormsInput.value = totalForms + 1;
+
+      recalcAll();
     });
-  })();
+  }
+})();
 </script>
 
 {% endblock %}

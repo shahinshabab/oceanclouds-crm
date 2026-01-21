@@ -1,6 +1,7 @@
 # sales/forms.py
 from django import forms
 from django.forms import inlineformset_factory
+from django.forms.models import BaseInlineFormSet
 
 from .models import (
     Deal,
@@ -10,7 +11,7 @@ from .models import (
     Invoice,
     Payment,
 )
-
+from services.models import Service, Package
 
 class BootstrapModelForm(forms.ModelForm):
     """
@@ -41,7 +42,15 @@ class BootstrapModelForm(forms.ModelForm):
             else:
                 widget.attrs["class"] = (existing_classes + " form-control").strip()
 
+class BaseProposalItemFormSet(BaseInlineFormSet):
+    def __init__(self, *args, **kwargs):
+        self.catalog_choices = kwargs.pop("catalog_choices", get_catalog_choices())
+        super().__init__(*args, **kwargs)
 
+    def _construct_form(self, i, **kwargs):
+        kwargs["catalog_choices"] = self.catalog_choices
+        return super()._construct_form(i, **kwargs)
+    
 class DateInput(forms.DateInput):
     input_type = "date"
 
@@ -72,6 +81,11 @@ class DealForm(BootstrapModelForm):
 # ---------------------------------------------------------
 # Proposal + ProposalItem
 # ---------------------------------------------------------
+def get_catalog_choices():
+    service_choices = [(f"S:{s.id}", f"Service — {s.name}") for s in Service.objects.all().order_by("name")]
+    package_choices = [(f"P:{p.id}", f"Package — {p.name}") for p in Package.objects.all().order_by("name")]
+    return [("", "Select item...")] + service_choices + package_choices
+
 class ProposalForm(BootstrapModelForm):
     class Meta:
         model = Proposal
@@ -81,10 +95,8 @@ class ProposalForm(BootstrapModelForm):
             "version",
             "status",
             "valid_until",
-            "subtotal",
             "discount",
-            "tax",    # kept visible for now
-            "total",
+            "tax",
             "notes",
         ]
         widgets = {
@@ -94,32 +106,100 @@ class ProposalForm(BootstrapModelForm):
 
 
 class ProposalItemForm(BootstrapModelForm):
+    catalog_item = forms.ChoiceField(
+        choices=[],
+        required=False,
+        widget=forms.Select(attrs={"class": "form-select catalog-item"}),
+        label="Item",
+    )
+
     class Meta:
         model = ProposalItem
-        fields = ["service", "package", "description", "quantity", "unit_price"]
-        widgets = {
-            "description": forms.TextInput(attrs={"placeholder": "Description"}),
-            "quantity": forms.NumberInput(attrs={"min": 1}),
-            "unit_price": forms.NumberInput(attrs={"step": "0.01"}),
-        }
+        fields = ["catalog_item", "description", "quantity", "unit_price"]
+
+    def __init__(self, *args, **kwargs):
+        catalog_choices = kwargs.pop("catalog_choices", None)
+        super().__init__(*args, **kwargs)
+
+        self.fields["catalog_item"].choices = catalog_choices or get_catalog_choices()
+
+        # set initial for edit
+        if self.instance and self.instance.pk:
+            if self.instance.service_id:
+                self.initial["catalog_item"] = f"S:{self.instance.service_id}"
+            elif self.instance.package_id:
+                self.initial["catalog_item"] = f"P:{self.instance.package_id}"
+
 
     def clean(self):
         cleaned = super().clean()
-        service = cleaned.get("service")
-        package = cleaned.get("package")
+        key = (cleaned.get("catalog_item") or "").strip()
 
-        if not service and not package:
+        if not key:
             raise forms.ValidationError("Please select a Service or a Package.")
-        if service and package:
-            raise forms.ValidationError("Select either Service OR Package, not both.")
+
+        try:
+            kind, raw_id = key.split(":")
+            obj_id = int(raw_id)
+        except Exception:
+            raise forms.ValidationError("Invalid item selected.")
+
+        # ✅ set on instance (important)
+        self.instance.service = None
+        self.instance.package = None
+
+        if kind == "S":
+            service = Service.objects.filter(id=obj_id).first()
+            if not service:
+                raise forms.ValidationError("Selected service does not exist.")
+            self.instance.service = service
+
+        elif kind == "P":
+            package = Package.objects.filter(id=obj_id).first()
+            if not package:
+                raise forms.ValidationError("Selected package does not exist.")
+            self.instance.package = package
+        else:
+            raise forms.ValidationError("Invalid item type selected.")
+
+        # Other handling
+        desc = (cleaned.get("description") or "").strip()
+        unit = cleaned.get("unit_price")
+
+        if self.instance.service and self.instance.service.name.strip().lower() == "other":
+            if not desc:
+                self.add_error("description", "Please enter a description for 'Other'.")
+            if unit is None or unit <= 0:
+                self.add_error("unit_price", "Please enter a price for 'Other' item.")
 
         return cleaned
+
+
+    def save(self, commit=True):
+        inst = super().save(commit=False)
+        key = self.cleaned_data.get("catalog_item") or ""
+        kind, raw_id = key.split(":")
+        obj_id = int(raw_id)
+
+        # Enforce identity: one of them only
+        inst.service = None
+        inst.package = None
+
+        if kind == "S":
+            inst.service_id = obj_id
+        else:
+            inst.package_id = obj_id
+
+        if commit:
+            inst.save()
+        return inst
 
 
 ProposalItemFormSet = inlineformset_factory(
     Proposal,
     ProposalItem,
     form=ProposalItemForm,
+    formset=BaseProposalItemFormSet,
     extra=1,
     can_delete=True,
 )
@@ -134,7 +214,6 @@ class ContractForm(BootstrapModelForm):
         fields = [
             "deal",
             "proposal",
-            "number",
             "status",
             "signed_date",
             "start_date",
@@ -158,7 +237,6 @@ class InvoiceForm(BootstrapModelForm):
         model = Invoice
         fields = [
             "deal",
-            "number",
             "issue_date",
             "due_date",
             "status",

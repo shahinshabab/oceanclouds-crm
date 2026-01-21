@@ -10,6 +10,8 @@ from services.models import Service, Package
 
 from django.core.exceptions import ValidationError
 from django.db.models import Sum
+from decimal import Decimal
+from django.db import IntegrityError
 
 
 # -------------------------------------------------------------------
@@ -166,6 +168,24 @@ class Proposal(TimeStamped, Owned):
 
     def get_absolute_url(self):
         return reverse("sales:proposal_detail", args=[self.pk])
+    
+    def recalculate_totals(self, save=True):
+        agg = self.items.aggregate(subtotal=Sum("line_total"))
+        subtotal = agg["subtotal"] or Decimal("0.00")
+
+        self.subtotal = subtotal
+        # Flat discount amount (existing behavior)
+        discount = self.discount or Decimal("0.00")
+        tax = self.tax or Decimal("0.00")
+
+        total = subtotal - discount + tax
+        if total < 0:
+            total = Decimal("0.00")
+
+        self.total = total
+
+        if save:
+            self.save(update_fields=["subtotal", "total", "updated_at"])
 
 
 class ProposalItem(models.Model):
@@ -208,14 +228,21 @@ class ProposalItem(models.Model):
         return f"{self.description} x {self.quantity}"
 
     def clean(self):
-        """
-        Ensure user picks either a service or a package (not both, not none).
-        """
         super().clean()
-        if not self.service and not self.package:
-            raise ValidationError("Please select a Service or a Package.")
+
         if self.service and self.package:
             raise ValidationError("Select either Service OR Package, not both.")
+
+        if not self.service and not self.package:
+            raise ValidationError("Please select a Service or a Package.")
+
+        # If service is "Other" (you can check by slug/code or name)
+        if self.service and self.service.name.lower() == "other":
+            if not self.description:
+                raise ValidationError({"description": "Please enter a description for 'Other' item."})
+            if not self.unit_price or self.unit_price <= 0:
+                raise ValidationError({"unit_price": "Please enter a price for 'Other' item."})
+
 
     def save(self, *args, **kwargs):
         # Auto description if not set
@@ -228,12 +255,22 @@ class ProposalItem(models.Model):
         # Auto unit_price if zero and something is linked
         if (self.unit_price is None or self.unit_price == 0):
             if self.service:
-                self.unit_price = self.service.base_price or 0
+                self.unit_price = self.service.base_price or Decimal("0.00")
             elif self.package:
-                self.unit_price = self.package.total_price or 0
+                self.unit_price = self.package.total_price or Decimal("0.00")
 
-        self.line_total = (self.unit_price or 0) * (self.quantity or 0)
+        self.line_total = (self.unit_price or Decimal("0.00")) * (self.quantity or 0)
         super().save(*args, **kwargs)
+
+        # ✅ keep proposal totals correct
+        if self.proposal_id:
+            self.proposal.recalculate_totals(save=True)
+
+    def delete(self, *args, **kwargs):
+        proposal = self.proposal
+        super().delete(*args, **kwargs)
+        if proposal and proposal.pk:
+            proposal.recalculate_totals(save=True)
 
 
 # -------------------------------------------------------------------
@@ -268,8 +305,9 @@ class Contract(TimeStamped, Owned):
     number = models.CharField(
         max_length=64,
         unique=True,
+        editable=False,   # ✅ not editable in forms/admin
         blank=True,
-        help_text=_("Internal contract number (auto-generated if left blank, e.g., CTR001)."),
+        help_text=_("Internal contract number (auto-generated e.g., CTR001)."),
     )
 
     status = models.CharField(
@@ -328,10 +366,27 @@ class Contract(TimeStamped, Owned):
         return f"{prefix}{number + 1:0{pad}d}"
 
     def save(self, *args, **kwargs):
-        # Only auto-generate if no number provided
-        if not self.number:
+        # ✅ Immutable number after creation (backend enforced)
+        if self.pk:
+            old = type(self).objects.only("number").get(pk=self.pk)
+            if old.number and self.number != old.number:
+                self.number = old.number
+
+        if self.number:
+            return super().save(*args, **kwargs)
+
+        # ✅ Concurrency-safe number generation
+        for _ in range(10):
             self.number = self._generate_next_number()
-        super().save(*args, **kwargs)
+            try:
+                with transaction.atomic():
+                    return super().save(*args, **kwargs)
+            except IntegrityError:
+                self.number = ""
+                continue
+
+        raise IntegrityError("Could not generate unique Contract number after retries.")
+
 
     # ---------- Helper to populate from proposal ---------- #
     @transaction.atomic
@@ -455,8 +510,9 @@ class Invoice(TimeStamped, Owned):
     number = models.CharField(
         max_length=64,
         unique=True,
+        editable=False,  # ✅ not editable
         blank=True,
-        help_text=_("Invoice number (auto-generated if blank)."),
+        help_text=_("Invoice number (auto-generated)."),
     )
 
     issue_date = models.DateField()
@@ -511,9 +567,27 @@ class Invoice(TimeStamped, Owned):
         return f"{prefix}{number + 1:0{pad}d}"
 
     def save(self, *args, **kwargs):
-        if not self.number:
+        # ✅ Immutable number after creation
+        if self.pk:
+            old = type(self).objects.only("number").get(pk=self.pk)
+            if old.number and self.number != old.number:
+                self.number = old.number
+
+        if self.number:
+            return super().save(*args, **kwargs)
+
+        # ✅ Concurrency-safe number generation
+        for _ in range(10):
             self.number = self._generate_next_number()
-        super().save(*args, **kwargs)
+            try:
+                with transaction.atomic():
+                    return super().save(*args, **kwargs)
+            except IntegrityError:
+                self.number = ""
+                continue
+
+        raise IntegrityError("Could not generate unique Invoice number after retries.")
+
 
     # -----------------------------------------------------------
     # Computations
@@ -523,19 +597,29 @@ class Invoice(TimeStamped, Owned):
         return (self.total or 0) - (self.amount_paid or 0)
 
     def recalculate_totals(self, save=True):
-        agg = self.items.aggregate(subtotal=Sum("line_total"))
-        subtotal = agg["subtotal"] or 0
-        self.subtotal = subtotal
-        self.tax = 0
-        self.total = subtotal
+        agg = self.items.aggregate(
+            subtotal=Sum("line_subtotal"),
+            tax=Sum("tax_amount"),
+            total=Sum("line_total"),
+        )
+
+        self.subtotal = agg["subtotal"] or Decimal("0.00")
+        self.tax = agg["tax"] or Decimal("0.00")
+        self.total = agg["total"] or Decimal("0.00")
 
         if save:
             self.save(update_fields=["subtotal", "tax", "total", "updated_at"])
 
+
+    @transaction.atomic
     def populate_from_contract(self, contract, clear_existing=False):
-        """
-        Copy Contract Items → Invoice Items.
-        """
+        if contract.deal_id != self.deal_id and self.deal_id is not None:
+            raise ValidationError("Invoice.deal must match Contract.deal.")
+
+        # ✅ if invoice.deal not set, set it
+        if not self.deal_id:
+            self.deal = contract.deal
+            self.save(update_fields=["deal", "updated_at"])
 
         if clear_existing:
             self.items.all().delete()
@@ -543,11 +627,11 @@ class Invoice(TimeStamped, Owned):
         for citem in contract.items.all():
             InvoiceItem.objects.create(
                 invoice=self,
-                contract_item=citem,          # 👈 IMPORTANT
+                contract_item=citem,
                 description=citem.description,
                 quantity=citem.quantity,
                 unit_price=citem.unit_price,
-                tax_rate=0,
+                tax_rate=Decimal("0.00"),
             )
 
         self.recalculate_totals(save=True)
@@ -555,11 +639,8 @@ class Invoice(TimeStamped, Owned):
 
 
 
-class InvoiceItem(models.Model):
-    """
-    Line item in an invoice. Usually copied from ContractItem.
-    """
 
+class InvoiceItem(models.Model):
     invoice = models.ForeignKey(
         Invoice,
         on_delete=models.CASCADE,
@@ -583,6 +664,10 @@ class InvoiceItem(models.Model):
         blank=True,
         help_text=_("Tax rate as percentage, e.g. 5.00 (0 for now)."),
     )
+
+    # ✅ NEW: make invoice math correct
+    line_subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    tax_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     line_total = models.DecimalField(max_digits=12, decimal_places=2, default=0)
 
     class Meta:
@@ -591,26 +676,43 @@ class InvoiceItem(models.Model):
     def __str__(self) -> str:
         return f"{self.description} x {self.quantity}"
 
+    def clean(self):
+        super().clean()
+        # ✅ Lock invoice items once invoice is issued/paid/etc.
+        if self.invoice_id and self.invoice.status != InvoiceStatus.DRAFT:
+            raise ValidationError("Cannot modify invoice items after invoice is issued.")
+
     @transaction.atomic
     def save(self, *args, **kwargs):
-        base_total = (self.unit_price or 0) * (self.quantity or 0)
-        tax_amount = base_total * (self.tax_rate or 0) / 100
+        self.full_clean()  # ✅ enforce lock via clean()
+
+        qty = self.quantity or 0
+        unit = self.unit_price or Decimal("0.00")
+        rate = self.tax_rate or Decimal("0.00")
+
+        base_total = unit * qty
+        tax_amount = (base_total * rate) / Decimal("100.00")
+
+        self.line_subtotal = base_total
+        self.tax_amount = tax_amount
         self.line_total = base_total + tax_amount
 
         super().save(*args, **kwargs)
 
-        # Recalculate parent invoice totals any time an item is saved
         if self.invoice_id:
             self.invoice.recalculate_totals(save=True)
 
     @transaction.atomic
     def delete(self, *args, **kwargs):
+        # ✅ Lock deletes once issued
+        if self.invoice_id and self.invoice.status != InvoiceStatus.DRAFT:
+            raise ValidationError("Cannot delete invoice items after invoice is issued.")
+
         invoice = self.invoice
         super().delete(*args, **kwargs)
-
-        # Recalculate after deletion
-        if invoice.pk:
+        if invoice and invoice.pk:
             invoice.recalculate_totals(save=True)
+
 
 
 # -------------------------------------------------------------------
