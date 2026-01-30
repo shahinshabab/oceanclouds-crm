@@ -34,6 +34,9 @@ from .models import (
 
 from common.notifications import create_notification
 from common.models import Notification  # for Notification.Type
+from decimal import Decimal
+from django.db.models import Sum
+from django.db.models.functions import Coalesce
 
 # 🔹 central roles + mixins
 from common.roles import (
@@ -158,14 +161,6 @@ class ProjectDetailView(AdminManagerMixin, DetailView):
 
 
 class ProjectOverviewView(AdminManagerMixin, DetailView):
-    """
-    New 'full project details' view to replace snapshot-style usage.
-    Shows:
-      - Client details
-      - Contract / Invoice / Payment details via deal
-      - Project details
-      - Tasks & Deliverables (ordered by due_date)
-    """
     model = Project
     template_name = "projects/project_overview.html"
     context_object_name = "project"
@@ -176,6 +171,7 @@ class ProjectOverviewView(AdminManagerMixin, DetailView):
             .prefetch_related(
                 "tasks__assigned_to",
                 "deliverables__assigned_to",
+                # If you want, you can also prefetch deal invoices/payments later
             )
         )
 
@@ -191,28 +187,55 @@ class ProjectOverviewView(AdminManagerMixin, DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         project: Project = self.object
-
         deal = project.deal
 
-        # Try to use reverse relations on Deal (adjust as per your sales models)
         contracts_qs = []
         invoices_qs = []
         payments_qs = []
 
-        if deal:
-            # If you used related_name="contracts"/"invoices"/"payments" on Deal FKs
-            if hasattr(deal, "contracts"):
-                contracts_qs = deal.contracts.all()
-            if hasattr(deal, "invoices"):
-                invoices_qs = deal.invoices.all()
-            if hasattr(deal, "payments"):
-                payments_qs = deal.payments.all()
+        invoice_total = None
+        payments_total = None
+        amount_due = None
 
-        # Ordered tasks & deliverables by due_date
+        if deal:
+            # Contracts (if Deal -> Contract FK exists)
+            if hasattr(deal, "contracts"):
+                contracts_qs = deal.contracts.all().annotate(
+                    total_amount=Coalesce(Sum("items__line_total"), Decimal("0.00"))
+                )
+
+            # Invoices (Deal -> Invoice FK, related_name="invoices")
+            if hasattr(deal, "invoices"):
+                invoices_qs = deal.invoices.all().select_related("deal")
+
+                # ✅ Payments usually linked to Invoice, not Deal
+                # Try invoice.payments reverse relation
+                # Build a payments queryset from invoices
+                invoice_ids = invoices_qs.values_list("id", flat=True)
+
+                # If Payment model has FK: invoice = ForeignKey(Invoice, related_name="payments", ...)
+                # then invoices_qs[0].payments exists, but easiest:
+                from sales.models import Payment  # adjust import if needed
+                payments_qs = (
+                    Payment.objects
+                    .filter(invoice_id__in=invoice_ids)
+                    .select_related("invoice")
+                    .order_by("-date", "-created_at")
+                )
+
+                # ✅ Totals (safe Coalesce to avoid None)
+                invoice_total = invoices_qs.aggregate(
+                    total=Coalesce(Sum("total"), Decimal("0.00"))
+                )["total"]
+
+                payments_total = payments_qs.aggregate(
+                    total=Coalesce(Sum("amount"), Decimal("0.00"))
+                )["total"]
+
+                amount_due = invoice_total - payments_total
+
         tasks_qs = project.tasks.select_related("assigned_to").order_by("due_date", "status")
-        deliverables_qs = project.deliverables.select_related("assigned_to").order_by(
-            "due_date", "status"
-        )
+        deliverables_qs = project.deliverables.select_related("assigned_to").order_by("due_date", "status")
 
         context.update(
             {
@@ -221,11 +244,18 @@ class ProjectOverviewView(AdminManagerMixin, DetailView):
                 "contracts": contracts_qs,
                 "invoices": invoices_qs,
                 "payments": payments_qs,
+
+                # ✅ KPI card values used in template
+                "invoice_total": invoice_total,
+                "payments_total": payments_total,
+                "amount_due": amount_due,
+
                 "tasks": tasks_qs,
                 "deliverables": deliverables_qs,
             }
         )
         return context
+
 
 
 class ProjectCreateView(AdminOnlyMixin, CreateView):

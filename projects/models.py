@@ -611,3 +611,21 @@ class WorkLog(TimeStamped, Owned):
         """
         end = self.ended_at or timezone.now()
         return int((end - self.started_at).total_seconds())
+    
+    def clean(self):
+        super().clean()
+
+        if (self.task is None) == (self.deliverable is None):
+            raise ValidationError("WorkLog must have exactly one of task or deliverable.")
+
+        target_project = None
+        if self.task_id:
+            target_project = self.task.project_id
+        if self.deliverable_id:
+            target_project = self.deliverable.project_id
+
+        if self.project_id and target_project and self.project_id != target_project:
+            raise ValidationError("WorkLog.project must match the target's project.")
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
