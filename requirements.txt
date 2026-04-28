@@ -1,4 +1,8 @@
+Django
 weasyprint
 django-crontab
 pillow
 boto3
+django-environ
+python-dotenv
+psycopg2-binary

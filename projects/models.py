@@ -585,7 +585,7 @@ class WorkLog(TimeStamped, Owned):
         constraints = [
             # Either task OR deliverable must be set (not both, not neither)
             models.CheckConstraint(
-                check=(
+                condition=(
                     (Q(task__isnull=False) & Q(deliverable__isnull=True))
                     | (Q(task__isnull=True) & Q(deliverable__isnull=False))
                 ),

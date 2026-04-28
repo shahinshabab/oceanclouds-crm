@@ -36,6 +36,9 @@ env = environ.Env(
     AWS_SES_SENDER=(str, ""),
     AWS_ACCESS_KEY_ID=(str, ""),
     AWS_SECRET_ACCESS_KEY=(str, ""),
+    AWS_S3_ENABLED=(bool, False),
+    AWS_STORAGE_BUCKET_NAME=(str, ""),
+    AWS_S3_REGION_NAME=(str, "ap-south-1"),
 )
 environ.Env.read_env(BASE_DIR / ".env")
 
@@ -47,6 +50,9 @@ AWS_REGION = env("AWS_REGION")
 AWS_SES_SENDER = env("AWS_SES_SENDER")
 AWS_ACCESS_KEY_ID = env("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = env("AWS_SECRET_ACCESS_KEY")
+AWS_S3_ENABLED = env.bool("AWS_S3_ENABLED")
+AWS_STORAGE_BUCKET_NAME = env("AWS_STORAGE_BUCKET_NAME")
+AWS_S3_REGION_NAME = env("AWS_S3_REGION_NAME")
 
 # ------------------------------------------------------------------------------
 # Apps
@@ -61,10 +67,10 @@ DJANGO_APPS = [
 ]
 
 THIRD_PARTY_APPS = [
-    # Scheduler for cron-like jobs
     "django_crontab",
-    # add rest_framework, django_filters, etc. when needed
+    "storages",
 ]
+
 
 LOCAL_APPS = [
     "common",
@@ -153,7 +159,7 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 LANGUAGE_CODE = "en-us"
-TIME_ZONE = "Asia/Dubai"
+TIME_ZONE = "Asia/Kolkata"
 USE_I18N = True
 USE_TZ = True
 
@@ -161,11 +167,27 @@ USE_TZ = True
 # Static & Media
 # ------------------------------------------------------------------------------
 STATIC_URL = "static/"
-STATICFILES_DIRS = [BASE_DIR / "ui" / "static"]  # global assets
-STATIC_ROOT = BASE_DIR / "staticfiles"           # for collectstatic (prod)
+STATICFILES_DIRS = [BASE_DIR / "ui" / "static"]
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
-MEDIA_URL = "media/"
-MEDIA_ROOT = BASE_DIR / "media"
+# MEDIA: local by default, S3 in production if enabled
+if AWS_S3_ENABLED:
+    DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
+
+    AWS_S3_REGION_NAME = AWS_S3_REGION_NAME
+    AWS_STORAGE_BUCKET_NAME = AWS_STORAGE_BUCKET_NAME
+
+    AWS_DEFAULT_ACL = None
+    AWS_S3_FILE_OVERWRITE = False
+
+    # If bucket stays private, URLs may not open directly in browser (still ok for uploads)
+    AWS_QUERYSTRING_AUTH = False
+
+    MEDIA_URL = f"https://{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazonaws.com/"
+else:
+    MEDIA_URL = "media/"
+    MEDIA_ROOT = BASE_DIR / "media"
+
 
 # ------------------------------------------------------------------------------
 # Logging (simple dev config)
