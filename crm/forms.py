@@ -1,16 +1,13 @@
 from django import forms
-
-from .models import Client, Contact, Lead, Inquiry, ClientReview
 from django.contrib.auth import get_user_model
 
+from .models import Client, Contact, Lead, Inquiry, ClientReview
 from common.roles import ROLE_MANAGER
+
 
 class BootstrapModelForm(forms.ModelForm):
     """
-    Base form to automatically add Bootstrap classes to widgets.
-    - Text / number / email / URL / textarea / date => form-control
-    - Select / ModelChoiceField => form-select
-    - Checkbox => form-check-input
+    Automatically adds Bootstrap classes to Django form fields.
     """
 
     def __init__(self, *args, **kwargs):
@@ -18,21 +15,16 @@ class BootstrapModelForm(forms.ModelForm):
 
         for name, field in self.fields.items():
             widget = field.widget
-
-            # Keep any existing classes
             existing_classes = widget.attrs.get("class", "")
 
-            # Checkbox
             if isinstance(widget, forms.CheckboxInput):
-                widget.attrs["class"] = (existing_classes + " form-check-input").strip()
-
-            # Selects (ChoiceField, ModelChoiceField, etc.)
+                bootstrap_class = "form-check-input"
             elif isinstance(widget, (forms.Select, forms.SelectMultiple)):
-                widget.attrs["class"] = (existing_classes + " form-select").strip()
-
-            # Everything else → form-control
+                bootstrap_class = "form-select"
             else:
-                widget.attrs["class"] = (existing_classes + " form-control").strip()
+                bootstrap_class = "form-control"
+
+            widget.attrs["class"] = f"{existing_classes} {bootstrap_class}".strip()
 
 
 class ClientForm(BootstrapModelForm):
@@ -43,7 +35,6 @@ class ClientForm(BootstrapModelForm):
             "display_name",
             "email",
             "phone",
-            "instagram_handle",
             "billing_address",
             "city",
             "district",
@@ -53,8 +44,8 @@ class ClientForm(BootstrapModelForm):
             "is_active",
         ]
         widgets = {
-            "notes": forms.Textarea(attrs={"rows": 3}),
             "billing_address": forms.Textarea(attrs={"rows": 2}),
+            "notes": forms.Textarea(attrs={"rows": 3}),
         }
 
 
@@ -71,17 +62,53 @@ class ContactForm(BootstrapModelForm):
             "whatsapp",
             "is_primary",
             "allow_marketing",
-            "notes",
+        ]
+
+
+class InquiryForm(BootstrapModelForm):
+    class Meta:
+        model = Inquiry
+        fields = [
+            "channel",
+            "status",
+            "name",
+            "email",
+            "phone",
+            "whatsapp",
+            "message",
+            "lead",
+            "client",
+            "handled_by",
         ]
         widgets = {
-            "notes": forms.Textarea(attrs={"rows": 3}),
+            "message": forms.Textarea(attrs={"rows": 3}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        User = get_user_model()
+
+        managers_qs = User.objects.filter(
+            groups__name=ROLE_MANAGER,
+            is_active=True,
+        ).order_by("first_name", "last_name", "id")
+
+        self.fields["handled_by"].queryset = managers_qs
+        self.fields["handled_by"].label = "Assigned manager"
+        self.fields["handled_by"].empty_label = "Select manager"
+
+        if not self.instance.pk and managers_qs.exists():
+            if not self.initial.get("handled_by") and not self.instance.handled_by_id:
+                self.initial["handled_by"] = managers_qs.first().pk
 
 
 class LeadForm(BootstrapModelForm):
     class Meta:
         model = Lead
         fields = [
+            "inquiry",
+            "client",
             "name",
             "email",
             "phone",
@@ -94,67 +121,28 @@ class LeadForm(BootstrapModelForm):
             "budget_min",
             "budget_max",
             "status",
-            "source",         # choice field (website, instagram, etc.)
-            "source_detail",  # extra info (referrer name, campaign, etc.)
+            "source",
+            "source_detail",
             "notes",
             "next_action_date",
             "next_action_note",
-            "client",
         ]
         widgets = {
             "wedding_date": forms.DateInput(attrs={"type": "date"}),
             "next_action_date": forms.DateInput(attrs={"type": "date"}),
             "notes": forms.Textarea(attrs={"rows": 3}),
-            "next_action_note": forms.TextInput(),
             "source_detail": forms.TextInput(
                 attrs={
-                    "placeholder": "Eg. Referred by Anita, Instagram campaign name, Expo title…"
+                    "placeholder": "Eg. Referred by Anita, Instagram campaign name, Expo title"
+                }
+            ),
+            "next_action_note": forms.TextInput(
+                attrs={
+                    "placeholder": "Eg. Call client tomorrow, send package details"
                 }
             ),
         }
-class InquiryForm(BootstrapModelForm):
-    class Meta:
-        model = Inquiry
-        fields = [
-            "channel",
-            "status",
-            "name",
-            "email",
-            "phone",
-            "wedding_date",
-            "wedding_city",
-            "wedding_district",
-            "wedding_state",
-            "wedding_country",
-            "message",
-            "lead",
-            "client",
-            "handled_by",
-        ]
-        widgets = {
-            "wedding_date": forms.DateInput(attrs={"type": "date"}),
-            "message": forms.Textarea(attrs={"rows": 3}),
-        }
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        User = get_user_model()
-
-        # Queryset = all active managers
-        managers_qs = User.objects.filter(
-            groups__name=ROLE_MANAGER,
-            is_active=True,
-        ).order_by("first_name", "last_name", "id")
-
-        self.fields["handled_by"].queryset = managers_qs
-        self.fields["handled_by"].label = "Assigned manager"
-        self.fields["handled_by"].empty_label = None  # remove "---------" option
-
-        # For NEW inquiries: default to first manager
-        if not self.instance.pk and managers_qs.exists():
-            if not (self.initial.get("handled_by") or self.instance.handled_by_id):
-                self.initial["handled_by"] = managers_qs.first().pk
 
 class ClientReviewForm(BootstrapModelForm):
     class Meta:
@@ -168,14 +156,18 @@ class ClientReviewForm(BootstrapModelForm):
             "next_action_date",
         ]
         widgets = {
+            "rating": forms.Select(choices=[("", "Select rating")] + [(i, str(i)) for i in range(1, 6)]),
             "comment": forms.Textarea(attrs={"rows": 4}),
-            "next_action": forms.TextInput(attrs={"placeholder": "e.g., Follow-up call, request testimonial"}),
+            "next_action": forms.TextInput(
+                attrs={"placeholder": "Eg. Follow-up call, request testimonial"}
+            ),
             "next_action_date": forms.DateInput(attrs={"type": "date"}),
-            "rating": forms.Select(choices=[(i, str(i)) for i in range(1, 6)]),
         }
 
     def clean_rating(self):
         rating = self.cleaned_data.get("rating")
+
         if rating is not None and not (1 <= rating <= 5):
             raise forms.ValidationError("Rating must be between 1 and 5.")
+
         return rating

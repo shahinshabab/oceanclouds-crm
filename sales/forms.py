@@ -1,7 +1,11 @@
 # sales/forms.py
+
 from django import forms
 from django.forms import inlineformset_factory
 from django.forms.models import BaseInlineFormSet
+
+from common.forms import BootstrapModelForm
+from services.models import Service, Package
 
 from .models import (
     Deal,
@@ -11,48 +15,27 @@ from .models import (
     Invoice,
     Payment,
 )
-from services.models import Service, Package
 
-class BootstrapModelForm(forms.ModelForm):
-    """
-    Base form to automatically add Bootstrap classes to widgets.
-    - Text / number / email / URL / textarea / date => form-control
-    - Select / ModelChoiceField => form-select
-    - Checkbox => form-check-input
-    """
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        for name, field in self.fields.items():
-            widget = field.widget
-
-            # Keep any existing classes
-            existing_classes = widget.attrs.get("class", "")
-
-            # Checkbox
-            if isinstance(widget, forms.CheckboxInput):
-                widget.attrs["class"] = (existing_classes + " form-check-input").strip()
-
-            # Selects (ChoiceField, ModelChoiceField, etc.)
-            elif isinstance(widget, (forms.Select, forms.SelectMultiple)):
-                widget.attrs["class"] = (existing_classes + " form-select").strip()
-
-            # Everything else → form-control
-            else:
-                widget.attrs["class"] = (existing_classes + " form-control").strip()
-
-class BaseProposalItemFormSet(BaseInlineFormSet):
-    def __init__(self, *args, **kwargs):
-        self.catalog_choices = kwargs.pop("catalog_choices", get_catalog_choices())
-        super().__init__(*args, **kwargs)
-
-    def _construct_form(self, i, **kwargs):
-        kwargs["catalog_choices"] = self.catalog_choices
-        return super()._construct_form(i, **kwargs)
-    
 class DateInput(forms.DateInput):
     input_type = "date"
+
+
+# ---------------------------------------------------------
+# Catalog choices helper
+# ---------------------------------------------------------
+def get_catalog_choices():
+    service_choices = [
+        (f"S:{service.id}", f"Service — {service.name}")
+        for service in Service.objects.only("id", "name").order_by("name")
+    ]
+
+    package_choices = [
+        (f"P:{package.id}", f"Package — {package.name}")
+        for package in Package.objects.only("id", "name").order_by("name")
+    ]
+
+    return [("", "Select item...")] + service_choices + package_choices
 
 
 # ---------------------------------------------------------
@@ -64,6 +47,7 @@ class DealForm(BootstrapModelForm):
         fields = [
             "name",
             "client",
+            "lead",
             "stage",
             "amount",
             "expected_close_date",
@@ -79,13 +63,8 @@ class DealForm(BootstrapModelForm):
 
 
 # ---------------------------------------------------------
-# Proposal + ProposalItem
+# Proposal
 # ---------------------------------------------------------
-def get_catalog_choices():
-    service_choices = [(f"S:{s.id}", f"Service — {s.name}") for s in Service.objects.all().order_by("name")]
-    package_choices = [(f"P:{p.id}", f"Package — {p.name}") for p in Package.objects.all().order_by("name")]
-    return [("", "Select item...")] + service_choices + package_choices
-
 class ProposalForm(BootstrapModelForm):
     class Meta:
         model = Proposal
@@ -105,17 +84,25 @@ class ProposalForm(BootstrapModelForm):
         }
 
 
+# ---------------------------------------------------------
+# Proposal Item
+# ---------------------------------------------------------
 class ProposalItemForm(BootstrapModelForm):
     catalog_item = forms.ChoiceField(
         choices=[],
         required=False,
-        widget=forms.Select(attrs={"class": "form-select catalog-item"}),
         label="Item",
+        widget=forms.Select(attrs={"class": "catalog-item"}),
     )
 
     class Meta:
         model = ProposalItem
-        fields = ["catalog_item", "description", "quantity", "unit_price"]
+        fields = [
+            "catalog_item",
+            "description",
+            "quantity",
+            "unit_price",
+        ]
 
     def __init__(self, *args, **kwargs):
         catalog_choices = kwargs.pop("catalog_choices", None)
@@ -123,76 +110,94 @@ class ProposalItemForm(BootstrapModelForm):
 
         self.fields["catalog_item"].choices = catalog_choices or get_catalog_choices()
 
-        # set initial for edit
         if self.instance and self.instance.pk:
             if self.instance.service_id:
                 self.initial["catalog_item"] = f"S:{self.instance.service_id}"
             elif self.instance.package_id:
                 self.initial["catalog_item"] = f"P:{self.instance.package_id}"
 
-
     def clean(self):
-        cleaned = super().clean()
-        key = (cleaned.get("catalog_item") or "").strip()
+        cleaned_data = super().clean()
+        catalog_item = (cleaned_data.get("catalog_item") or "").strip()
 
-        if not key:
-            raise forms.ValidationError("Please select a Service or a Package.")
+        if not catalog_item:
+            raise forms.ValidationError("Please select a Service or Package.")
 
         try:
-            kind, raw_id = key.split(":")
-            obj_id = int(raw_id)
-        except Exception:
+            item_type, item_id = catalog_item.split(":")
+            item_id = int(item_id)
+        except ValueError:
             raise forms.ValidationError("Invalid item selected.")
 
-        # ✅ set on instance (important)
         self.instance.service = None
         self.instance.package = None
 
-        if kind == "S":
-            service = Service.objects.filter(id=obj_id).first()
+        if item_type == "S":
+            service = Service.objects.filter(id=item_id).first()
+
             if not service:
                 raise forms.ValidationError("Selected service does not exist.")
+
             self.instance.service = service
 
-        elif kind == "P":
-            package = Package.objects.filter(id=obj_id).first()
+            if service.name.strip().lower() == "other":
+                description = (cleaned_data.get("description") or "").strip()
+                unit_price = cleaned_data.get("unit_price")
+
+                if not description:
+                    self.add_error(
+                        "description",
+                        "Please enter a description for 'Other'.",
+                    )
+
+                if unit_price is None or unit_price <= 0:
+                    self.add_error(
+                        "unit_price",
+                        "Please enter a price for 'Other' item.",
+                    )
+
+        elif item_type == "P":
+            package = Package.objects.filter(id=item_id).first()
+
             if not package:
                 raise forms.ValidationError("Selected package does not exist.")
+
             self.instance.package = package
+
         else:
             raise forms.ValidationError("Invalid item type selected.")
 
-        # Other handling
-        desc = (cleaned.get("description") or "").strip()
-        unit = cleaned.get("unit_price")
-
-        if self.instance.service and self.instance.service.name.strip().lower() == "other":
-            if not desc:
-                self.add_error("description", "Please enter a description for 'Other'.")
-            if unit is None or unit <= 0:
-                self.add_error("unit_price", "Please enter a price for 'Other' item.")
-
-        return cleaned
-
+        return cleaned_data
 
     def save(self, commit=True):
-        inst = super().save(commit=False)
-        key = self.cleaned_data.get("catalog_item") or ""
-        kind, raw_id = key.split(":")
-        obj_id = int(raw_id)
+        instance = super().save(commit=False)
 
-        # Enforce identity: one of them only
-        inst.service = None
-        inst.package = None
+        catalog_item = self.cleaned_data.get("catalog_item") or ""
+        item_type, item_id = catalog_item.split(":")
+        item_id = int(item_id)
 
-        if kind == "S":
-            inst.service_id = obj_id
-        else:
-            inst.package_id = obj_id
+        instance.service = None
+        instance.package = None
+
+        if item_type == "S":
+            instance.service_id = item_id
+        elif item_type == "P":
+            instance.package_id = item_id
 
         if commit:
-            inst.save()
-        return inst
+            instance.save()
+
+        return instance
+
+
+class BaseProposalItemFormSet(BaseInlineFormSet):
+    def __init__(self, *args, **kwargs):
+        self.catalog_choices = kwargs.pop("catalog_choices", get_catalog_choices())
+        super().__init__(*args, **kwargs)
+
+    def _construct_form(self, i, **kwargs):
+        kwargs["catalog_choices"] = self.catalog_choices
+        return super()._construct_form(i, **kwargs)
 
 
 ProposalItemFormSet = inlineformset_factory(
@@ -237,12 +242,10 @@ class InvoiceForm(BootstrapModelForm):
         model = Invoice
         fields = [
             "deal",
+            "contract",
             "issue_date",
             "due_date",
             "status",
-            "subtotal",
-            "tax",          # default 0 in model for now
-            "total",
             "notes",
         ]
         widgets = {
@@ -266,6 +269,7 @@ class PaymentForm(BootstrapModelForm):
             "method",
             "reference",
             "notes",
+            "received_by",
         ]
         widgets = {
             "date": DateInput(),
@@ -275,18 +279,13 @@ class PaymentForm(BootstrapModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        # Optional UX: set a max attribute on amount based on selected invoice
+        self.fields["amount"].widget.attrs["step"] = "0.01"
+
         invoice_obj = None
 
-        # 1) If coming from ?invoice=123 in URL, view will set initial
         initial_invoice_id = self.initial.get("invoice")
-
-        # 2) If bound form, get invoice from POST data
         data_invoice_id = self.data.get("invoice") if self.is_bound else None
-
         invoice_id = data_invoice_id or initial_invoice_id
-
-        from .models import Invoice  # local import to avoid circular issues
 
         if invoice_id:
             try:
@@ -295,6 +294,6 @@ class PaymentForm(BootstrapModelForm):
                 invoice_obj = None
 
         if invoice_obj:
-            remaining = invoice_obj.balance  # uses @property on Invoice
-            # Just UI hint; real enforcement is in Payment.clean()
+            remaining = invoice_obj.balance
             self.fields["amount"].widget.attrs["max"] = remaining
+            self.fields["amount"].help_text = f"Remaining balance: {remaining}"

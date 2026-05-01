@@ -1,6 +1,11 @@
+# crm/views.py
+
+from django.contrib import messages
+from django.db import transaction
 from django.db.models import Q
-from django.utils import timezone
+from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
+from django.utils import timezone
 from django.views.generic import (
     ListView,
     CreateView,
@@ -10,24 +15,55 @@ from django.views.generic import (
 )
 
 from .models import Client, Contact, Lead, Inquiry, ClientReview
-from .forms import ClientForm, ContactForm, LeadForm, InquiryForm ,ClientReviewForm
+from .forms import (
+    ClientForm,
+    ContactForm,
+    LeadForm,
+    InquiryForm,
+    ClientReviewForm,
+)
 
-# Roles / mixins
-from common.mixins import AdminManagerMixin, StaffAllMixin
-from common.roles import ROLE_EMPLOYEE, user_has_role
+from common.mixins import (
+    AdminCRMManagerMixin,
+    InquiryManagerMixin,
+    StaffAllMixin,
+)
 
-# -------- Client Reviews -------- #
 
-class ClientReviewListView(AdminManagerMixin, ListView):
+# ============================================================
+# Shared helpers
+# ============================================================
+
+class OwnerAssignMixin:
+    """
+    Automatically assigns owner for models using common.models.Owned.
+    """
+
+    def form_valid(self, form):
+        if hasattr(form.instance, "owner") and not form.instance.owner_id:
+            form.instance.owner = self.request.user
+
+        return super().form_valid(form)
+
+
+# ============================================================
+# Client Reviews
+# Access: Admin + CRM Manager only
+# ============================================================
+
+class ClientReviewListView(AdminCRMManagerMixin, ListView):
     model = ClientReview
     template_name = "crm/review_list.html"
     context_object_name = "reviews"
     paginate_by = 20
 
     def get_queryset(self):
-        qs = super().get_queryset().select_related("client", "owner")
+        qs = (
+            super()
+            .get_queryset()
+            .select_related("client", "owner")
+        )
 
-        # Search query
         q = (self.request.GET.get("q") or "").strip()
         if q:
             qs = qs.filter(
@@ -38,17 +74,14 @@ class ClientReviewListView(AdminManagerMixin, ListView):
                 | Q(next_action__icontains=q)
             )
 
-        # Filter by client (if you ever add it to the UI)
         client_id = (self.request.GET.get("client") or "").strip()
         if client_id:
             qs = qs.filter(client_id=client_id)
 
-        # Filter by rating
         rating = (self.request.GET.get("rating") or "").strip()
         if rating.isdigit():
             qs = qs.filter(rating=int(rating))
 
-        # NEW: Filter by action due status (based on next_action_date)
         action_due = (self.request.GET.get("action_due") or "").strip()
         if action_due:
             today = timezone.localdate()
@@ -65,84 +98,122 @@ class ClientReviewListView(AdminManagerMixin, ListView):
         return qs
 
 
-
-
-class ClientReviewDetailView(AdminManagerMixin, DetailView):
+class ClientReviewDetailView(AdminCRMManagerMixin, DetailView):
     model = ClientReview
     template_name = "crm/review_detail.html"
     context_object_name = "review"
 
+    def get_queryset(self):
+        return (
+            super()
+            .get_queryset()
+            .select_related("client", "owner")
+        )
 
 
-class ClientReviewCreateView(AdminManagerMixin, CreateView):
+class ClientReviewCreateView(AdminCRMManagerMixin, OwnerAssignMixin, CreateView):
     model = ClientReview
     form_class = ClientReviewForm
     template_name = "crm/review_form.html"
 
     def get_initial(self):
         initial = super().get_initial()
+
         client_id = self.request.GET.get("client")
         if client_id:
             initial["client"] = client_id
-        return initial
 
-    def form_valid(self, form):
-        # Set owner
-        if hasattr(form.instance, "owner") and not form.instance.owner_id:
-            form.instance.owner = self.request.user
-        return super().form_valid(form)
+        return initial
 
     def get_success_url(self):
         if self.object.client_id:
-            return reverse_lazy("crm:client_detail", kwargs={"pk": self.object.client_id})
+            return reverse_lazy(
+                "crm:client_detail",
+                kwargs={"pk": self.object.client_id},
+            )
+
         return reverse_lazy("crm:review_list")
 
 
-class ClientReviewUpdateView(AdminManagerMixin, UpdateView):
+class ClientReviewUpdateView(AdminCRMManagerMixin, OwnerAssignMixin, UpdateView):
     model = ClientReview
     form_class = ClientReviewForm
     template_name = "crm/review_form.html"
 
-    def form_valid(self, form):
-        if hasattr(form.instance, "owner") and not form.instance.owner_id:
-            form.instance.owner = self.request.user
-        return super().form_valid(form)
+    def get_queryset(self):
+        return (
+            super()
+            .get_queryset()
+            .select_related("client", "owner")
+        )
 
     def get_success_url(self):
         if self.object.client_id:
-            return reverse_lazy("crm:client_detail", kwargs={"pk": self.object.client_id})
+            return reverse_lazy(
+                "crm:client_detail",
+                kwargs={"pk": self.object.client_id},
+            )
+
         return reverse_lazy("crm:review_list")
 
 
-    
-# -------- Contacts -------- #
+class ClientReviewDeleteView(AdminCRMManagerMixin, DeleteView):
+    model = ClientReview
+    template_name = "crm/review_confirm_delete.html"
 
-class ContactListView(AdminManagerMixin, ListView):
+    def get_queryset(self):
+        return (
+            super()
+            .get_queryset()
+            .select_related("client", "owner")
+        )
+
+    def get_success_url(self):
+        client_id = self.object.client_id
+
+        if client_id:
+            return reverse_lazy(
+                "crm:client_detail",
+                kwargs={"pk": client_id},
+            )
+
+        return reverse_lazy("crm:review_list")
+
+
+# ============================================================
+# Contacts
+# Access: Admin + CRM Manager only
+# ============================================================
+
+class ContactListView(AdminCRMManagerMixin, ListView):
     model = Contact
     template_name = "crm/contact_list.html"
     context_object_name = "contacts"
     paginate_by = 20
 
     def get_queryset(self):
-        qs = super().get_queryset().select_related("client")
+        qs = (
+            super()
+            .get_queryset()
+            .select_related("client", "owner")
+        )
 
-        # Search: by name or email (also client's name)
         q = (self.request.GET.get("q") or "").strip()
         if q:
             qs = qs.filter(
                 Q(first_name__icontains=q)
                 | Q(last_name__icontains=q)
                 | Q(email__icontains=q)
+                | Q(phone__icontains=q)
+                | Q(whatsapp__icontains=q)
                 | Q(client__name__icontains=q)
                 | Q(client__display_name__icontains=q)
             )
 
-        # Filter 1: role (bride, groom, parent, etc.)
         role = (self.request.GET.get("role") or "").strip()
         if role:
             qs = qs.filter(role=role)
 
-        # Filter 2: is_primary (1 = primary only, 0 = non-primary only)
         is_primary = (self.request.GET.get("is_primary") or "").strip()
         if is_primary == "1":
             qs = qs.filter(is_primary=True)
@@ -152,81 +223,106 @@ class ContactListView(AdminManagerMixin, ListView):
         return qs
 
 
-class ContactDetailView(AdminManagerMixin, DetailView):
+class ContactDetailView(AdminCRMManagerMixin, DetailView):
     model = Contact
     template_name = "crm/contact_detail.html"
     context_object_name = "contact"
 
+    def get_queryset(self):
+        return (
+            super()
+            .get_queryset()
+            .select_related("client", "owner")
+        )
 
-class ContactCreateView(AdminManagerMixin, CreateView):
+
+class ContactCreateView(AdminCRMManagerMixin, OwnerAssignMixin, CreateView):
     model = Contact
     form_class = ContactForm
     template_name = "crm/contact_form.html"
 
     def get_initial(self):
         initial = super().get_initial()
+
         client_id = self.request.GET.get("client")
         if client_id:
             initial["client"] = client_id
+
         return initial
 
-    def form_valid(self, form):
-        # Owned mixin: assign owner if needed
-        if hasattr(form.instance, "owner") and not form.instance.owner_id:
-            form.instance.owner = self.request.user
-        return super().form_valid(form)
-
     def get_success_url(self):
-        """
-        If this contact belongs to a client, go back to that client's page.
-        Otherwise fall back to contact list.
-        """
         if self.object.client_id:
-            return reverse_lazy("crm:client_detail", kwargs={"pk": self.object.client_id})
+            return reverse_lazy(
+                "crm:client_detail",
+                kwargs={"pk": self.object.client_id},
+            )
+
         return reverse_lazy("crm:contact_list")
 
 
-class ContactUpdateView(AdminManagerMixin, UpdateView):
+class ContactUpdateView(AdminCRMManagerMixin, OwnerAssignMixin, UpdateView):
     model = Contact
     form_class = ContactForm
     template_name = "crm/contact_form.html"
 
-    def form_valid(self, form):
-        # Keep behaviour consistent with create
-        if hasattr(form.instance, "owner") and not form.instance.owner_id:
-            form.instance.owner = self.request.user
-        return super().form_valid(form)
+    def get_queryset(self):
+        return (
+            super()
+            .get_queryset()
+            .select_related("client", "owner")
+        )
 
     def get_success_url(self):
         if self.object.client_id:
-            return reverse_lazy("crm:client_detail", kwargs={"pk": self.object.client_id})
+            return reverse_lazy(
+                "crm:client_detail",
+                kwargs={"pk": self.object.client_id},
+            )
+
         return reverse_lazy("crm:contact_list")
 
 
-class ContactDeleteView(AdminManagerMixin, DeleteView):
+class ContactDeleteView(AdminCRMManagerMixin, DeleteView):
     model = Contact
     template_name = "crm/contact_confirm_delete.html"
 
+    def get_queryset(self):
+        return (
+            super()
+            .get_queryset()
+            .select_related("client", "owner")
+        )
+
     def get_success_url(self):
-        # After deleting, send back to related client if available
         client_id = self.object.client_id
+
         if client_id:
-            return reverse_lazy("crm:client_detail", kwargs={"pk": client_id})
+            return reverse_lazy(
+                "crm:client_detail",
+                kwargs={"pk": client_id},
+            )
+
         return reverse_lazy("crm:contact_list")
 
 
-# -------- Clients -------- #
+# ============================================================
+# Clients
+# Access: Admin + CRM Manager only
+# ============================================================
 
-class ClientListView(AdminManagerMixin, ListView):
+class ClientListView(AdminCRMManagerMixin, ListView):
     model = Client
     template_name = "crm/client_list.html"
     context_object_name = "clients"
     paginate_by = 20
 
     def get_queryset(self):
-        qs = super().get_queryset()
+        qs = (
+            super()
+            .get_queryset()
+            .select_related("owner")
+        )
 
-        # Search: by name/display name or email/phone
         q = (self.request.GET.get("q") or "").strip()
         if q:
             qs = qs.filter(
@@ -234,16 +330,22 @@ class ClientListView(AdminManagerMixin, ListView):
                 | Q(display_name__icontains=q)
                 | Q(email__icontains=q)
                 | Q(phone__icontains=q)
+                | Q(city__icontains=q)
+                | Q(district__icontains=q)
+                | Q(state__icontains=q)
+                | Q(country__icontains=q)
             )
 
-        # Filter 1: is_active (1 = active, 0 = inactive)
         is_active = (self.request.GET.get("is_active") or "").strip()
         if is_active == "1":
             qs = qs.filter(is_active=True)
         elif is_active == "0":
             qs = qs.filter(is_active=False)
 
-        # Filter 2: country
+        district = (self.request.GET.get("district") or "").strip()
+        if district:
+            qs = qs.filter(district__icontains=district)
+
         country = (self.request.GET.get("country") or "").strip()
         if country:
             qs = qs.filter(country__iexact=country)
@@ -251,44 +353,73 @@ class ClientListView(AdminManagerMixin, ListView):
         return qs
 
 
-class ClientDetailView(AdminManagerMixin, DetailView):
+class ClientDetailView(AdminCRMManagerMixin, DetailView):
     model = Client
     template_name = "crm/client_detail.html"
     context_object_name = "client"
 
+    def get_queryset(self):
+        return (
+            super()
+            .get_queryset()
+            .select_related("owner")
+            .prefetch_related("contacts", "leads", "reviews", "inquiries")
+        )
 
-class ClientCreateView(AdminManagerMixin, CreateView):
+
+class ClientCreateView(AdminCRMManagerMixin, OwnerAssignMixin, CreateView):
     model = Client
     form_class = ClientForm
     template_name = "crm/client_form.html"
     success_url = reverse_lazy("crm:client_list")
 
-    def form_valid(self, form):
-        # Owned mixin: assign owner if needed
-        if hasattr(form.instance, "owner") and not form.instance.owner_id:
-            form.instance.owner = self.request.user
-        return super().form_valid(form)
 
-
-class ClientUpdateView(AdminManagerMixin, UpdateView):
+class ClientUpdateView(AdminCRMManagerMixin, OwnerAssignMixin, UpdateView):
     model = Client
     form_class = ClientForm
     template_name = "crm/client_form.html"
     success_url = reverse_lazy("crm:client_list")
 
+    def get_queryset(self):
+        return (
+            super()
+            .get_queryset()
+            .select_related("owner")
+        )
 
-# -------- Leads -------- #
 
-class LeadListView(AdminManagerMixin, ListView):
+class ClientDeleteView(AdminCRMManagerMixin, DeleteView):
+    model = Client
+    template_name = "crm/client_confirm_delete.html"
+    success_url = reverse_lazy("crm:client_list")
+
+    def get_queryset(self):
+        return (
+            super()
+            .get_queryset()
+            .select_related("owner")
+        )
+
+
+# ============================================================
+# Leads
+# Access: Admin + CRM Manager only
+# Project Manager and Employee cannot access leads.
+# ============================================================
+
+class LeadListView(AdminCRMManagerMixin, ListView):
     model = Lead
     template_name = "crm/lead_list.html"
     context_object_name = "leads"
     paginate_by = 20
 
     def get_queryset(self):
-        qs = super().get_queryset().select_related("client")
+        qs = (
+            super()
+            .get_queryset()
+            .select_related("client", "inquiry", "owner")
+        )
 
-        # Search: by name, email, phone, whatsapp, wedding location, or client name
         q = (self.request.GET.get("q") or "").strip()
         if q:
             qs = qs.filter(
@@ -298,16 +429,17 @@ class LeadListView(AdminManagerMixin, ListView):
                 | Q(whatsapp__icontains=q)
                 | Q(wedding_city__icontains=q)
                 | Q(wedding_district__icontains=q)
+                | Q(wedding_state__icontains=q)
+                | Q(wedding_country__icontains=q)
                 | Q(client__name__icontains=q)
                 | Q(client__display_name__icontains=q)
+                | Q(notes__icontains=q)
             )
 
-        # Filter 1: status (new, contacted, qualified, etc.)
         status = (self.request.GET.get("status") or "").strip()
         if status:
             qs = qs.filter(status=status)
 
-        # Filter 2: source (website, instagram, whatsapp, referral, etc.)
         source = (self.request.GET.get("source") or "").strip()
         if source:
             qs = qs.filter(source=source)
@@ -315,116 +447,294 @@ class LeadListView(AdminManagerMixin, ListView):
         return qs
 
 
-class LeadDetailView(AdminManagerMixin, DetailView):
+class LeadDetailView(AdminCRMManagerMixin, DetailView):
     model = Lead
     template_name = "crm/lead_detail.html"
     context_object_name = "lead"
 
+    def get_queryset(self):
+        return (
+            super()
+            .get_queryset()
+            .select_related("client", "inquiry", "owner")
+            .prefetch_related("inquiries")
+        )
 
-class LeadCreateView(AdminManagerMixin, CreateView):
+
+class LeadCreateView(AdminCRMManagerMixin, OwnerAssignMixin, CreateView):
     model = Lead
     form_class = LeadForm
     template_name = "crm/lead_form.html"
     success_url = reverse_lazy("crm:lead_list")
 
+    def get_initial(self):
+        """
+        Normal lead creation can be prefilled from inquiry using:
+        /crm/leads/new/?inquiry=1
+        """
+        initial = super().get_initial()
+        inquiry_id = self.request.GET.get("inquiry")
+
+        if inquiry_id:
+            inquiry = Inquiry.objects.filter(pk=inquiry_id).first()
+
+            if inquiry:
+                initial.update(
+                    {
+                        "inquiry": inquiry.pk,
+                        "client": inquiry.client_id,
+                        "name": inquiry.name,
+                        "email": inquiry.email,
+                        "phone": inquiry.phone,
+                        "whatsapp": inquiry.whatsapp,
+                        "source": inquiry.channel,
+                        "source_detail": "Converted from inquiry",
+                        "notes": inquiry.message,
+                        "status": "new",
+                    }
+                )
+
+        return initial
+
+    @transaction.atomic
     def form_valid(self, form):
-        # Owned mixin: assign owner if needed
-        if hasattr(form.instance, "owner") and not form.instance.owner_id:
-            form.instance.owner = self.request.user
-        return super().form_valid(form)
+        response = super().form_valid(form)
+
+        inquiry = form.cleaned_data.get("inquiry")
+
+        if inquiry:
+            inquiry.lead = self.object
+            inquiry.status = "converted"
+            inquiry.save(update_fields=["lead", "status"])
+
+        return response
 
 
-class LeadUpdateView(AdminManagerMixin, UpdateView):
+class LeadUpdateView(AdminCRMManagerMixin, OwnerAssignMixin, UpdateView):
     model = Lead
     form_class = LeadForm
     template_name = "crm/lead_form.html"
     success_url = reverse_lazy("crm:lead_list")
 
+    def get_queryset(self):
+        return (
+            super()
+            .get_queryset()
+            .select_related("client", "inquiry", "owner")
+        )
 
-# -------- Inquiries -------- #
+
+class LeadDeleteView(AdminCRMManagerMixin, DeleteView):
+    model = Lead
+    template_name = "crm/lead_confirm_delete.html"
+    success_url = reverse_lazy("crm:lead_list")
+
+    def get_queryset(self):
+        return (
+            super()
+            .get_queryset()
+            .select_related("client", "inquiry", "owner")
+        )
+
+
+# ============================================================
+# Inquiries
+# List/detail/create: Everyone logged in
+# Update/delete: Admin + CRM Manager + Project Manager
+# Convert to lead: Admin + CRM Manager only
+# ============================================================
 
 class InquiryListView(StaffAllMixin, ListView):
+    """
+    Everyone logged in can see all inquiries.
+    """
     model = Inquiry
     template_name = "crm/inquiry_list.html"
     context_object_name = "inquiries"
     paginate_by = 20
 
     def get_queryset(self):
-        qs = super().get_queryset().select_related("lead", "client", "handled_by", "owner")
+        qs = (
+            super()
+            .get_queryset()
+            .select_related("lead", "client", "handled_by", "owner")
+        )
 
-        # Employees only see their own inquiries
-        user = self.request.user
-        if user_has_role(user, ROLE_EMPLOYEE) and not user.is_superuser:
-            qs = qs.filter(owner=user)   # ✅ not handled_by
-
-        # Search: by inquirer name, email, phone, or wedding location
         q = (self.request.GET.get("q") or "").strip()
         if q:
             qs = qs.filter(
                 Q(name__icontains=q)
                 | Q(email__icontains=q)
                 | Q(phone__icontains=q)
-                | Q(wedding_city__icontains=q)
-                | Q(wedding_district__icontains=q)
+                | Q(whatsapp__icontains=q)
+                | Q(message__icontains=q)
+                | Q(client__name__icontains=q)
+                | Q(client__display_name__icontains=q)
+                | Q(handled_by__first_name__icontains=q)
+                | Q(handled_by__last_name__icontains=q)
+                | Q(handled_by__username__icontains=q)
             )
 
-        # Filter 1: status (open, in_progress, closed, converted)
         status = (self.request.GET.get("status") or "").strip()
         if status:
             qs = qs.filter(status=status)
 
-        # Filter 2: channel (website, phone, whatsapp, etc.)
         channel = (self.request.GET.get("channel") or "").strip()
         if channel:
             qs = qs.filter(channel=channel)
+
+        handled_by = (self.request.GET.get("handled_by") or "").strip()
+        if handled_by:
+            qs = qs.filter(handled_by_id=handled_by)
 
         return qs
 
 
 class InquiryDetailView(StaffAllMixin, DetailView):
+    """
+    Everyone logged in can see inquiry details.
+    Template should hide Lead/Client links from project manager/employee.
+    """
     model = Inquiry
     template_name = "crm/inquiry_detail.html"
     context_object_name = "inquiry"
 
     def get_queryset(self):
-        qs = super().get_queryset().select_related("lead", "client", "handled_by", "owner")
-
-        user = self.request.user
-        if user_has_role(user, ROLE_EMPLOYEE) and not user.is_superuser:
-            qs = qs.filter(owner=user)
-
-        return qs
+        return (
+            super()
+            .get_queryset()
+            .select_related("lead", "client", "handled_by", "owner")
+        )
 
 
-class InquiryCreateView(StaffAllMixin, CreateView):
+class InquiryCreateView(StaffAllMixin, OwnerAssignMixin, CreateView):
+    """
+    Everyone logged in can create inquiries.
+    """
     model = Inquiry
     form_class = InquiryForm
     template_name = "crm/inquiry_form.html"
     success_url = reverse_lazy("crm:inquiry_list")
 
-    def form_valid(self, form):
-        # DO NOT set handled_by to current user anymore.
-        # It must always be one of the managers from the form.
 
-        # Set owner if Inquiry uses Owned
-        if hasattr(form.instance, "owner") and not form.instance.owner_id:
-            form.instance.owner = self.request.user
-
-        return super().form_valid(form)
-
-
-class InquiryUpdateView(StaffAllMixin, UpdateView):
+class InquiryUpdateView(InquiryManagerMixin, OwnerAssignMixin, UpdateView):
+    """
+    Admin, CRM Manager, and Project Manager can update inquiries.
+    Employee cannot update.
+    """
     model = Inquiry
     form_class = InquiryForm
     template_name = "crm/inquiry_form.html"
     success_url = reverse_lazy("crm:inquiry_list")
 
     def get_queryset(self):
-        qs = super().get_queryset().select_related("lead", "client", "handled_by", "owner")
+        return (
+            super()
+            .get_queryset()
+            .select_related("lead", "client", "handled_by", "owner")
+        )
 
-        user = self.request.user
-        if user_has_role(user, ROLE_EMPLOYEE) and not user.is_superuser:
-            qs = qs.filter(owner=user)
 
-        return qs
+class InquiryDeleteView(InquiryManagerMixin, DeleteView):
+    """
+    Admin, CRM Manager, and Project Manager can delete inquiries.
+    """
+    model = Inquiry
+    template_name = "crm/inquiry_confirm_delete.html"
+    success_url = reverse_lazy("crm:inquiry_list")
 
+    def get_queryset(self):
+        return (
+            super()
+            .get_queryset()
+            .select_related("lead", "client", "handled_by", "owner")
+        )
+
+
+class InquiryConvertToLeadView(AdminCRMManagerMixin, OwnerAssignMixin, CreateView):
+    """
+    Admin and CRM Manager only.
+
+    Flow:
+    1. Open inquiry detail/list.
+    2. Click Convert to Lead.
+    3. Lead form opens with inquiry data prefilled.
+    4. Admin/CRM Manager adds extra lead details.
+    5. On save:
+       - Lead is created
+       - Inquiry status becomes converted
+       - Inquiry is linked to Lead
+    """
+    model = Lead
+    form_class = LeadForm
+    template_name = "crm/lead_form.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        self.inquiry = get_object_or_404(
+            Inquiry.objects.select_related(
+                "client",
+                "lead",
+                "owner",
+                "handled_by",
+            ),
+            pk=self.kwargs["pk"],
+        )
+
+        if self.inquiry.lead_id:
+            messages.info(
+                request,
+                "This inquiry is already converted to a lead.",
+            )
+            return redirect("crm:lead_detail", pk=self.inquiry.lead_id)
+
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_initial(self):
+        initial = super().get_initial()
+
+        initial.update(
+            {
+                "inquiry": self.inquiry.pk,
+                "client": self.inquiry.client_id,
+                "name": self.inquiry.name,
+                "email": self.inquiry.email,
+                "phone": self.inquiry.phone,
+                "whatsapp": self.inquiry.whatsapp,
+                "source": self.inquiry.channel,
+                "source_detail": "Converted from inquiry",
+                "notes": self.inquiry.message,
+                "status": "new",
+            }
+        )
+
+        return initial
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["source_inquiry"] = self.inquiry
+        context["is_conversion"] = True
+        return context
+
+    @transaction.atomic
+    def form_valid(self, form):
+        if hasattr(form.instance, "owner") and not form.instance.owner_id:
+            form.instance.owner = self.request.user
+
+        response = super().form_valid(form)
+
+        self.inquiry.lead = self.object
+        self.inquiry.status = "converted"
+        self.inquiry.save(update_fields=["lead", "status"])
+
+        messages.success(
+            self.request,
+            "Inquiry converted to lead successfully.",
+        )
+
+        return response
+
+    def get_success_url(self):
+        return reverse_lazy(
+            "crm:lead_detail",
+            kwargs={"pk": self.object.pk},
+        )

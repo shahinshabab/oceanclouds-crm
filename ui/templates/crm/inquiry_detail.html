@@ -5,17 +5,19 @@
 
 {% block content %}
 {% is_admin request.user as is_admin %}
-{% is_manager request.user as is_manager %}
+{% is_crm_manager request.user as is_crm_manager %}
+{% is_project_manager request.user as is_project_manager %}
 {% is_employee request.user as is_employee %}
 
 <div class="container py-3">
 
   <!-- Header -->
-  <div class="d-flex justify-content-between align-items-center mb-4">
+  <div class="d-flex justify-content-between align-items-start mb-4 gap-3">
     <div>
       <h2 class="fw-semibold mb-0">
         Inquiry – {{ inquiry.name|default:inquiry.email|default:inquiry.phone|default:"(No name)" }}
       </h2>
+
       <div class="mt-2">
         <span class="badge bg-secondary">
           {{ inquiry.get_status_display }}
@@ -25,14 +27,30 @@
         </span>
       </div>
     </div>
-    <div class="text-end">
 
-      {% if is_admin or is_manager or inquiry.handled_by_id == request.user.id %}
+    <div class="text-end d-flex flex-wrap justify-content-end gap-2">
+
+      {% if is_admin or is_crm_manager or is_project_manager %}
         <a href="{% url 'crm:inquiry_update' inquiry.pk %}"
            class="btn btn-primary btn-sm">
           Edit Inquiry
         </a>
       {% endif %}
+
+      {% if is_admin or is_crm_manager %}
+        {% if inquiry.lead %}
+          <a href="{% url 'crm:lead_detail' inquiry.lead.pk %}"
+             class="btn btn-success btn-sm">
+            View Lead
+          </a>
+        {% elif inquiry.status != "converted" %}
+          <a href="{% url 'crm:inquiry_convert_to_lead' inquiry.pk %}"
+             class="btn btn-success btn-sm">
+            Convert to Lead
+          </a>
+        {% endif %}
+      {% endif %}
+
       <a href="{% url 'crm:inquiry_list' %}"
          class="btn btn-secondary btn-sm">
         Back to Inquiries
@@ -52,6 +70,7 @@
             {{ inquiry.name|default:"—" }}
           </div>
         </div>
+
         <div class="col-md-4 mb-3 mb-md-0">
           <div class="text-muted small text-uppercase">Email</div>
           <div class="fw-semibold mt-1">
@@ -62,6 +81,7 @@
             {% endif %}
           </div>
         </div>
+
         <div class="col-md-4">
           <div class="text-muted small text-uppercase">Phone</div>
           <div class="fw-semibold mt-1">
@@ -73,25 +93,23 @@
       <!-- Row 2 -->
       <div class="row mb-3">
         <div class="col-md-4 mb-3 mb-md-0">
-          <div class="text-muted small text-uppercase">Wedding Date</div>
+          <div class="text-muted small text-uppercase">WhatsApp</div>
           <div class="fw-semibold mt-1">
-            {% if inquiry.wedding_date %}
-              {{ inquiry.wedding_date }}
-            {% else %}
-              <span class="text-muted">—</span>
-            {% endif %}
+            {{ inquiry.whatsapp|default:"—" }}
           </div>
         </div>
+
         <div class="col-md-4 mb-3 mb-md-0">
-          <div class="text-muted small text-uppercase">Wedding City</div>
-          <div class="fw-semibold mt-1">
-            {{ inquiry.wedding_city|default:"—" }}
-          </div>
-        </div>
-        <div class="col-md-4">
           <div class="text-muted small text-uppercase">Channel</div>
           <div class="fw-semibold mt-1">
             {{ inquiry.get_channel_display }}
+          </div>
+        </div>
+
+        <div class="col-md-4">
+          <div class="text-muted small text-uppercase">Status</div>
+          <div class="fw-semibold mt-1">
+            {{ inquiry.get_status_display }}
           </div>
         </div>
       </div>
@@ -99,30 +117,44 @@
       <!-- Row 3 -->
       <div class="row mb-3">
         <div class="col-md-4 mb-3 mb-md-0">
-          <div class="text-muted small text-uppercase">Status</div>
-          <div class="fw-semibold mt-1">
-            {{ inquiry.get_status_display }}
-          </div>
-        </div>
-        <div class="col-md-4 mb-3 mb-md-0">
           <div class="text-muted small text-uppercase">Lead</div>
           <div class="fw-semibold mt-1">
             {% if inquiry.lead %}
-              <a href="{% url 'crm:lead_detail' inquiry.lead.pk %}">
-                {{ inquiry.lead.name }}
-              </a>
+              {% if is_admin or is_crm_manager %}
+                <a href="{% url 'crm:lead_detail' inquiry.lead.pk %}">
+                  {{ inquiry.lead.name }}
+                </a>
+              {% else %}
+                <span class="text-muted">Converted</span>
+              {% endif %}
             {% else %}
               <span class="text-muted">—</span>
             {% endif %}
           </div>
         </div>
-        <div class="col-md-4">
+
+        <div class="col-md-4 mb-3 mb-md-0">
           <div class="text-muted small text-uppercase">Client</div>
           <div class="fw-semibold mt-1">
             {% if inquiry.client %}
-              <a href="{% url 'crm:client_detail' inquiry.client.pk %}">
-                {{ inquiry.client }}
-              </a>
+              {% if is_admin or is_crm_manager %}
+                <a href="{% url 'crm:client_detail' inquiry.client.pk %}">
+                  {{ inquiry.client }}
+                </a>
+              {% else %}
+                <span class="text-muted">Linked client</span>
+              {% endif %}
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="col-md-4">
+          <div class="text-muted small text-uppercase">Handled By</div>
+          <div class="fw-semibold mt-1">
+            {% if inquiry.handled_by %}
+              {{ inquiry.handled_by.get_full_name|default:inquiry.handled_by.username }}
             {% else %}
               <span class="text-muted">—</span>
             {% endif %}
@@ -133,21 +165,23 @@
       <!-- Row 4 -->
       <div class="row mb-3">
         <div class="col-md-4 mb-3 mb-md-0">
-          <div class="text-muted small text-uppercase">Handled By</div>
+          <div class="text-muted small text-uppercase">Created By</div>
           <div class="fw-semibold mt-1">
-            {% if inquiry.handled_by %}
-              {{ inquiry.handled_by.get_full_name|default:inquiry.handled_by.username }}
+            {% if inquiry.owner %}
+              {{ inquiry.owner.get_full_name|default:inquiry.owner.username }}
             {% else %}
               <span class="text-muted">—</span>
             {% endif %}
           </div>
         </div>
+
         <div class="col-md-4 mb-3 mb-md-0">
           <div class="text-muted small text-uppercase">Created At</div>
           <div class="fw-semibold mt-1">
             {{ inquiry.created_at|date:"Y-m-d H:i" }}
           </div>
         </div>
+
         <div class="col-md-4">
           <div class="text-muted small text-uppercase">Last Updated</div>
           <div class="fw-semibold mt-1">
@@ -156,29 +190,57 @@
         </div>
       </div>
 
-      <!-- Row 5: Message -->
+      <!-- Message -->
       <div class="row mb-3">
         <div class="col-12">
           <div class="text-muted small text-uppercase">Message</div>
           <div class="mt-1">
-            {{ inquiry.message|linebreaks|default:"<span class='text-muted'>—</span>"|safe }}
+            {% if inquiry.message %}
+              {{ inquiry.message|linebreaks }}
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
           </div>
         </div>
       </div>
 
-      <!-- Actions row (centered) -->
+      <!-- Bottom actions -->
       <div class="row">
-        <div class="col-12 d-flex justify-content-center gap-2 mt-2">
-          {% if is_admin or is_manager or inquiry.handled_by_id == request.user.id %}
+        <div class="col-12 d-flex justify-content-center flex-wrap gap-2 mt-2">
+
+          {% if is_admin or is_crm_manager or is_project_manager %}
             <a href="{% url 'crm:inquiry_update' inquiry.pk %}"
                class="btn btn-primary px-4">
               Edit Inquiry
             </a>
           {% endif %}
+
+          {% if is_admin or is_crm_manager %}
+            {% if inquiry.lead %}
+              <a href="{% url 'crm:lead_detail' inquiry.lead.pk %}"
+                 class="btn btn-success px-4">
+                View Lead
+              </a>
+            {% elif inquiry.status != "converted" %}
+              <a href="{% url 'crm:inquiry_convert_to_lead' inquiry.pk %}"
+                 class="btn btn-success px-4">
+                Convert to Lead
+              </a>
+            {% endif %}
+          {% endif %}
+
+          {% if is_admin or is_crm_manager or is_project_manager %}
+            <a href="{% url 'crm:inquiry_delete' inquiry.pk %}"
+               class="btn btn-outline-danger">
+              Delete
+            </a>
+          {% endif %}
+
           <a href="{% url 'crm:inquiry_list' %}"
              class="btn btn-outline-secondary">
             Back to Inquiries
           </a>
+
         </div>
       </div>
 

@@ -29,7 +29,6 @@ class ClientAdmin(admin.ModelAdmin):
         "district",
         "state",
         "country",
-        "instagram_handle",
         "is_active",
     )
     search_fields = (
@@ -124,11 +123,6 @@ class InquiryAdmin(admin.ModelAdmin):
         "name",
         "email",
         "phone",
-        "wedding_date",
-        "wedding_city",
-        "wedding_district",
-        "wedding_state",
-        "wedding_country",
         "lead",
         "client",
         "handled_by",
@@ -138,10 +132,6 @@ class InquiryAdmin(admin.ModelAdmin):
         "name",
         "email",
         "phone",
-        "wedding_city",
-        "wedding_district",
-        "wedding_state",
-        "wedding_country",
         "message",
         "lead__name",
         "client__name",
@@ -151,10 +141,6 @@ class InquiryAdmin(admin.ModelAdmin):
         "channel",
         "status",
         "handled_by",
-        "wedding_city",
-        "wedding_district",
-        "wedding_state",
-        "wedding_country",
     )
     date_hierarchy = "created_at"
     autocomplete_fields = ("lead", "client", "handled_by")

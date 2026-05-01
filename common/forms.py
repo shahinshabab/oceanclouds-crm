@@ -9,34 +9,24 @@ from .models import SystemSetting ,Ticket
 User = get_user_model()
 
 
-class BootstrapModelForm(forms.ModelForm):
-    """
-    Base form to automatically add Bootstrap classes to widgets.
-    - Text / number / email / URL / textarea / date => form-control
-    - Select / ModelChoiceField => form-select
-    - Checkbox => form-check-input
-    """
+from django import forms
 
+class BootstrapModelForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        for name, field in self.fields.items():
+        for field in self.fields.values():
             widget = field.widget
+            existing = widget.attrs.get("class", "")
 
-            # Keep any existing classes
-            existing_classes = widget.attrs.get("class", "")
-
-            # Checkbox
             if isinstance(widget, forms.CheckboxInput):
-                widget.attrs["class"] = (existing_classes + " form-check-input").strip()
-
-            # Selects (ChoiceField, ModelChoiceField, etc.)
+                cls = "form-check-input"
             elif isinstance(widget, (forms.Select, forms.SelectMultiple)):
-                widget.attrs["class"] = (existing_classes + " form-select").strip()
-
-            # Everything else → form-control
+                cls = "form-select"
             else:
-                widget.attrs["class"] = (existing_classes + " form-control").strip()
+                cls = "form-control"
+
+            widget.attrs["class"] = f"{existing} {cls}".strip()
 
 
 

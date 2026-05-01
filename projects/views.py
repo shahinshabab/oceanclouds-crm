@@ -46,7 +46,6 @@ from common.roles import (
     user_has_role,
 )
 from common.mixins import (
-    AdminOnlyMixin,
     AdminManagerMixin,
     StaffAllMixin,
 )
@@ -258,7 +257,7 @@ class ProjectOverviewView(AdminManagerMixin, DetailView):
 
 
 
-class ProjectCreateView(AdminOnlyMixin, CreateView):
+class ProjectCreateView(AdminManagerMixin, CreateView):
     model = Project
     form_class = ProjectForm
     template_name = "projects/project_form.html"

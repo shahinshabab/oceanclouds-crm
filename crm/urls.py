@@ -34,4 +34,22 @@ urlpatterns = [
     path("reviews/<int:pk>/", views.ClientReviewDetailView.as_view(), name="review_detail"),
     path("reviews/add/", views.ClientReviewCreateView.as_view(), name="review_create"),
     path("reviews/<int:pk>/edit/", views.ClientReviewUpdateView.as_view(), name="review_update"),
+
+    path(
+        "inquiries/<int:pk>/convert-to-lead/",
+        views.InquiryConvertToLeadView.as_view(),
+        name="inquiry_convert_to_lead",
+    ),
+
+    path(
+        "inquiries/<int:pk>/delete/",
+        views.InquiryDeleteView.as_view(),
+        name="inquiry_delete",
+    ),
+
+    path(
+        "leads/<int:pk>/delete/",
+        views.LeadDeleteView.as_view(),
+        name="lead_delete",
+    ),
 ]
