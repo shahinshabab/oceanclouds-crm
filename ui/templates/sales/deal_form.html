@@ -1,32 +1,53 @@
 {% extends "ui/base.html" %}
 {% load roles_tags %}
+
 {% block title %}
   {% if form.instance.pk %}Edit Deal{% else %}New Deal{% endif %}
 {% endblock %}
 
 {% block content %}
-{% is_admin as is_admin %}
-{% is_manager as is_manager %}
-{% is_employee as is_employee %}
+{% is_admin request.user as is_admin %}
+{% is_crm_manager request.user as is_crm_manager %}
+{% is_project_manager request.user as is_project_manager %}
+{% is_employee request.user as is_employee %}
 
 <div class="container py-3 max-w-2xl">
 
   <h2 class="fw-semibold mb-4">
-    {% if form.instance.pk %}Edit Deal{% else %}New Deal{% endif %}
+    {% if form.instance.pk %}
+      Edit Deal
+    {% elif is_lead_conversion %}
+      Convert Lead to Deal
+    {% else %}
+      New Deal
+    {% endif %}
   </h2>
+
+  {% if source_lead %}
+    <div class="alert alert-info">
+      You are creating a deal from lead
+      <strong>{{ source_lead.name }}</strong>.
+      Please review the prefilled details and add the remaining deal information.
+    </div>
+  {% endif %}
 
   <form method="post" novalidate>
     {% csrf_token %}
+
     {% if form.non_field_errors %}
       <div class="alert alert-danger">
         {{ form.non_field_errors }}
       </div>
     {% endif %}
 
+    {% if form.lead %}
+      {{ form.lead.as_hidden }}
+    {% endif %}
+
     <div class="card shadow-sm">
       <div class="card-body">
 
-        <!-- Row 1: Name / Client / Stage -->
+        <!-- Row 1 -->
         <div class="row">
           <div class="col-md-4 mb-3">
             <label class="form-label">
@@ -59,7 +80,7 @@
           </div>
         </div>
 
-        <!-- Row 2: Amount / Expected Close / Closed On -->
+        <!-- Row 2 -->
         <div class="row">
           <div class="col-md-4 mb-3">
             <label class="form-label">
@@ -92,7 +113,7 @@
           </div>
         </div>
 
-        <!-- Row 3: Description (full width) -->
+        <!-- Row 3 -->
         <div class="row">
           <div class="col-12 mb-3">
             <label class="form-label">
@@ -105,18 +126,25 @@
           </div>
         </div>
 
-        <!-- Row 4: Active -->
+        <!-- Row 4 -->
         <div class="row">
-          <div class="col-md-4 mb-3">
-            <div class="form-check mt-2">
-              {{ form.is_active }}
-              <label class="form-check-label">
+          <div class="col-md-4 mb-3 d-flex align-items-center">
+            <div>
+              <label class="form-label d-block">
                 {{ form.is_active.label }}
               </label>
+
+              <div class="form-check">
+                {{ form.is_active }}
+                <label class="form-check-label ms-1">
+                  Active
+                </label>
+              </div>
+
+              {% for error in form.is_active.errors %}
+                <div class="text-danger small">{{ error }}</div>
+              {% endfor %}
             </div>
-            {% for error in form.is_active.errors %}
-              <div class="text-danger small">{{ error }}</div>
-            {% endfor %}
           </div>
         </div>
 
@@ -125,15 +153,28 @@
 
     <!-- Buttons -->
     <div class="row mt-3">
-      <div class="col-12 d-flex justify-content-center gap-2">
-        {% if is_admin or is_manager %}
+      <div class="col-12 d-flex justify-content-center flex-wrap gap-2">
+
+        {% if is_admin or is_crm_manager %}
           <button type="submit" class="btn btn-primary px-4">
             Save
           </button>
-        {% endif %}  
-        <a href="{% url 'sales:deal_list' %}" class="btn btn-secondary">
-          Cancel
-        </a>
+        {% endif %}
+
+        {% if source_lead %}
+          <a href="{% url 'crm:lead_detail' source_lead.pk %}" class="btn btn-secondary">
+            Cancel
+          </a>
+        {% elif form.instance.pk %}
+          <a href="{% url 'sales:deal_detail' form.instance.pk %}" class="btn btn-secondary">
+            Cancel
+          </a>
+        {% else %}
+          <a href="{% url 'sales:deal_list' %}" class="btn btn-secondary">
+            Cancel
+          </a>
+        {% endif %}
+
       </div>
     </div>
 

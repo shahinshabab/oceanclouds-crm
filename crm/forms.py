@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib.auth import get_user_model
 
-from .models import Client, Contact, Lead, Inquiry, ClientReview
+from .models import Client, Contact, Lead, Inquiry, Review
 from common.roles import ROLE_MANAGER
 
 
@@ -144,9 +144,9 @@ class LeadForm(BootstrapModelForm):
         }
 
 
-class ClientReviewForm(BootstrapModelForm):
+class ReviewForm(BootstrapModelForm):
     class Meta:
-        model = ClientReview
+        model = Review
         fields = [
             "client",
             "rating",

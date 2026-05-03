@@ -1,0 +1,65 @@
+{% extends "ui/base.html" %}
+{% load roles_tags %}
+
+{% block title %}Delete Client{% endblock %}
+
+{% block content %}
+{% is_admin request.user as is_admin %}
+{% is_crm_manager request.user as is_crm_manager %}
+
+<div class="container py-4">
+
+  <div class="card shadow-sm border-danger">
+    <div class="card-header bg-danger text-white">
+      Delete Client
+    </div>
+
+    <div class="card-body">
+      <p class="mb-3">
+        Are you sure you want to delete this client?
+      </p>
+
+      <div class="alert alert-warning">
+        <strong>{{ client.display_name|default:client.name }}</strong>
+        will be deleted.
+      </div>
+
+      <p class="text-muted small mb-3">
+        This may also delete related contacts, leads, reviews, deals, proposals, contracts, invoices, and payments depending on your model relationships.
+      </p>
+
+      <div class="border rounded-3 p-3 mb-3">
+        <div class="small text-muted mb-1">Client summary</div>
+
+        <div><strong>Name:</strong> {{ client.name }}</div>
+        <div><strong>Email:</strong> {{ client.email|default:"—" }}</div>
+        <div><strong>Phone:</strong> {{ client.phone|default:"—" }}</div>
+
+        <div class="mt-2 small text-muted">
+          Contacts: {{ client.contacts.count }} |
+          Reviews: {{ client.reviews.count }} |
+          Leads: {{ client.leads.count }} |
+          Deals: {{ client.deals.count }}
+        </div>
+      </div>
+
+      <form method="post">
+        {% csrf_token %}
+
+        <div class="d-flex justify-content-center gap-2">
+          {% if is_admin or is_crm_manager %}
+            <button type="submit" class="btn btn-danger px-4">
+              Yes, Delete
+            </button>
+          {% endif %}
+
+          <a href="{% url 'crm:client_detail' client.pk %}" class="btn btn-secondary">
+            Cancel
+          </a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

@@ -83,6 +83,19 @@ class ProposalForm(BootstrapModelForm):
             "notes": forms.Textarea(attrs={"rows": 3}),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.fields["discount"].label = "Discount Amount"
+        self.fields["discount"].help_text = "Enter fixed discount amount."
+
+        self.fields["tax"].label = "Tax %"
+        self.fields["tax"].help_text = "Enter tax percentage, for example 18 for 18%."
+
+        self.fields["discount"].widget.attrs["step"] = "0.01"
+        self.fields["tax"].widget.attrs["step"] = "0.01"
+        self.fields["tax"].widget.attrs["placeholder"] = "Eg. 18"
+
 
 # ---------------------------------------------------------
 # Proposal Item

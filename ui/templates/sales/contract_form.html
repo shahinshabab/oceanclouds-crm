@@ -1,22 +1,39 @@
 {% extends "ui/base.html" %}
 {% load roles_tags %}
+
 {% block title %}
   {% if form.instance.pk %}Edit Contract{% else %}New Contract{% endif %}
 {% endblock %}
 
 {% block content %}
-{% is_admin as is_admin %}
-{% is_manager as is_manager %}
-{% is_employee as is_employee %}
+{% is_admin request.user as is_admin %}
+{% is_crm_manager request.user as is_crm_manager %}
+{% is_project_manager request.user as is_project_manager %}
+{% is_employee request.user as is_employee %}
 
 <div class="container py-3 max-w-2xl">
 
   <h2 class="fw-semibold mb-4">
-    {% if form.instance.pk %}Edit Contract{% else %}New Contract{% endif %}
+    {% if form.instance.pk %}
+      Edit Contract
+    {% elif is_proposal_conversion %}
+      Create Contract from Proposal
+    {% else %}
+      New Contract
+    {% endif %}
   </h2>
+
+  {% if source_proposal %}
+    <div class="alert alert-info">
+      You are creating a contract from proposal
+      <strong>{{ source_proposal.title }}</strong>.
+      Please review the prefilled details and save.
+    </div>
+  {% endif %}
 
   <form method="post" enctype="multipart/form-data" novalidate>
     {% csrf_token %}
+
     {% if form.non_field_errors %}
       <div class="alert alert-danger">
         {{ form.non_field_errors }}
@@ -24,9 +41,13 @@
     {% endif %}
 
     <div class="card shadow-sm">
+      <div class="card-header bg-light">
+        <strong>Contract Information</strong>
+      </div>
+
       <div class="card-body">
 
-        <!-- Row 1: Deal / Proposal / Number -->
+        <!-- Row 1 -->
         <div class="row">
           <div class="col-md-4 mb-3">
             <label class="form-label">
@@ -50,16 +71,14 @@
 
           <div class="col-md-4 mb-3">
             <label class="form-label">Contract Number</label>
-            <input
-              type="text"
-              class="form-control"
-              value="{% if form.instance.pk %}{{ form.instance.number }}{% else %}Auto-generated after save{% endif %}"
-              readonly
-            >
+            <input type="text"
+                   class="form-control"
+                   value="{% if form.instance.pk %}{{ form.instance.number }}{% else %}Auto-generated after save{% endif %}"
+                   readonly>
           </div>
         </div>
 
-        <!-- Row 2: Status / Signed / Start -->
+        <!-- Row 2 -->
         <div class="row">
           <div class="col-md-4 mb-3">
             <label class="form-label">
@@ -92,7 +111,7 @@
           </div>
         </div>
 
-        <!-- Row 3: End Date / File -->
+        <!-- Row 3 -->
         <div class="row">
           <div class="col-md-4 mb-3">
             <label class="form-label">
@@ -118,7 +137,7 @@
           </div>
         </div>
 
-        <!-- Row 4: Terms (full width) -->
+        <!-- Terms -->
         <div class="row">
           <div class="col-12 mb-3">
             <label class="form-label">
@@ -136,15 +155,26 @@
 
     <!-- Buttons -->
     <div class="row mt-3">
-      <div class="col-12 d-flex justify-content-center gap-2">
-        {% if is_admin or is_manager %}
+      <div class="col-12 d-flex justify-content-center flex-wrap gap-2">
+        {% if is_admin or is_crm_manager %}
           <button type="submit" class="btn btn-primary px-4">
             Save
           </button>
-        {% endif %}  
-        <a href="{% url 'sales:contract_list' %}" class="btn btn-secondary">
-          Cancel
-        </a>
+        {% endif %}
+
+        {% if source_proposal %}
+          <a href="{% url 'sales:proposal_detail' source_proposal.pk %}" class="btn btn-secondary">
+            Cancel
+          </a>
+        {% elif form.instance.pk %}
+          <a href="{% url 'sales:contract_detail' form.instance.pk %}" class="btn btn-secondary">
+            Cancel
+          </a>
+        {% else %}
+          <a href="{% url 'sales:contract_list' %}" class="btn btn-secondary">
+            Cancel
+          </a>
+        {% endif %}
       </div>
     </div>
 

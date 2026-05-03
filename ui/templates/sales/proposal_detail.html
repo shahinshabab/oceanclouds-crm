@@ -1,18 +1,20 @@
 {% extends "ui/base.html" %}
 {% load roles_tags %}
+
 {% block title %}Proposal – {{ proposal.title }}{% endblock %}
 
 {% block content %}
-{% is_admin as is_admin %}
-{% is_manager as is_manager %}
-{% is_employee as is_employee %}
+{% is_admin request.user as is_admin %}
+{% is_crm_manager request.user as is_crm_manager %}
+{% is_project_manager request.user as is_project_manager %}
+{% is_employee request.user as is_employee %}
 
-<div class="container py-4">
+<div class="container py-3">
 
   {% if messages %}
     <div class="mb-3">
       {% for message in messages %}
-        {% if "scope:proposal" in message.tags or "scope:email" in message.tags %}
+        {% if "scope:proposal" in message.tags or "scope:email" in message.tags or "scope:client" in message.tags %}
           {% if message.level_tag == "error" %}
             <div class="alert alert-danger mb-2" role="alert">
               {{ message }}
@@ -27,149 +29,344 @@
     </div>
   {% endif %}
 
-
-  <!-- Header + Actions -->
-  <div class="d-flex justify-content-between align-items-start mb-3">
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-start mb-4 gap-3">
     <div>
-      <h1 class="h4 mb-1">{{ proposal.title }}</h1>
-      <div class="small text-muted">
-        Deal: {{ proposal.deal }} &middot;
-        v{{ proposal.version }} &middot;
-        <span class="badge bg-secondary">{{ proposal.get_status_display }}</span>
+      <h2 class="fw-semibold mb-0">{{ proposal.title }}</h2>
+
+      <div class="mt-2">
+        {% if proposal.status == "accepted" %}
+          <span class="badge bg-success">{{ proposal.get_status_display }}</span>
+        {% elif proposal.status == "sent" %}
+          <span class="badge bg-primary">{{ proposal.get_status_display }}</span>
+        {% elif proposal.status == "rejected" %}
+          <span class="badge bg-dark">{{ proposal.get_status_display }}</span>
+        {% elif proposal.status == "expired" %}
+          <span class="badge bg-warning text-dark">{{ proposal.get_status_display }}</span>
+        {% else %}
+          <span class="badge bg-secondary">{{ proposal.get_status_display }}</span>
+        {% endif %}
+
+        <span class="badge bg-light text-dark border">
+          v{{ proposal.version }}
+        </span>
       </div>
     </div>
 
-    <div class="d-flex gap-2">
-      {% if is_admin or is_manager %}
-        <form method="post" action="{% url 'sales:proposal_send_email' proposal.pk %}">
+    <div class="text-end d-flex flex-wrap justify-content-end gap-2">
+      {% if is_admin or is_crm_manager %}
+
+        <form method="post" action="{% url 'sales:proposal_send_email' proposal.pk %}" class="d-inline">
           {% csrf_token %}
           <button type="submit" class="btn btn-outline-secondary btn-sm">
             Send Email
           </button>
         </form>
 
-        <a href="{% url 'sales:proposal_update' proposal.pk %}" class="btn btn-primary btn-sm">
+        <a href="{% url 'sales:proposal_update' proposal.pk %}"
+           class="btn btn-primary btn-sm">
           Edit
         </a>
+
+        {% if proposal.deal.client %}
+          <a href="{% url 'crm:client_detail' proposal.deal.client.pk %}"
+             class="btn btn-success btn-sm">
+            View Client
+          </a>
+        {% else %}
+          <form method="post" action="{% url 'sales:proposal_create_client' proposal.pk %}" class="d-inline">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-success btn-sm">
+              Create Client
+            </button>
+          </form>
+        {% endif %}
+
+        {% if proposal.contracts.exists %}
+          {% with contract=proposal.contracts.first %}
+            <a href="{% url 'sales:contract_detail' contract.pk %}"
+               class="btn btn-outline-success btn-sm">
+              View Contract
+            </a>
+          {% endwith %}
+        {% else %}
+          <a href="{% url 'sales:proposal_convert_to_contract' proposal.pk %}"
+             class="btn btn-outline-success btn-sm">
+            Convert to Contract
+          </a>
+        {% endif %}
+
       {% endif %}
 
-      <a href="{% url 'sales:proposal_list' %}" class="btn btn-outline-secondary btn-sm">
-        Back
+      <a href="{% url 'sales:proposal_list' %}"
+         class="btn btn-secondary btn-sm">
+        Back to Proposals
       </a>
     </div>
   </div>
 
-  <!-- Main Details Card -->
-  <div class="card mb-3">
+  <!-- Proposal Information -->
+  <div class="card mb-4 shadow-sm">
+    <div class="card-header bg-light">
+      <strong>Proposal Information</strong>
+    </div>
+
     <div class="card-body">
-      <div class="row g-3">
 
-        <div class="col-md-4">
-          <div class="text-uppercase text-muted small mb-1">Deal</div>
-          <div class="fw-semibold">{{ proposal.deal }}</div>
+      <div class="row mb-3">
+        <div class="col-md-4 mb-3 mb-md-0">
+          <div class="text-muted small text-uppercase">Deal</div>
+          <div class="fw-semibold mt-1">
+            {% if proposal.deal %}
+              <a href="{% url 'sales:deal_detail' proposal.deal.pk %}" class="text-decoration-none">
+                {{ proposal.deal.name }}
+              </a>
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          </div>
         </div>
 
-        <div class="col-md-4">
-          <div class="text-uppercase text-muted small mb-1">Client</div>
-          <div class="fw-semibold">{{ proposal.deal.client }}</div>
-        </div>
+        <div class="col-md-4 mb-3 mb-md-0">
+          <div class="text-muted small text-uppercase">Client</div>
+          <div class="fw-semibold mt-1">
+            {% if proposal.deal.client %}
+              <a href="{% url 'crm:client_detail' proposal.deal.client.pk %}" class="text-decoration-none">
+                {{ proposal.deal.client }}
+              </a>
+            {% else %}
+              <span class="text-muted">Not created yet</span>
 
-        <div class="col-md-4">
-          <div class="text-uppercase text-muted small mb-1">Status</div>
-          <div><span class="badge bg-secondary">{{ proposal.get_status_display }}</span></div>
-        </div>
-
-        <div class="col-md-4">
-          <div class="text-uppercase text-muted small mb-1">Version</div>
-          <div class="fw-semibold">v{{ proposal.version }}</div>
-        </div>
-
-        <div class="col-md-4">
-          <div class="text-uppercase text-muted small mb-1">Valid Until</div>
-          <div class="fw-semibold">
-            {% if proposal.valid_until %}{{ proposal.valid_until }}{% else %}<span class="text-muted">—</span>{% endif %}
+              {% if is_admin or is_crm_manager %}
+                <form method="post" action="{% url 'sales:proposal_create_client' proposal.pk %}" class="d-inline ms-2">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-sm btn-outline-success">
+                    Create Client
+                  </button>
+                </form>
+              {% endif %}
+            {% endif %}
           </div>
         </div>
 
         <div class="col-md-4">
-          <div class="text-uppercase text-muted small mb-1">Created</div>
-          <div class="fw-semibold">{{ proposal.created_at|date:"Y-m-d" }}</div>
-        </div>
-
-        <!-- Financials -->
-        <div class="col-md-4">
-          <div class="text-uppercase text-muted small mb-1">Subtotal</div>
-          <div class="fw-semibold">{{ proposal.subtotal }}</div>
-        </div>
-
-        <div class="col-md-4">
-          <div class="text-uppercase text-muted small mb-1">Discount</div>
-          <div class="fw-semibold">{{ proposal.discount }}</div>
-        </div>
-
-        <div class="col-md-4">
-          <div class="text-uppercase text-muted small mb-1">Tax</div>
-          <div class="fw-semibold">{{ proposal.tax }}</div>
-        </div>
-
-        <div class="col-12 mt-2">
-          <div class="text-uppercase text-muted small mb-1">Total</div>
-          <div class="fw-bold fs-5">{{ proposal.total }}</div>
-        </div>
-
-        <!-- Notes -->
-        <div class="col-12 mt-2">
-          <div class="text-uppercase text-muted small mb-1">Notes</div>
-          <div>
-            {% if proposal.notes %}{{ proposal.notes|linebreaksbr }}{% else %}<span class="text-muted">No notes.</span>{% endif %}
+          <div class="text-muted small text-uppercase">Status</div>
+          <div class="fw-semibold mt-1">
+            {{ proposal.get_status_display }}
           </div>
         </div>
-
       </div>
+
+      <div class="row mb-3">
+        <div class="col-md-4 mb-3 mb-md-0">
+          <div class="text-muted small text-uppercase">Version</div>
+          <div class="fw-semibold mt-1">v{{ proposal.version }}</div>
+        </div>
+
+        <div class="col-md-4 mb-3 mb-md-0">
+          <div class="text-muted small text-uppercase">Valid Until</div>
+          <div class="fw-semibold mt-1">
+            {% if proposal.valid_until %}
+              {{ proposal.valid_until }}
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="col-md-4">
+          <div class="text-muted small text-uppercase">Created</div>
+          <div class="fw-semibold mt-1">
+            {{ proposal.created_at|date:"Y-m-d H:i" }}
+          </div>
+        </div>
+      </div>
+
+      <div class="row mb-3">
+        <div class="col-md-3 mb-3 mb-md-0">
+          <div class="text-muted small text-uppercase">Subtotal</div>
+          <div class="fw-semibold mt-1">{{ proposal.subtotal }}</div>
+        </div>
+
+        <div class="col-md-3 mb-3 mb-md-0">
+          <div class="text-muted small text-uppercase">Discount</div>
+          <div class="fw-semibold mt-1">{{ proposal.discount }}</div>
+        </div>
+
+        <div class="col-md-3 mb-3 mb-md-0">
+          <div class="text-muted small text-uppercase">Tax %</div>
+          <div class="fw-semibold mt-1">{{ proposal.tax }}</div>
+        </div>
+
+        <div class="col-md-3">
+          <div class="text-muted small text-uppercase">Total</div>
+          <div class="fw-bold fs-5 mt-1">{{ proposal.total }}</div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col-12">
+          <div class="text-muted small text-uppercase">Notes</div>
+          <div class="mt-1">
+            {% if proposal.notes %}
+              {{ proposal.notes|linebreaks }}
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 
-  <!-- Items Table -->
-  <div class="card mb-4">
-    <div class="card-header">
-      <span class="fw-semibold small text-uppercase text-muted">Items</span>
+  <!-- Items -->
+  <div class="card mb-4 shadow-sm">
+    <div class="card-header bg-success text-white">
+      Items
     </div>
+
     <div class="card-body p-0">
       {% if proposal.items.all %}
-        <table class="table table-sm mb-0 align-middle">
-          <thead class="table-light">
-            <tr>
-              <th>Description</th>
-              <th>Service / Package</th>
-              <th class="text-end">Qty</th>
-              <th class="text-end">Unit Price</th>
-              <th class="text-end">Line Total</th>
-            </tr>
-          </thead>
-          <tbody>
-          {% for item in proposal.items.all %}
-            <tr>
-              <td>{{ item.description }}</td>
-              <td>
-                {% if item.service %}
-                  <a href="{% url 'services:service_detail' item.service.pk %}">{{ item.service.name }}</a>
-                {% elif item.package %}
-                  <a href="{% url 'services:package_detail' item.package.pk %}">{{ item.package.name }}</a>
-                {% else %}
-                  <span class="text-muted">—</span>
-                {% endif %}
-              </td>
-              <td class="text-end">{{ item.quantity }}</td>
-              <td class="text-end">{{ item.unit_price }}</td>
-              <td class="text-end">{{ item.line_total }}</td>
-            </tr>
-          {% endfor %}
-          </tbody>
-        </table>
+        <div class="table-responsive">
+          <table class="table table-hover mb-0 align-middle">
+            <thead class="table-light">
+              <tr>
+                <th>Description</th>
+                <th>Service / Package</th>
+                <th class="text-end">Qty</th>
+                <th class="text-end">Unit Price</th>
+                <th class="text-end">Line Total</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {% for item in proposal.items.all %}
+                <tr>
+                  <td>{{ item.description }}</td>
+
+                  <td>
+                    {% if item.service %}
+                      <a href="{% url 'services:service_detail' item.service.pk %}">
+                        {{ item.service.name }}
+                      </a>
+                    {% elif item.package %}
+                      <a href="{% url 'services:package_detail' item.package.pk %}">
+                        {{ item.package.name }}
+                      </a>
+                    {% else %}
+                      <span class="text-muted">—</span>
+                    {% endif %}
+                  </td>
+
+                  <td class="text-end">{{ item.quantity }}</td>
+                  <td class="text-end">{{ item.unit_price }}</td>
+                  <td class="text-end">{{ item.line_total }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+
+          </table>
+        </div>
       {% else %}
-        <div class="p-3 text-muted small">No items added.</div>
+        <div class="p-3 text-muted">
+          No items added.
+        </div>
       {% endif %}
     </div>
+  </div>
+
+  <!-- Contracts -->
+  <div class="card mb-4 shadow-sm">
+    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+      <span>Contracts</span>
+
+      {% if is_admin or is_crm_manager %}
+        {% if not proposal.contracts.exists %}
+          <a href="{% url 'sales:proposal_convert_to_contract' proposal.pk %}"
+             class="btn btn-light btn-sm">
+            Convert to Contract
+          </a>
+        {% endif %}
+      {% endif %}
+    </div>
+
+    <div class="card-body">
+      {% if proposal.contracts.all %}
+        <div class="list-group">
+          {% for contract in proposal.contracts.all %}
+            <div class="list-group-item d-flex justify-content-between align-items-center">
+              <div>
+                <strong>{{ contract.number|default:"Draft Contract" }}</strong>
+                <div class="small text-muted">
+                  Status: {{ contract.get_status_display }}
+                  {% if contract.signed_date %} · Signed: {{ contract.signed_date }}{% endif %}
+                </div>
+              </div>
+
+              <a href="{% url 'sales:contract_detail' contract.pk %}"
+                 class="btn btn-sm btn-outline-primary">
+                View Contract
+              </a>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="text-muted mb-0">No contract created from this proposal yet.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Bottom Actions -->
+  <div class="text-center d-flex justify-content-center flex-wrap gap-2">
+    {% if is_admin or is_crm_manager %}
+
+      <form method="post" action="{% url 'sales:proposal_send_email' proposal.pk %}" class="d-inline">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-outline-secondary">
+          Send Email
+        </button>
+      </form>
+
+      <a href="{% url 'sales:proposal_update' proposal.pk %}"
+         class="btn btn-primary px-4">
+        Edit
+      </a>
+
+      {% if proposal.deal.client %}
+        <a href="{% url 'crm:client_detail' proposal.deal.client.pk %}"
+           class="btn btn-success px-4">
+          View Client
+        </a>
+      {% else %}
+        <form method="post" action="{% url 'sales:proposal_create_client' proposal.pk %}" class="d-inline">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-success px-4">
+            Create Client
+          </button>
+        </form>
+      {% endif %}
+
+      {% if proposal.contracts.exists %}
+        {% with contract=proposal.contracts.first %}
+          <a href="{% url 'sales:contract_detail' contract.pk %}"
+             class="btn btn-outline-success px-4">
+            View Contract
+          </a>
+        {% endwith %}
+      {% else %}
+        <a href="{% url 'sales:proposal_convert_to_contract' proposal.pk %}"
+           class="btn btn-outline-success px-4">
+          Convert to Contract
+        </a>
+      {% endif %}
+
+    {% endif %}
+
+    <a href="{% url 'sales:proposal_list' %}"
+       class="btn btn-outline-secondary">
+      Back to Proposals
+    </a>
   </div>
 
 </div>

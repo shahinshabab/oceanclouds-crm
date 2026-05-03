@@ -7,8 +7,7 @@
 
 {% block content %}
 {% is_admin request.user as is_admin %}
-{% is_manager request.user as is_manager %}
-{% is_employee request.user as is_employee %}
+{% is_crm_manager request.user as is_crm_manager %}
 
 <div class="container py-3 max-w-2xl">
 
@@ -18,6 +17,7 @@
 
   <form method="post" novalidate>
     {% csrf_token %}
+
     {% if form.non_field_errors %}
       <div class="alert alert-danger">
         {{ form.non_field_errors }}
@@ -110,24 +110,33 @@
               <label class="form-label d-block">
                 {{ form.is_primary.label }}
               </label>
+
               <div class="form-check">
                 {{ form.is_primary }}
-                <label class="form-check-label ms-1">Primary contact</label>
+                <label class="form-check-label ms-1">
+                  Primary contact
+                </label>
               </div>
+
               {% for error in form.is_primary.errors %}
                 <div class="text-danger small">{{ error }}</div>
               {% endfor %}
             </div>
           </div>
 
-          <div class="col-md-4 mb-3">
-            <label class="form-label d-block">
+          <div class="col-md-4 mb-3 d-flex align-items-center">
+            <div>
+              <label class="form-label d-block">
                 {{ form.allow_marketing.label }}
               </label>
+
               <div class="form-check">
                 {{ form.allow_marketing }}
-                <label class="form-check-label ms-1">Allow Marketing</label>
+                <label class="form-check-label ms-1">
+                  Allow marketing
+                </label>
               </div>
+
               {% for error in form.allow_marketing.errors %}
                 <div class="text-danger small">{{ error }}</div>
               {% endfor %}
@@ -135,29 +144,13 @@
           </div>
         </div>
 
-        <!-- Row 4: Notes -->
-        <div class="row">
-          <div class="col-12 mb-3">
-            <label class="form-label">
-              {{ form.notes.label }}
-            </label>
-            {{ form.notes }}
-            {% if form.notes.help_text %}
-              <small class="form-text text-muted">{{ form.notes.help_text }}</small>
-            {% endif %}
-            {% for error in form.notes.errors %}
-              <div class="text-danger small">{{ error }}</div>
-            {% endfor %}
-          </div>
-        </div>
-
       </div>
     </div>
 
-    <!-- Buttons row -->
+    <!-- Buttons -->
     <div class="row mt-3">
       <div class="col-12 d-flex justify-content-center gap-2">
-        {% if is_admin or is_manager %}
+        {% if is_admin or is_crm_manager %}
           <button type="submit" class="btn btn-primary px-4">
             Save
           </button>
@@ -169,7 +162,7 @@
             Cancel
           </a>
         {% else %}
-          <a href="{% url 'crm:contact_list' %}"
+          <a href="{% url 'crm:client_list' %}"
              class="btn btn-secondary">
             Cancel
           </a>

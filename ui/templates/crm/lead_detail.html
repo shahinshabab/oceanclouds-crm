@@ -17,12 +17,30 @@
       </h2>
 
       <div class="mt-2">
-        <span class="badge bg-secondary">
-          {{ lead.get_status_display }}
-        </span>
+        {% if lead.status == "converted" %}
+          <span class="badge bg-success">
+            {{ lead.get_status_display }}
+          </span>
+        {% elif lead.status == "proposal_sent" %}
+          <span class="badge bg-primary">
+            {{ lead.get_status_display }}
+          </span>
+        {% elif lead.status == "qualified" %}
+          <span class="badge bg-info text-dark">
+            {{ lead.get_status_display }}
+          </span>
+        {% elif lead.status == "lost" %}
+          <span class="badge bg-dark">
+            {{ lead.get_status_display }}
+          </span>
+        {% else %}
+          <span class="badge bg-secondary">
+            {{ lead.get_status_display }}
+          </span>
+        {% endif %}
 
         {% if lead.source %}
-          <span class="badge bg-info text-dark">
+          <span class="badge bg-light text-dark border">
             {{ lead.get_source_display }}
           </span>
         {% endif %}
@@ -31,15 +49,31 @@
 
     <div class="text-end d-flex flex-wrap justify-content-end gap-2">
       {% if is_admin or is_crm_manager %}
+
         <a href="{% url 'crm:lead_update' lead.pk %}"
            class="btn btn-primary btn-sm">
           Edit Lead
         </a>
 
+        {% if lead.status == "converted" %}
+          {% if lead.client %}
+            <a href="{% url 'crm:client_detail' lead.client.pk %}"
+               class="btn btn-success btn-sm">
+              View Client
+            </a>
+          {% endif %}
+        {% else %}
+          <a href="{% url 'sales:lead_convert_to_deal' lead.pk %}"
+             class="btn btn-success btn-sm">
+            Convert to Deal
+          </a>
+        {% endif %}
+
         <a href="{% url 'crm:lead_delete' lead.pk %}"
            class="btn btn-outline-danger btn-sm">
           Delete
         </a>
+
       {% endif %}
 
       <a href="{% url 'crm:lead_list' %}"
@@ -49,7 +83,7 @@
     </div>
   </div>
 
-  <!-- Lead info -->
+  <!-- Lead Info -->
   <div class="card mb-4 shadow-sm">
     <div class="card-body">
 
@@ -166,7 +200,7 @@
                 {{ lead.client }}
               </a>
             {% else %}
-              <span class="text-muted">Not yet converted</span>
+              <span class="text-muted">Not yet linked</span>
             {% endif %}
           </div>
         </div>
@@ -220,32 +254,91 @@
         </div>
       </div>
 
-      <!-- Bottom actions -->
+      <!-- Bottom Actions -->
       <div class="row">
         <div class="col-12 d-flex justify-content-center flex-wrap gap-2 mt-2">
+
           {% if is_admin or is_crm_manager %}
+
             <a href="{% url 'crm:lead_update' lead.pk %}"
                class="btn btn-primary px-4">
               Edit Lead
             </a>
 
+            {% if lead.status == "converted" %}
+              {% if lead.client %}
+                <a href="{% url 'crm:client_detail' lead.client.pk %}"
+                   class="btn btn-success px-4">
+                  View Client
+                </a>
+              {% endif %}
+            {% else %}
+              <a href="{% url 'sales:lead_convert_to_deal' lead.pk %}"
+                 class="btn btn-success px-4">
+                Convert to Deal
+              </a>
+            {% endif %}
+
             <a href="{% url 'crm:lead_delete' lead.pk %}"
                class="btn btn-outline-danger">
               Delete
             </a>
+
           {% endif %}
 
           <a href="{% url 'crm:lead_list' %}"
              class="btn btn-outline-secondary">
             Back to Leads
           </a>
+
         </div>
       </div>
 
     </div>
   </div>
 
-  <!-- Inquiries related to this lead -->
+  <!-- Deals Related to This Lead -->
+  <div class="card mb-4 shadow-sm">
+    <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+      <span>Deals Related to This Lead</span>
+
+      {% if is_admin or is_crm_manager and lead.status != "converted" %}
+        <a href="{% url 'sales:lead_convert_to_deal' lead.pk %}"
+           class="btn btn-light btn-sm">
+          + Convert to Deal
+        </a>
+      {% endif %}
+    </div>
+
+    <div class="card-body">
+      {% if lead.deals.all %}
+        <div class="list-group">
+          {% for deal in lead.deals.all %}
+            <div class="list-group-item d-flex justify-content-between align-items-center">
+              <div>
+                <strong>{{ deal.name }}</strong>
+                <div class="small text-muted">
+                  Stage: {{ deal.get_stage_display }}
+                  {% if deal.amount %} · Amount: {{ deal.amount }}{% endif %}
+                </div>
+              </div>
+
+              <a href="{% url 'sales:deal_detail' deal.pk %}"
+                 class="btn btn-sm btn-outline-success">
+                View Deal
+              </a>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="text-muted mb-0">
+          No deal has been created from this lead yet.
+        </p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Inquiries Related to This Lead -->
   <div class="card mb-4 shadow-sm">
     <div class="card-header bg-secondary text-white">
       Inquiries Related to This Lead
@@ -255,17 +348,17 @@
       {% if lead.inquiries.all %}
         <ul class="list-group">
           {% for inquiry in lead.inquiries.all %}
-          <li class="list-group-item d-flex justify-content-between align-items-center">
-            <span>
-              {{ inquiry.get_channel_display }} —
-              {{ inquiry.name|default:inquiry.email|default:"(No Name)" }}
-            </span>
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+              <span>
+                {{ inquiry.get_channel_display }} —
+                {{ inquiry.name|default:inquiry.email|default:"(No Name)" }}
+              </span>
 
-            <a href="{% url 'crm:inquiry_detail' inquiry.pk %}"
-               class="btn btn-sm btn-outline-secondary">
-              View
-            </a>
-          </li>
+              <a href="{% url 'crm:inquiry_detail' inquiry.pk %}"
+                 class="btn btn-sm btn-outline-secondary">
+                View
+              </a>
+            </li>
           {% endfor %}
         </ul>
       {% else %}

@@ -206,7 +206,7 @@ class Lead(TimeStamped, Owned):
         return f"{self.name} ({self.get_status_display()})"
 
 
-class ClientReview(TimeStamped, Owned):
+class Review(TimeStamped, Owned):
     client = models.ForeignKey(
         Client,
         on_delete=models.CASCADE,

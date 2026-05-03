@@ -17,7 +17,7 @@ from django.utils.dateparse import parse_date
 from django.contrib.auth import get_user_model
 from django.db.models import Count, Sum, Q
 from .forms import AnalyticsReportFilterForm
-from crm.models import Client, Lead, Inquiry, ClientReview
+from crm.models import Client, Lead, Inquiry, Review
 from weasyprint import HTML  # pip install weasyprint
 
 from projects.models import (
@@ -203,7 +203,7 @@ def build_crm_sales_report(*, date_from, date_to, selected_user, all_manager_qs)
     total_clients = clients_qs.count()
 
     # ---- CRM: Reviews ----
-    reviews_qs = apply_filters(ClientReview.objects.all(), date_field="created_at", is_date_field=False)
+    reviews_qs = apply_filters(Review.objects.all(), date_field="created_at", is_date_field=False)
     total_reviews = reviews_qs.count()
     reviews_with_rating = reviews_qs.exclude(rating__isnull=True)
     avg_rating = reviews_with_rating.aggregate(avg=Sum("rating"))["avg"]

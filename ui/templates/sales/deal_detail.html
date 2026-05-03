@@ -1,42 +1,111 @@
 {% extends "ui/base.html" %}
 {% load roles_tags %}
+
 {% block title %}Deal – {{ deal.name }}{% endblock %}
 
 {% block content %}
-{% is_admin as is_admin %}
-{% is_manager as is_manager %}
-{% is_employee as is_employee %}
+{% is_admin request.user as is_admin %}
+{% is_crm_manager request.user as is_crm_manager %}
+{% is_project_manager request.user as is_project_manager %}
+{% is_employee request.user as is_employee %}
 
-<div class="container py-4">
+<div class="container py-3">
 
-  <!-- Page Header -->
-  <div class="mb-3">
-    <h1 class="h4 mb-1">{{ deal.name }}</h1>
-    <div class="small text-muted">
-      {{ deal.client }} &middot;
-      <span class="badge bg-secondary">{{ deal.get_stage_display }}</span>
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-start mb-4 gap-3">
+    <div>
+      <h2 class="fw-semibold mb-0">{{ deal.name }}</h2>
+
+      <div class="mt-2">
+        {% if deal.stage == "won" %}
+          <span class="badge bg-success">{{ deal.get_stage_display }}</span>
+        {% elif deal.stage == "lost" %}
+          <span class="badge bg-dark">{{ deal.get_stage_display }}</span>
+        {% elif deal.stage == "proposal_sent" %}
+          <span class="badge bg-primary">{{ deal.get_stage_display }}</span>
+        {% elif deal.stage == "negotiation" %}
+          <span class="badge bg-warning text-dark">{{ deal.get_stage_display }}</span>
+        {% else %}
+          <span class="badge bg-secondary">{{ deal.get_stage_display }}</span>
+        {% endif %}
+
+        {% if deal.is_active %}
+          <span class="badge bg-light text-dark border">Active</span>
+        {% else %}
+          <span class="badge bg-light text-muted border">Inactive</span>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="text-end d-flex flex-wrap justify-content-end gap-2">
+      {% if is_admin or is_crm_manager %}
+        <a href="{% url 'sales:proposal_create' %}?deal={{ deal.pk }}"
+           class="btn btn-success btn-sm">
+          Generate Proposal
+        </a>
+
+        <a href="{% url 'sales:deal_update' deal.pk %}"
+           class="btn btn-primary btn-sm">
+          Edit Deal
+        </a>
+      {% endif %}
+
+      <a href="{% url 'sales:deal_list' %}"
+         class="btn btn-secondary btn-sm">
+        Back to Deals
+      </a>
     </div>
   </div>
 
-  <!-- Main Details Card -->
-  <div class="card mb-3">
-    <div class="card-body">
-      <div class="row g-3">
+  <!-- Deal Details -->
+  <div class="card mb-4 shadow-sm">
+    <div class="card-header bg-light">
+      <strong>Deal Information</strong>
+    </div>
 
-        <!-- Row 1 -->
-        <div class="col-md-4">
-          <div class="text-uppercase text-muted small mb-1">Client</div>
-          <div class="fw-semibold">{{ deal.client }}</div>
-        </div>
-        <div class="col-md-4">
-          <div class="text-uppercase text-muted small mb-1">Stage</div>
-          <div>
-            <span class="badge bg-secondary">{{ deal.get_stage_display }}</span>
+    <div class="card-body">
+      <div class="row mb-3">
+
+        <div class="col-md-4 mb-3 mb-md-0">
+          <div class="text-muted small text-uppercase">Client</div>
+          <div class="fw-semibold mt-1">
+            {% if deal.client %}
+              <a href="{% url 'crm:client_detail' deal.client.pk %}" class="text-decoration-none">
+                {{ deal.client }}
+              </a>
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
           </div>
         </div>
+
+        <div class="col-md-4 mb-3 mb-md-0">
+          <div class="text-muted small text-uppercase">Lead</div>
+          <div class="fw-semibold mt-1">
+            {% if deal.lead %}
+              <a href="{% url 'crm:lead_detail' deal.lead.pk %}" class="text-decoration-none">
+                {{ deal.lead.name }}
+              </a>
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          </div>
+        </div>
+
         <div class="col-md-4">
-          <div class="text-uppercase text-muted small mb-1">Amount</div>
-          <div class="fw-semibold">
+          <div class="text-muted small text-uppercase">Stage</div>
+          <div class="fw-semibold mt-1">
+            {{ deal.get_stage_display }}
+          </div>
+        </div>
+
+      </div>
+
+      <div class="row mb-3">
+
+        <div class="col-md-4 mb-3 mb-md-0">
+          <div class="text-muted small text-uppercase">Amount</div>
+          <div class="fw-semibold mt-1">
             {% if deal.amount %}
               {{ deal.amount }}
             {% else %}
@@ -45,10 +114,9 @@
           </div>
         </div>
 
-        <!-- Row 2 -->
-        <div class="col-md-4">
-          <div class="text-uppercase text-muted small mb-1">Expected Close</div>
-          <div class="fw-semibold">
+        <div class="col-md-4 mb-3 mb-md-0">
+          <div class="text-muted small text-uppercase">Expected Close</div>
+          <div class="fw-semibold mt-1">
             {% if deal.expected_close_date %}
               {{ deal.expected_close_date }}
             {% else %}
@@ -56,9 +124,10 @@
             {% endif %}
           </div>
         </div>
+
         <div class="col-md-4">
-          <div class="text-uppercase text-muted small mb-1">Closed On</div>
-          <div class="fw-semibold">
+          <div class="text-muted small text-uppercase">Closed On</div>
+          <div class="fw-semibold mt-1">
             {% if deal.closed_on %}
               {{ deal.closed_on }}
             {% else %}
@@ -66,17 +135,14 @@
             {% endif %}
           </div>
         </div>
-        <div class="col-md-4">
-          <div class="text-uppercase text-muted small mb-1">Active</div>
-          <div class="fw-semibold">
-            {% if deal.is_active %}Yes{% else %}No{% endif %}
-          </div>
-        </div>
 
-        <!-- Row 3 -->
-        <div class="col-md-4">
-          <div class="text-uppercase text-muted small mb-1">Owner</div>
-          <div class="fw-semibold">
+      </div>
+
+      <div class="row mb-3">
+
+        <div class="col-md-4 mb-3 mb-md-0">
+          <div class="text-muted small text-uppercase">Owner</div>
+          <div class="fw-semibold mt-1">
             {% if deal.owner %}
               {{ deal.owner.get_full_name|default:deal.owner.username|default:deal.owner }}
             {% else %}
@@ -84,159 +150,278 @@
             {% endif %}
           </div>
         </div>
-        <div class="col-md-4">
-          <div class="text-uppercase text-muted small mb-1">Created</div>
-          <div class="fw-semibold">
+
+        <div class="col-md-4 mb-3 mb-md-0">
+          <div class="text-muted small text-uppercase">Created</div>
+          <div class="fw-semibold mt-1">
             {{ deal.created_at|date:"Y-m-d H:i" }}
           </div>
         </div>
+
         <div class="col-md-4">
-          <div class="text-uppercase text-muted small mb-1">Last Updated</div>
-          <div class="fw-semibold">
+          <div class="text-muted small text-uppercase">Last Updated</div>
+          <div class="fw-semibold mt-1">
             {{ deal.updated_at|date:"Y-m-d H:i" }}
           </div>
         </div>
 
-        <!-- Description full-width -->
-        <div class="col-12 mt-2">
-          <div class="text-uppercase text-muted small mb-1">Description</div>
-          <div>
+      </div>
+
+      <div class="row">
+        <div class="col-12">
+          <div class="text-muted small text-uppercase">Description</div>
+          <div class="mt-1">
             {% if deal.description %}
-              {{ deal.description|linebreaksbr }}
+              {{ deal.description|linebreaks }}
             {% else %}
-              <span class="text-muted">No description.</span>
+              <span class="text-muted">—</span>
             {% endif %}
           </div>
         </div>
-
       </div>
+
     </div>
   </div>
 
-  <!-- Related: Proposals -->
-  <div class="card mb-3">
-    <div class="card-header d-flex justify-content-between align-items-center">
-      <span class="fw-semibold small text-uppercase text-muted">Proposals</span>
-      {% if is_admin or is_manager %}
+  <!-- Proposals -->
+  <div class="card mb-4 shadow-sm">
+    <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+      <span>Proposals</span>
+
+      {% if is_admin or is_crm_manager %}
         <a href="{% url 'sales:proposal_create' %}?deal={{ deal.pk }}"
-           class="btn btn-success btn-sm">
-          + New Proposal
+           class="btn btn-light btn-sm">
+          Generate Proposal
         </a>
       {% endif %}
     </div>
+
     <div class="card-body p-0">
       {% if deal.proposals.all %}
-        <table class="table table-sm mb-0 align-middle">
-          <thead>
-            <tr>
-              <th>Title</th>
-              <th>Status</th>
-              <th>Total</th>
-              <th>Valid Until</th>
-              <th class="text-end">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-          {% for proposal in deal.proposals.all %}
-            <tr>
-              <td>
-                <div class="fw-semibold">
-                  <a href="{% url 'sales:proposal_detail' proposal.pk %}">
-                    {{ proposal.title }} (v{{ proposal.version }})
-                  </a>
-                </div>
-              </td>
-              <td>
-                <span class="badge bg-light text-dark border">
-                  {{ proposal.get_status_display }}
-                </span>
-              </td>
-              <td>{{ proposal.total }}</td>
-              <td>
-                {% if proposal.valid_until %}
-                  {{ proposal.valid_until }}
-                {% else %}
-                  <span class="text-muted">—</span>
-                {% endif %}
-              </td>
-              <td class="text-end">
-                <a href="{% url 'sales:proposal_detail' proposal.pk %}"
-                   class="btn btn-sm btn-outline-primary">
-                  View
-                </a>
-              </td>
-            </tr>
-          {% endfor %}
-          </tbody>
-        </table>
+        <div class="table-responsive">
+          <table class="table table-hover mb-0 align-middle">
+            <thead class="table-light">
+              <tr>
+                <th>Title</th>
+                <th>Status</th>
+                <th>Total</th>
+                <th>Valid Until</th>
+                <th class="text-end">Actions</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {% for proposal in deal.proposals.all %}
+                <tr>
+                  <td>
+                    <a href="{% url 'sales:proposal_detail' proposal.pk %}" class="text-decoration-none fw-semibold">
+                      {{ proposal.title }}
+                    </a>
+                    <div class="small text-muted">Version {{ proposal.version }}</div>
+                  </td>
+
+                  <td>
+                    {% if proposal.status == "accepted" %}
+                      <span class="badge bg-success">{{ proposal.get_status_display }}</span>
+                    {% elif proposal.status == "sent" %}
+                      <span class="badge bg-primary">{{ proposal.get_status_display }}</span>
+                    {% elif proposal.status == "rejected" %}
+                      <span class="badge bg-dark">{{ proposal.get_status_display }}</span>
+                    {% elif proposal.status == "expired" %}
+                      <span class="badge bg-warning text-dark">{{ proposal.get_status_display }}</span>
+                    {% else %}
+                      <span class="badge bg-secondary">{{ proposal.get_status_display }}</span>
+                    {% endif %}
+                  </td>
+
+                  <td>
+                    {{ proposal.total }}
+                  </td>
+
+                  <td>
+                    {% if proposal.valid_until %}
+                      {{ proposal.valid_until }}
+                    {% else %}
+                      <span class="text-muted">—</span>
+                    {% endif %}
+                  </td>
+
+                  <td class="text-end">
+                    <a href="{% url 'sales:proposal_detail' proposal.pk %}"
+                       class="btn btn-sm btn-outline-success">
+                      View
+                    </a>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+
+          </table>
+        </div>
       {% else %}
-        <div class="p-3 text-muted small">
-          No proposals yet.
+        <div class="text-center text-muted py-4">
+          <p class="mb-2">No proposals generated for this deal yet.</p>
+
+          {% if is_admin or is_crm_manager %}
+            <a href="{% url 'sales:proposal_create' %}?deal={{ deal.pk }}"
+               class="btn btn-success btn-sm">
+              Generate First Proposal
+            </a>
+          {% endif %}
         </div>
       {% endif %}
     </div>
   </div>
 
-  <!-- Related: Invoices -->
-  <div class="card mb-4">
-    <div class="card-header d-flex justify-content-between align-items-center">
-      <span class="fw-semibold small text-uppercase text-muted">Invoices</span>
-      {% if is_admin or is_manager %}
-        <a href="{% url 'sales:invoice_create' %}?deal={{ deal.pk }}"
-           class="btn btn-success btn-sm">
-          + New Invoice
-        </a>
+  <!-- Contracts -->
+  <div class="card mb-4 shadow-sm">
+    <div class="card-header bg-primary text-white">
+      Contracts
+    </div>
+
+    <div class="card-body p-0">
+      {% if deal.contracts.all %}
+        <div class="table-responsive">
+          <table class="table table-hover mb-0 align-middle">
+            <thead class="table-light">
+              <tr>
+                <th>Number</th>
+                <th>Status</th>
+                <th>Proposal</th>
+                <th>Signed Date</th>
+                <th class="text-end">Actions</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {% for contract in deal.contracts.all %}
+                <tr>
+                  <td>
+                    <a href="{% url 'sales:contract_detail' contract.pk %}" class="text-decoration-none fw-semibold">
+                      {{ contract.number|default:"Draft Contract" }}
+                    </a>
+                  </td>
+
+                  <td>
+                    <span class="badge bg-light text-dark border">
+                      {{ contract.get_status_display }}
+                    </span>
+                  </td>
+
+                  <td>
+                    {% if contract.proposal %}
+                      <a href="{% url 'sales:proposal_detail' contract.proposal.pk %}">
+                        {{ contract.proposal.title }}
+                      </a>
+                    {% else %}
+                      <span class="text-muted">—</span>
+                    {% endif %}
+                  </td>
+
+                  <td>
+                    {% if contract.signed_date %}
+                      {{ contract.signed_date }}
+                    {% else %}
+                      <span class="text-muted">—</span>
+                    {% endif %}
+                  </td>
+
+                  <td class="text-end">
+                    <a href="{% url 'sales:contract_detail' contract.pk %}"
+                       class="btn btn-sm btn-outline-primary">
+                      View
+                    </a>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+
+          </table>
+        </div>
+      {% else %}
+        <div class="p-3 text-muted">
+          No contracts created for this deal yet.
+        </div>
       {% endif %}
     </div>
+  </div>
+
+  <!-- Invoices -->
+  <div class="card mb-4 shadow-sm">
+    <div class="card-header bg-secondary text-white">
+      Invoices
+    </div>
+
     <div class="card-body p-0">
       {% if deal.invoices.all %}
-        <table class="table table-sm mb-0 align-middle">
-          <thead>
-            <tr>
-              <th>Number</th>
-              <th>Status</th>
-              <th>Total</th>
-              <th>Balance</th>
-              <th class="text-end">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-          {% for invoice in deal.invoices.all %}
-            <tr>
-              <td>{{ invoice.number }}</td>
-              <td>
-                <span class="badge bg-light text-dark border">
-                  {{ invoice.get_status_display }}
-                </span>
-              </td>
-              <td>{{ invoice.total }}</td>
-              <td>{{ invoice.balance }}</td>
-              <td class="text-end">
-                <a href="{% url 'sales:invoice_detail' invoice.pk %}"
-                   class="btn btn-sm btn-outline-primary">
-                  View
-                </a>
-              </td>
-            </tr>
-          {% endfor %}
-          </tbody>
-        </table>
+        <div class="table-responsive">
+          <table class="table table-hover mb-0 align-middle">
+            <thead class="table-light">
+              <tr>
+                <th>Number</th>
+                <th>Status</th>
+                <th>Total</th>
+                <th>Paid</th>
+                <th>Balance</th>
+                <th class="text-end">Actions</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {% for invoice in deal.invoices.all %}
+                <tr>
+                  <td>
+                    <a href="{% url 'sales:invoice_detail' invoice.pk %}" class="text-decoration-none fw-semibold">
+                      {{ invoice.number|default:"Draft Invoice" }}
+                    </a>
+                  </td>
+
+                  <td>
+                    <span class="badge bg-light text-dark border">
+                      {{ invoice.get_status_display }}
+                    </span>
+                  </td>
+
+                  <td>{{ invoice.total }}</td>
+                  <td>{{ invoice.amount_paid }}</td>
+                  <td>{{ invoice.balance }}</td>
+
+                  <td class="text-end">
+                    <a href="{% url 'sales:invoice_detail' invoice.pk %}"
+                       class="btn btn-sm btn-outline-secondary">
+                      View
+                    </a>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+
+          </table>
+        </div>
       {% else %}
-        <div class="p-3 text-muted small">
-          No invoices yet.
+        <div class="p-3 text-muted">
+          No invoices created for this deal yet.
         </div>
       {% endif %}
     </div>
   </div>
 
-  <!-- Action Row -->
-  <div class="text-center">
-    {% if is_admin or is_manager %}
-      <a href="{% url 'sales:deal_update' deal.pk %}" class="btn btn-primary me-2">
+  <!-- Bottom Actions -->
+  <div class="text-center d-flex justify-content-center flex-wrap gap-2">
+    {% if is_admin or is_crm_manager %}
+      <a href="{% url 'sales:proposal_create' %}?deal={{ deal.pk }}"
+         class="btn btn-success px-4">
+        Generate Proposal
+      </a>
+
+      <a href="{% url 'sales:deal_update' deal.pk %}"
+         class="btn btn-primary px-4">
         Edit Deal
       </a>
     {% endif %}
-    <a href="{% url 'sales:deal_list' %}" class="btn btn-outline-secondary">
+
+    <a href="{% url 'sales:deal_list' %}"
+       class="btn btn-outline-secondary">
       Back to Deals
     </a>
   </div>

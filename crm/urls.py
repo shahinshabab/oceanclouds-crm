@@ -30,10 +30,10 @@ urlpatterns = [
     path("inquiries/<int:pk>/edit/", views.InquiryUpdateView.as_view(), name="inquiry_update"),
 
     # reviews
-    path("reviews/", views.ClientReviewListView.as_view(), name="review_list"),
-    path("reviews/<int:pk>/", views.ClientReviewDetailView.as_view(), name="review_detail"),
-    path("reviews/add/", views.ClientReviewCreateView.as_view(), name="review_create"),
-    path("reviews/<int:pk>/edit/", views.ClientReviewUpdateView.as_view(), name="review_update"),
+    path("reviews/", views.ReviewListView.as_view(), name="review_list"),
+    path("reviews/<int:pk>/", views.ReviewDetailView.as_view(), name="review_detail"),
+    path("reviews/add/", views.ReviewCreateView.as_view(), name="review_create"),
+    path("reviews/<int:pk>/edit/", views.ReviewUpdateView.as_view(), name="review_update"),
 
     path(
         "inquiries/<int:pk>/convert-to-lead/",
@@ -52,4 +52,7 @@ urlpatterns = [
         views.LeadDeleteView.as_view(),
         name="lead_delete",
     ),
+    path("clients/<int:pk>/delete/", views.ClientDeleteView.as_view(), name="client_delete"),
+    path("contacts/<int:pk>/delete/", views.ContactDeleteView.as_view(), name="contact_delete"),
+    path("reviews/<int:pk>/delete/", views.ReviewDeleteView.as_view(), name="review_delete"),
 ]

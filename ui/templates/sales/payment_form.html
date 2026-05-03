@@ -7,9 +7,10 @@
 {% endblock %}
 
 {% block content %}
-{% is_admin as is_admin %}
-{% is_manager as is_manager %}
-{% is_employee as is_employee %}
+{% is_admin request.user as is_admin %}
+{% is_crm_manager request.user as is_crm_manager %}
+{% is_project_manager request.user as is_project_manager %}
+{% is_employee request.user as is_employee %}
 
 <div class="container py-3 max-w-2xl">
 
@@ -27,9 +28,13 @@
     {% endif %}
 
     <div class="card shadow-sm">
+      <div class="card-header bg-light">
+        <strong>Payment Information</strong>
+      </div>
+
       <div class="card-body">
 
-        <!-- Row 1: Invoice / Date / Amount -->
+        <!-- Row 1 -->
         <div class="row">
           <div class="col-md-4 mb-3">
             <label class="form-label">
@@ -39,6 +44,9 @@
             {% for error in form.invoice.errors %}
               <div class="text-danger small">{{ error }}</div>
             {% endfor %}
+            {% if form.invoice.help_text %}
+              <div class="form-text">{{ form.invoice.help_text }}</div>
+            {% endif %}
           </div>
 
           <div class="col-md-4 mb-3">
@@ -59,10 +67,13 @@
             {% for error in form.amount.errors %}
               <div class="text-danger small">{{ error }}</div>
             {% endfor %}
+            {% if form.amount.help_text %}
+              <div class="form-text">{{ form.amount.help_text }}</div>
+            {% endif %}
           </div>
         </div>
 
-        <!-- Row 2: Method / Payment Type / Reference -->
+        <!-- Row 2 -->
         <div class="row">
           <div class="col-md-4 mb-3">
             <label class="form-label">
@@ -95,9 +106,22 @@
           </div>
         </div>
 
-        <!-- Row 3: Notes (full width) -->
+        <!-- Row 3 -->
         <div class="row">
-          <div class="col-12 mb-3">
+          <div class="col-md-4 mb-3">
+            <label class="form-label">
+              {{ form.received_by.label }}
+            </label>
+            {{ form.received_by }}
+            {% for error in form.received_by.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+            <div class="form-text">
+              Leave empty to use the logged-in user.
+            </div>
+          </div>
+
+          <div class="col-md-8 mb-3">
             <label class="form-label">
               {{ form.notes.label }}
             </label>
@@ -113,11 +137,28 @@
 
     <!-- Buttons -->
     <div class="row mt-3">
-      <div class="col-12 d-flex justify-content-center gap-2">
-        {% if is_admin or is_manager %}
-          <button type="submit" class="btn btn-primary px-4">Save</button>
+      <div class="col-12 d-flex justify-content-center flex-wrap gap-2">
+
+        {% if is_admin or is_crm_manager %}
+          <button type="submit" class="btn btn-primary px-4">
+            Save
+          </button>
         {% endif %}
-        <a href="{% url 'sales:payment_list' %}" class="btn btn-secondary">Cancel</a>
+
+        {% if form.instance.pk and form.instance.invoice %}
+          <a href="{% url 'sales:invoice_detail' form.instance.invoice.pk %}" class="btn btn-secondary">
+            Cancel
+          </a>
+        {% elif form.initial.invoice %}
+          <a href="{% url 'sales:invoice_detail' form.initial.invoice %}" class="btn btn-secondary">
+            Cancel
+          </a>
+        {% else %}
+          <a href="{% url 'sales:payment_list' %}" class="btn btn-secondary">
+            Cancel
+          </a>
+        {% endif %}
+
       </div>
     </div>
 

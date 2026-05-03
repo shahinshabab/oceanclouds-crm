@@ -1,3 +1,4 @@
+
 from decimal import Decimal
 
 from django.conf import settings
@@ -70,6 +71,8 @@ class Deal(TimeStamped, Owned):
         Client,
         on_delete=models.CASCADE,
         related_name="deals",
+        null=True,
+        blank=True,
     )
 
     lead = models.ForeignKey(
@@ -135,14 +138,31 @@ class Proposal(TimeStamped, Owned):
         return reverse("sales:proposal_detail", args=[self.pk])
 
     def recalculate_totals(self, save=True):
+        """
+        Calculates proposal totals.
+
+        subtotal = sum of item line totals
+        discount = fixed amount
+        tax = percentage applied after discount
+
+        total = (subtotal - discount) + tax_amount
+        """
+
         agg = self.items.aggregate(subtotal=Sum("line_total"))
         subtotal = agg["subtotal"] or Decimal("0.00")
 
+        discount = self.discount or Decimal("0.00")
+        tax_percentage = self.tax or Decimal("0.00")
+
+        taxable_amount = subtotal - discount
+
+        if taxable_amount < Decimal("0.00"):
+            taxable_amount = Decimal("0.00")
+
+        tax_amount = (taxable_amount * tax_percentage) / Decimal("100.00")
+
         self.subtotal = subtotal
-        self.total = max(
-            subtotal - (self.discount or Decimal("0.00")) + (self.tax or Decimal("0.00")),
-            Decimal("0.00"),
-        )
+        self.total = taxable_amount + tax_amount
 
         if save:
             self.save(update_fields=["subtotal", "total", "updated_at"])
