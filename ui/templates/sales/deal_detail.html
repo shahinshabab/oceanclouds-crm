@@ -48,6 +48,11 @@
            class="btn btn-primary btn-sm">
           Edit Deal
         </a>
+
+        <a href="{% url 'sales:deal_delete' deal.pk %}"
+           class="btn btn-outline-danger btn-sm">
+          Delete Deal
+        </a>
       {% endif %}
 
       <a href="{% url 'sales:deal_list' %}"

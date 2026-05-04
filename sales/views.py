@@ -53,8 +53,6 @@ from .models import (
     PaymentMethod,
     PaymentType,
 )
-from crm.models import Client, Contact
-
 try:
     from weasyprint import HTML
 except ImportError:
@@ -64,6 +62,25 @@ except ImportError:
 # ============================================================
 # Shared helpers
 # ============================================================
+
+
+def _lead_status(name, fallback):
+    return getattr(Lead, name, fallback)
+
+
+def _set_lead_status(lead, status_attr, fallback):
+    if not lead:
+        return
+    lead.status = _lead_status(status_attr, fallback)
+    lead.save(update_fields=["status", "updated_at"])
+
+
+def _link_client_and_status_to_lead(lead, client, status_attr="STATUS_CONVERTED_TO_CLIENT", fallback="converted_to_client"):
+    if not lead:
+        return
+    lead.client = client
+    lead.status = _lead_status(status_attr, fallback)
+    lead.save(update_fields=["client", "status", "updated_at"])
 
 class OwnerAssignMixin:
     """
@@ -325,9 +342,8 @@ class DealCreateView(AdminManagerMixin, OwnerAssignMixin, CreateView):
         if self.object.lead_id:
             lead = self.object.lead
 
-            if lead.status in ["new", "contacted"]:
-                lead.status = "qualified"
-                lead.save(update_fields=["status", "updated_at"])
+            lead.status = _lead_status("STATUS_CONVERTED_TO_DEAL", "converted_to_deal")
+            lead.save(update_fields=["status", "updated_at"])
 
         messages.success(self.request, "Deal created successfully.")
 
@@ -350,7 +366,7 @@ class DealUpdateView(AdminManagerMixin, OwnerAssignMixin, UpdateView):
     
 class DealDeleteView(AdminManagerMixin, DeleteView):
     model = Deal
-    template_name = "sales/deal_delete.html"
+    template_name = "common/confirm_delete.html"
     success_url = reverse_lazy("sales:deal_list")
 
     def get_queryset(self):
@@ -421,7 +437,7 @@ class LeadConvertToDealView(AdminManagerMixin, OwnerAssignMixin, CreateView):
 
         response = super().form_valid(form)
 
-        self.lead.status = "qualified"
+        self.lead.status = _lead_status("STATUS_CONVERTED_TO_DEAL", "converted_to_deal")
         self.lead.save(update_fields=["status", "updated_at"])
 
         messages.success(self.request, "Lead converted to deal successfully.")
@@ -566,8 +582,7 @@ class ProposalCreateView(AdminManagerMixin, OwnerAssignMixin, CreateView):
 
         if deal.lead_id:
             lead = deal.lead
-            lead.status = "proposal_sent"
-            lead.save(update_fields=["status", "updated_at"])
+            _set_lead_status(lead, "STATUS_PROPOSAL_SENT", "proposal_sent")
 
         messages.success(self.request, "Proposal created successfully.")
 
@@ -632,7 +647,7 @@ class ProposalUpdateView(AdminManagerMixin, OwnerAssignMixin, UpdateView):
 
 class ProposalDeleteView(AdminManagerMixin, DeleteView):
     model = Proposal
-    template_name = "sales/proposal_delete.html"
+    template_name = "common/confirm_delete.html"
     success_url = reverse_lazy("sales:proposal_list")
 
     def get_queryset(self):
@@ -669,8 +684,7 @@ class ProposalAcceptView(AdminManagerMixin, View):
         if lead:
             # Do not assign client here.
             # Client will be created using Create Client button.
-            lead.status = "proposal_accepted"
-            lead.save(update_fields=["status", "updated_at"])
+            _set_lead_status(lead, "STATUS_PROPOSAL_ACCEPTED", "proposal_accepted")
 
         messages.success(
             request,
@@ -771,9 +785,7 @@ class ProposalConvertToContractView(AdminManagerMixin, OwnerAssignMixin, CreateV
 
         if deal.lead_id:
             lead = deal.lead
-            lead.client = deal.client
-            lead.status = "converted"
-            lead.save(update_fields=["client", "status", "updated_at"])
+            _link_client_and_status_to_lead(lead, deal.client)
 
         messages.success(
             self.request,
@@ -815,6 +827,14 @@ class ProposalCreateClientView(AdminManagerMixin, View):
         deal = proposal.deal
         lead = deal.lead
 
+        if proposal.status != ProposalStatus.ACCEPTED:
+            messages.error(
+                request,
+                "Please accept the proposal before creating a client.",
+                extra_tags="scope:proposal scope:client",
+            )
+            return redirect("sales:proposal_detail", pk=proposal.pk)
+
         # If client already exists, do not duplicate.
         if deal.client_id:
             client = deal.client
@@ -827,9 +847,7 @@ class ProposalCreateClientView(AdminManagerMixin, View):
             deal.save(update_fields=["stage", "closed_on", "updated_at"])
 
             if lead:
-                lead.client = client
-                lead.status = "converted"
-                lead.save(update_fields=["client", "status", "updated_at"])
+                _link_client_and_status_to_lead(lead, client)
 
             messages.info(
                 request,
@@ -885,9 +903,7 @@ class ProposalCreateClientView(AdminManagerMixin, View):
 
         # Link client to lead.
         if lead:
-            lead.client = client
-            lead.status = "converted"
-            lead.save(update_fields=["client", "status", "updated_at"])
+            _link_client_and_status_to_lead(lead, client)
 
             if lead.email or lead.phone or lead.whatsapp:
                 existing_contact = client.contacts.filter(
@@ -1061,7 +1077,7 @@ class ContractUpdateView(AdminManagerMixin, OwnerAssignMixin, UpdateView):
 
 class ContractDeleteView(AdminManagerMixin, DeleteView):
     model = Contract
-    template_name = "sales/contract_delete.html"
+    template_name = "common/confirm_delete.html"
     success_url = reverse_lazy("sales:contract_list")
 
     def get_queryset(self):
@@ -1328,7 +1344,7 @@ class InvoiceUpdateView(AdminManagerMixin, OwnerAssignMixin, UpdateView):
 
 class InvoiceDeleteView(AdminManagerMixin, DeleteView):
     model = Invoice
-    template_name = "sales/invoice_delete.html"
+    template_name = "common/confirm_delete.html"
     success_url = reverse_lazy("sales:invoice_list")
 
     def get_queryset(self):
@@ -1490,7 +1506,7 @@ class PaymentUpdateView(AdminManagerMixin, OwnerAssignMixin, UpdateView):
 
 class PaymentDeleteView(AdminManagerMixin, DeleteView):
     model = Payment
-    template_name = "sales/payment_delete.html"
+    template_name = "common/confirm_delete.html"
 
     def get_queryset(self):
         return (

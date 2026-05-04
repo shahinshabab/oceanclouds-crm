@@ -601,6 +601,8 @@ class Payment(TimeStamped, Owned):
             invoice.status = InvoiceStatus.PAID
         elif invoice.amount_paid > 0:
             invoice.status = InvoiceStatus.PARTIALLY_PAID
+        elif invoice.status in [InvoiceStatus.PAID, InvoiceStatus.PARTIALLY_PAID]:
+            invoice.status = InvoiceStatus.ISSUED
 
         invoice.save(update_fields=["amount_paid", "status", "updated_at"])
 
@@ -617,4 +619,12 @@ class Payment(TimeStamped, Owned):
         invoice.refresh_from_db()
         total_paid = invoice.payments.aggregate(total=Sum("amount"))["total"] or Decimal("0.00")
         invoice.amount_paid = total_paid
-        invoice.save(update_fields=["amount_paid", "updated_at"])
+
+        if invoice.total and invoice.amount_paid >= invoice.total:
+            invoice.status = InvoiceStatus.PAID
+        elif invoice.amount_paid > 0:
+            invoice.status = InvoiceStatus.PARTIALLY_PAID
+        elif invoice.status in [InvoiceStatus.PAID, InvoiceStatus.PARTIALLY_PAID]:
+            invoice.status = InvoiceStatus.ISSUED
+
+        invoice.save(update_fields=["amount_paid", "status", "updated_at"])

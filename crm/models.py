@@ -44,12 +44,7 @@ class Contact(TimeStamped, Owned):
         ("other", "Other"),
     ]
 
-    client = models.ForeignKey(
-        Client,
-        on_delete=models.CASCADE,
-        related_name="contacts",
-    )
-
+    client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name="contacts")
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100, blank=True)
     role = models.CharField(max_length=50, choices=ROLE_CHOICES, blank=True)
@@ -88,20 +83,31 @@ class Inquiry(TimeStamped, Owned):
         ("other", "Other"),
     ]
 
+    STATUS_OPEN = "open"
+    STATUS_IN_PROGRESS = "in_progress"
+    STATUS_CLOSED = "closed"
+    STATUS_CONVERTED_TO_LEAD = "converted_to_lead"
+
     STATUS_CHOICES = [
-        ("open", "Open"),
-        ("in_progress", "In Progress"),
-        ("closed", "Closed"),
-        ("converted", "Converted to Lead"),
+        (STATUS_OPEN, "Open"),
+        (STATUS_IN_PROGRESS, "In Progress"),
+        (STATUS_CLOSED, "Closed"),
+        (STATUS_CONVERTED_TO_LEAD, "Converted to Lead"),
     ]
 
     channel = models.CharField(max_length=50, choices=CHANNEL_CHOICES, default="instagram")
-    status = models.CharField(max_length=50, choices=STATUS_CHOICES, default="open")
+    status = models.CharField(max_length=50, choices=STATUS_CHOICES, default=STATUS_OPEN)
 
     name = models.CharField(max_length=255, blank=True)
     email = models.EmailField(blank=True)
     phone = models.CharField(max_length=50, blank=True)
     whatsapp = models.CharField(max_length=50, blank=True)
+
+    wedding_date = models.DateField(null=True, blank=True)
+    wedding_city = models.CharField(max_length=100, blank=True)
+    wedding_district = models.CharField(max_length=100, blank=True)
+    wedding_state = models.CharField(max_length=100, blank=True, default="Kerala")
+    wedding_country = models.CharField(max_length=100, blank=True, default="India")
 
     message = models.TextField(blank=True)
 
@@ -110,9 +116,8 @@ class Inquiry(TimeStamped, Owned):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="inquiries",
+        related_name="source_inquiries",
     )
-
     client = models.ForeignKey(
         Client,
         on_delete=models.SET_NULL,
@@ -120,7 +125,6 @@ class Inquiry(TimeStamped, Owned):
         blank=True,
         related_name="inquiries",
     )
-
     handled_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -134,32 +138,31 @@ class Inquiry(TimeStamped, Owned):
 
     def clean(self):
         if not self.name and not self.email and not self.phone and not self.whatsapp:
-            raise ValidationError("At least one of name, email, phone, or whatsapp is required.")
+            raise ValidationError("At least one of name, email, phone, or WhatsApp is required.")
 
     def __str__(self):
-        return f"{self.get_channel_display()} - {self.name or self.email or self.phone or self.whatsapp}"
+        contact = self.name or self.email or self.phone or self.whatsapp or "Inquiry"
+        return f"{contact} - {self.get_status_display()}"
 
 
 class Lead(TimeStamped, Owned):
+    STATUS_NEW = "new"
+    STATUS_CONTACTED = "contacted"
+    STATUS_QUALIFIED = "qualified"
+    STATUS_PROPOSAL_SENT = "proposal_sent"
+    STATUS_LOST = "lost"
+    STATUS_CONVERTED_TO_DEAL = "converted_to_deal"
+
     STATUS_CHOICES = [
-        ("new", "New"),
-        ("contacted", "Contacted"),
-        ("qualified", "Qualified"),
-        ("proposal_sent", "Proposal Sent"),
-        ("lost", "Lost"),
-        ("converted", "Converted"),
+        (STATUS_NEW, "New"),
+        (STATUS_CONTACTED, "Contacted"),
+        (STATUS_QUALIFIED, "Qualified"),
+        (STATUS_PROPOSAL_SENT, "Proposal Sent"),
+        (STATUS_LOST, "Lost"),
+        (STATUS_CONVERTED_TO_DEAL, "Converted to Deal"),
     ]
 
-    SOURCE_CHOICES = [
-        ("website", "Website Form"),
-        ("phone", "Phone Call"),
-        ("whatsapp", "WhatsApp"),
-        ("instagram", "Instagram DM"),
-        ("facebook", "Facebook"),
-        ("email", "Email"),
-        ("referral", "Referral"),
-        ("other", "Other"),
-    ]
+    SOURCE_CHOICES = Inquiry.CHANNEL_CHOICES
 
     inquiry = models.ForeignKey(
         Inquiry,
@@ -168,7 +171,6 @@ class Lead(TimeStamped, Owned):
         blank=True,
         related_name="leads",
     )
-
     client = models.ForeignKey(
         Client,
         on_delete=models.SET_NULL,
@@ -191,7 +193,7 @@ class Lead(TimeStamped, Owned):
     budget_min = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     budget_max = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
 
-    status = models.CharField(max_length=50, choices=STATUS_CHOICES, default="new")
+    status = models.CharField(max_length=50, choices=STATUS_CHOICES, default=STATUS_NEW)
     source = models.CharField(max_length=50, choices=SOURCE_CHOICES, blank=True)
     source_detail = models.CharField(max_length=255, blank=True)
 
@@ -207,16 +209,10 @@ class Lead(TimeStamped, Owned):
 
 
 class Review(TimeStamped, Owned):
-    client = models.ForeignKey(
-        Client,
-        on_delete=models.CASCADE,
-        related_name="reviews",
-    )
-
+    client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name="reviews")
     rating = models.PositiveSmallIntegerField(null=True, blank=True)
     title = models.CharField(max_length=255, blank=True)
     comment = models.TextField(blank=True)
-
     next_action = models.CharField(max_length=255, blank=True)
     next_action_date = models.DateField(null=True, blank=True)
 

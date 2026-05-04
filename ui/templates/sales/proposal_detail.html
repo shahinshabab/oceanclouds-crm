@@ -68,12 +68,26 @@
           Edit
         </a>
 
+        <a href="{% url 'sales:proposal_delete' proposal.pk %}"
+           class="btn btn-outline-danger btn-sm">
+          Delete
+        </a>
+
+        {% if proposal.status != "accepted" %}
+          <form method="post" action="{% url 'sales:proposal_accept' proposal.pk %}" class="d-inline">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-success btn-sm">
+              Accept Proposal
+            </button>
+          </form>
+        {% endif %}
+
         {% if proposal.deal.client %}
           <a href="{% url 'crm:client_detail' proposal.deal.client.pk %}"
              class="btn btn-success btn-sm">
             View Client
           </a>
-        {% else %}
+        {% elif proposal.status == "accepted" %}
           <form method="post" action="{% url 'sales:proposal_create_client' proposal.pk %}" class="d-inline">
             {% csrf_token %}
             <button type="submit" class="btn btn-success btn-sm">
@@ -89,7 +103,7 @@
               View Contract
             </a>
           {% endwith %}
-        {% else %}
+        {% elif proposal.status == "accepted" and proposal.deal.client %}
           <a href="{% url 'sales:proposal_convert_to_contract' proposal.pk %}"
              class="btn btn-outline-success btn-sm">
             Convert to Contract
@@ -137,7 +151,7 @@
             {% else %}
               <span class="text-muted">Not created yet</span>
 
-              {% if is_admin or is_crm_manager %}
+              {% if is_admin or is_crm_manager and proposal.status == "accepted" %}
                 <form method="post" action="{% url 'sales:proposal_create_client' proposal.pk %}" class="d-inline ms-2">
                   {% csrf_token %}
                   <button type="submit" class="btn btn-sm btn-outline-success">
