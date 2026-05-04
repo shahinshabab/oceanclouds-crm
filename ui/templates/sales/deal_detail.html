@@ -406,25 +406,5 @@
     </div>
   </div>
 
-  <!-- Bottom Actions -->
-  <div class="text-center d-flex justify-content-center flex-wrap gap-2">
-    {% if is_admin or is_crm_manager %}
-      <a href="{% url 'sales:proposal_create' %}?deal={{ deal.pk }}"
-         class="btn btn-success px-4">
-        Generate Proposal
-      </a>
-
-      <a href="{% url 'sales:deal_update' deal.pk %}"
-         class="btn btn-primary px-4">
-        Edit Deal
-      </a>
-    {% endif %}
-
-    <a href="{% url 'sales:deal_list' %}"
-       class="btn btn-outline-secondary">
-      Back to Deals
-    </a>
-  </div>
-
 </div>
 {% endblock %}

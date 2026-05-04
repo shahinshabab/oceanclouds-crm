@@ -40,13 +40,6 @@ urlpatterns = [
         views.InquiryConvertToLeadView.as_view(),
         name="inquiry_convert_to_lead",
     ),
-
-    path(
-        "inquiries/<int:pk>/delete/",
-        views.InquiryDeleteView.as_view(),
-        name="inquiry_delete",
-    ),
-
     path(
         "leads/<int:pk>/delete/",
         views.LeadDeleteView.as_view(),

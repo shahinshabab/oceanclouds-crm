@@ -173,14 +173,6 @@
                       </a>
                     {% endif %}
                   {% endif %}
-
-                  {% if is_admin or is_crm_manager or is_project_manager %}
-                    <a href="{% url 'crm:inquiry_delete' inquiry.pk %}"
-                       class="btn btn-outline-danger">
-                      Delete
-                    </a>
-                  {% endif %}
-
                 </div>
               </td>
             </tr>

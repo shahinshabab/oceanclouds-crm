@@ -142,32 +142,6 @@
         </div>
       </div>
 
-      <!-- Actions -->
-      <div class="row">
-        <div class="col-12 d-flex justify-content-center flex-wrap gap-2 mt-2">
-
-          {% if is_admin or is_crm_manager %}
-            <a href="{% url 'crm:contact_update' contact.pk %}" class="btn btn-primary px-4">
-              Edit
-            </a>
-
-            <a href="{% url 'crm:contact_delete' contact.pk %}" class="btn btn-outline-danger">
-              Delete
-            </a>
-          {% endif %}
-
-          {% if contact.client %}
-            <a href="{% url 'crm:client_detail' contact.client.pk %}" class="btn btn-outline-secondary">
-              Back to Client
-            </a>
-          {% else %}
-            <a href="{% url 'crm:contact_list' %}" class="btn btn-outline-secondary">
-              Back to Contacts
-            </a>
-          {% endif %}
-
-        </div>
-      </div>
 
     </div>
   </div>

@@ -25,13 +25,15 @@
       </div>
 
       <p class="text-muted small mb-3">
-        This may also delete related contacts, leads, reviews, deals, proposals, contracts, invoices, and payments depending on your model relationships.
+        This may also delete related contacts, leads, reviews, inquiries, deals, proposals,
+        contracts, invoices, and payments depending on your model relationships.
       </p>
 
       <div class="border rounded-3 p-3 mb-3">
         <div class="small text-muted mb-1">Client summary</div>
 
         <div><strong>Name:</strong> {{ client.name }}</div>
+        <div><strong>Display Name:</strong> {{ client.display_name|default:"—" }}</div>
         <div><strong>Email:</strong> {{ client.email|default:"—" }}</div>
         <div><strong>Phone:</strong> {{ client.phone|default:"—" }}</div>
 
@@ -39,6 +41,7 @@
           Contacts: {{ client.contacts.count }} |
           Reviews: {{ client.reviews.count }} |
           Leads: {{ client.leads.count }} |
+          Inquiries: {{ client.inquiries.count }} |
           Deals: {{ client.deals.count }}
         </div>
       </div>

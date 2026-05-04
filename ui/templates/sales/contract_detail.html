@@ -359,48 +359,5 @@
     </div>
   </div>
 
-  <!-- Bottom Actions -->
-  <div class="text-center d-flex justify-content-center flex-wrap gap-2">
-    {% if is_admin or is_crm_manager %}
-
-      <form method="post" action="{% url 'sales:contract_send_email' contract.pk %}" class="d-inline">
-        {% csrf_token %}
-        <button type="submit" class="btn btn-outline-secondary">
-          Send Email
-        </button>
-      </form>
-
-      <a href="{% url 'sales:contract_update' contract.pk %}"
-         class="btn btn-primary px-4">
-        Edit
-      </a>
-
-      {% if contract.invoices.exists %}
-        {% with invoice=contract.invoices.first %}
-          <a href="{% url 'sales:invoice_detail' invoice.pk %}"
-             class="btn btn-success px-4">
-            View Invoice
-          </a>
-        {% endwith %}
-      {% else %}
-        <a href="{% url 'sales:contract_generate_invoice' contract.pk %}"
-           class="btn btn-success px-4">
-          Generate Invoice
-        </a>
-      {% endif %}
-
-      <a href="{% url 'sales:contract_delete' contract.pk %}"
-         class="btn btn-outline-danger">
-        Delete
-      </a>
-
-    {% endif %}
-
-    <a href="{% url 'sales:contract_list' %}"
-       class="btn btn-outline-secondary">
-      Back to Contracts
-    </a>
-  </div>
-
 </div>
 {% endblock %}

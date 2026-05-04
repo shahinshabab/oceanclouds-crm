@@ -98,9 +98,6 @@
                     <a href="{% url 'crm:client_detail' client.pk %}" class="text-decoration-none">
                       {{ client.display_name|default:client.name }}
                     </a>
-                    {% if client.phone %}
-                      <div class="small text-muted">{{ client.phone }}</div>
-                    {% endif %}
                   {% else %}
                     <span class="text-muted">—</span>
                   {% endif %}

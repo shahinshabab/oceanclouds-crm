@@ -141,18 +141,22 @@ class ReviewUpdateView(AdminCRMManagerMixin, OwnerAssignMixin, UpdateView):
 
 class ReviewDeleteView(AdminCRMManagerMixin, DeleteView):
     model = Review
-    template_name = "crm/review_confirm_delete.html"
+    template_name = "crm/review_delete.html"
+    context_object_name = "review"
 
     def get_queryset(self):
         return super().get_queryset().select_related("client", "owner")
 
     def get_success_url(self):
-        client_id = self.object.client_id
-
-        if client_id:
-            return reverse_lazy("crm:client_detail", kwargs={"pk": client_id})
+        if self.object.client_id:
+            return reverse_lazy("crm:client_detail", kwargs={"pk": self.object.client_id})
 
         return reverse_lazy("crm:review_list")
+
+    def form_valid(self, form):
+        review_title = self.object.title or "Review"
+        messages.success(self.request, f"Review '{review_title}' deleted successfully.")
+        return super().form_valid(form)
 
 
 # ============================================================
@@ -241,18 +245,22 @@ class ContactUpdateView(AdminCRMManagerMixin, OwnerAssignMixin, UpdateView):
 
 class ContactDeleteView(AdminCRMManagerMixin, DeleteView):
     model = Contact
-    template_name = "crm/contact_confirm_delete.html"
+    template_name = "crm/contact_delete.html"
+    context_object_name = "contact"
 
     def get_queryset(self):
         return super().get_queryset().select_related("client", "owner")
 
     def get_success_url(self):
-        client_id = self.object.client_id
-
-        if client_id:
-            return reverse_lazy("crm:client_detail", kwargs={"pk": client_id})
+        if self.object.client_id:
+            return reverse_lazy("crm:client_detail", kwargs={"pk": self.object.client_id})
 
         return reverse_lazy("crm:contact_list")
+
+    def form_valid(self, form):
+        contact_name = f"{self.object.first_name} {self.object.last_name}".strip()
+        messages.success(self.request, f"Contact '{contact_name}' deleted successfully.")
+        return super().form_valid(form)
 
 
 # ============================================================
@@ -344,6 +352,7 @@ class ClientUpdateView(AdminCRMManagerMixin, OwnerAssignMixin, UpdateView):
 class ClientDeleteView(AdminCRMManagerMixin, DeleteView):
     model = Client
     template_name = "crm/client_delete.html"
+    context_object_name = "client"
     success_url = reverse_lazy("crm:client_list")
 
     def get_queryset(self):
@@ -351,9 +360,20 @@ class ClientDeleteView(AdminCRMManagerMixin, DeleteView):
             super()
             .get_queryset()
             .select_related("owner")
-            .prefetch_related("contacts", "leads", "reviews", "inquiries", "deals")
+            .prefetch_related(
+                "contacts",
+                "leads",
+                "reviews",
+                "inquiries",
+                "deals",
+            )
         )
 
+    def form_valid(self, form):
+        client_name = self.object.display_name or self.object.name
+        messages.success(self.request, f"Client '{client_name}' deleted successfully.")
+        return super().form_valid(form)
+    
 # ============================================================
 # Leads
 # Access: Admin + CRM Manager only
@@ -476,11 +496,27 @@ class LeadUpdateView(AdminCRMManagerMixin, OwnerAssignMixin, UpdateView):
 
 class LeadDeleteView(AdminCRMManagerMixin, DeleteView):
     model = Lead
-    template_name = "crm/lead_confirm_delete.html"
-    success_url = reverse_lazy("crm:lead_list")
+    template_name = "crm/lead_delete.html"
+    context_object_name = "lead"
 
     def get_queryset(self):
-        return super().get_queryset().select_related("client", "inquiry", "owner")
+        return (
+            super()
+            .get_queryset()
+            .select_related("client", "inquiry", "owner")
+            .prefetch_related("inquiries", "deals")
+        )
+
+    def get_success_url(self):
+        if self.object.client_id:
+            return reverse_lazy("crm:client_detail", kwargs={"pk": self.object.client_id})
+
+        return reverse_lazy("crm:lead_list")
+
+    def form_valid(self, form):
+        lead_name = self.object.name
+        messages.success(self.request, f"Lead '{lead_name}' deleted successfully.")
+        return super().form_valid(form)
 
 
 # ============================================================
