@@ -233,6 +233,13 @@
                     <a class="nav-link" href="{% url 'sales:invoice_list' %}">Invoices</a>
                 </nav>
 
+                <p class="sidebar-section-title">Projects &amp; Tasks</p>
+                <nav class="nav flex-column mb-3">
+                    <a class="nav-link" href="{% url 'projects:project_kanban' %}">Projects</a>
+                    <a class="nav-link" href="{% url 'projects:task_kanban' %}">Tasks</a>
+                    <a class="nav-link" href="{% url 'projects:deliverable_kanban' %}">Deliverables</a>
+                </nav>
+
                 <p class="sidebar-section-title">Events</p>
                 <nav class="nav flex-column mb-3">
                     <a class="nav-link" href="{% url 'events:event_list' %}">Events</a>
@@ -241,13 +248,6 @@
                     <a class="nav-link" href="{% url 'events:checklist_list' %}">Checklists</a>
                     <a class="nav-link" href="{% url 'events:event_vendor_list' %}">Event Vendors</a>
                     <a class="nav-link" href="{% url 'events:event_calendar' %}">Event Calendar</a>
-                </nav>
-
-                <p class="sidebar-section-title">Projects &amp; Tasks</p>
-                <nav class="nav flex-column mb-3">
-                    <a class="nav-link" href="{% url 'projects:project_kanban' %}">Projects</a>
-                    <a class="nav-link" href="{% url 'projects:task_kanban' %}">Tasks</a>
-                    <a class="nav-link" href="{% url 'projects:deliverable_kanban' %}">Deliverables</a>
                 </nav>
 
                 <p class="sidebar-section-title">Services &amp; Catalog</p>
@@ -354,6 +354,13 @@
                     <a class="nav-link" href="{% url 'crm:inquiry_list' %}">Inquiries</a>
                 </nav>
 
+                <p class="sidebar-section-title">Projects &amp; Tasks</p>
+                <nav class="nav flex-column mb-3">
+                    <a class="nav-link" href="{% url 'projects:project_kanban' %}">Projects</a>
+                    <a class="nav-link" href="{% url 'projects:task_kanban' %}">Tasks</a>
+                    <a class="nav-link" href="{% url 'projects:deliverable_kanban' %}">Deliverables</a>
+                </nav>
+
                 <p class="sidebar-section-title">Events</p>
                 <nav class="nav flex-column mb-3">
                     <a class="nav-link" href="{% url 'events:event_list' %}">Events</a>
@@ -362,13 +369,6 @@
                     <a class="nav-link" href="{% url 'events:checklist_list' %}">Checklists</a>
                     <a class="nav-link" href="{% url 'events:event_vendor_list' %}">Event Vendors</a>
                     <a class="nav-link" href="{% url 'events:event_calendar' %}">Event Calendar</a>
-                </nav>
-
-                <p class="sidebar-section-title">Projects &amp; Tasks</p>
-                <nav class="nav flex-column mb-3">
-                    <a class="nav-link" href="{% url 'projects:project_kanban' %}">Projects</a>
-                    <a class="nav-link" href="{% url 'projects:task_kanban' %}">Tasks</a>
-                    <a class="nav-link" href="{% url 'projects:deliverable_kanban' %}">Deliverables</a>
                 </nav>
 
                 <p class="sidebar-section-title">Services &amp; Catalog</p>
@@ -437,10 +437,8 @@
 
                 <p class="sidebar-section-title">My Tasks</p>
                 <nav class="nav flex-column mb-3">
-                    <a class="nav-link" href="{% url 'projects:task_list' %}">Tasks</a>
-                    <a class="nav-link" href="{% url 'projects:task_kanban' %}">Task Kanban</a>
-                    <a class="nav-link" href="{% url 'projects:deliverable_list' %}">Deliverables</a>
-                    <a class="nav-link" href="{% url 'projects:deliverable_kanban' %}">Deliverable Kanban</a>
+                    <a class="nav-link" href="{% url 'projects:task_kanban' %}">Task</a>
+                    <a class="nav-link" href="{% url 'projects:deliverable_kanban' %}">Deliverable</a>
                 </nav>
 
                 <p class="sidebar-section-title">My CRM</p>

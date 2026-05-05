@@ -63,16 +63,6 @@
           </button>
         </form>
 
-        <a href="{% url 'sales:proposal_update' proposal.pk %}"
-           class="btn btn-primary btn-sm">
-          Edit
-        </a>
-
-        <a href="{% url 'sales:proposal_delete' proposal.pk %}"
-           class="btn btn-outline-danger btn-sm">
-          Delete
-        </a>
-
         {% if proposal.status != "accepted" %}
           <form method="post" action="{% url 'sales:proposal_accept' proposal.pk %}" class="d-inline">
             {% csrf_token %}
@@ -109,12 +99,20 @@
             Convert to Contract
           </a>
         {% endif %}
+        <a href="{% url 'sales:proposal_update' proposal.pk %}"
+           class="btn btn-primary btn-sm">
+          Edit
+        </a>
 
+        <a href="{% url 'sales:proposal_delete' proposal.pk %}"
+           class="btn btn-outline-danger btn-sm">
+          Delete
+        </a>
       {% endif %}
 
       <a href="{% url 'sales:proposal_list' %}"
          class="btn btn-secondary btn-sm">
-        Back to Proposals
+        Back
       </a>
     </div>
   </div>

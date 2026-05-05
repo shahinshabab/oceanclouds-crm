@@ -65,10 +65,7 @@
           </button>
         </form>
 
-        <a href="{% url 'sales:contract_update' contract.pk %}"
-           class="btn btn-primary btn-sm">
-          Edit
-        </a>
+
 
         {% if contract.invoices.exists %}
           {% with invoice=contract.invoices.first %}
@@ -83,7 +80,10 @@
             Generate Invoice
           </a>
         {% endif %}
-
+        <a href="{% url 'sales:contract_update' contract.pk %}"
+           class="btn btn-primary btn-sm">
+          Edit
+        </a>
         <a href="{% url 'sales:contract_delete' contract.pk %}"
            class="btn btn-outline-danger btn-sm">
           Delete
@@ -93,7 +93,7 @@
 
       <a href="{% url 'sales:contract_list' %}"
          class="btn btn-secondary btn-sm">
-        Back to Contracts
+        Back
       </a>
     </div>
   </div>

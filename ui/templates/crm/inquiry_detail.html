@@ -30,12 +30,6 @@
 
     <div class="text-end d-flex flex-wrap justify-content-end gap-2">
 
-      {% if is_admin or is_crm_manager or is_project_manager %}
-        <a href="{% url 'crm:inquiry_update' inquiry.pk %}"
-           class="btn btn-primary btn-sm">
-          Edit Inquiry
-        </a>
-      {% endif %}
 
       {% if is_admin or is_crm_manager %}
         {% if inquiry.lead %}
@@ -50,10 +44,15 @@
           </a>
         {% endif %}
       {% endif %}
-
+      {% if is_admin or is_crm_manager or is_project_manager %}
+        <a href="{% url 'crm:inquiry_update' inquiry.pk %}"
+           class="btn btn-primary btn-sm">
+          Edit
+        </a>
+      {% endif %}
       <a href="{% url 'crm:inquiry_list' %}"
          class="btn btn-secondary btn-sm">
-        Back to Inquiries
+        Back
       </a>
     </div>
   </div>

@@ -63,16 +63,19 @@
           </button>
         </form>
 
-        <a href="{% url 'sales:invoice_update' invoice.pk %}"
-           class="btn btn-primary btn-sm">
-          Edit
-        </a>
-
         <a href="{% url 'sales:payment_create' %}?invoice={{ invoice.pk }}"
            class="btn btn-success btn-sm">
           + Add Payment
         </a>
+        <a href="{% url 'sales:invoice_download' invoice.pk %}"
+          class="btn btn-outline-secondary btn-sm">
+          Download PDF
+        </a>
 
+        <a href="{% url 'sales:invoice_update' invoice.pk %}"
+           class="btn btn-primary btn-sm">
+          Edit
+        </a>
         <a href="{% url 'sales:invoice_delete' invoice.pk %}"
            class="btn btn-outline-danger btn-sm">
           Delete
@@ -80,14 +83,9 @@
 
       {% endif %}
 
-      <a href="{% url 'sales:invoice_download' invoice.pk %}"
-         class="btn btn-outline-secondary btn-sm">
-        Download PDF
-      </a>
-
       <a href="{% url 'sales:invoice_list' %}"
          class="btn btn-secondary btn-sm">
-        Back to Invoices
+        Back
       </a>
     </div>
   </div>

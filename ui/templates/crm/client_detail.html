@@ -25,9 +25,6 @@
 
     <div class="text-end d-flex flex-wrap justify-content-end gap-2">
       {% if is_admin or is_crm_manager %}
-        <a href="{% url 'crm:client_update' client.pk %}" class="btn btn-primary btn-sm">
-          Edit Client
-        </a>
 
         <a href="{% url 'sales:deal_create' %}?client={{ client.pk }}" class="btn btn-success btn-sm">
           + New Deal
@@ -36,14 +33,16 @@
         <a href="{% url 'crm:review_create' %}?client={{ client.pk }}" class="btn btn-outline-success btn-sm">
           + Add Review
         </a>
-
+        <a href="{% url 'crm:client_update' client.pk %}" class="btn btn-primary btn-sm">
+          Edit
+        </a>
         <a href="{% url 'crm:client_delete' client.pk %}" class="btn btn-outline-danger btn-sm">
-          Delete Client
+          Delete
         </a>
       {% endif %}
 
       <a href="{% url 'crm:client_list' %}" class="btn btn-secondary btn-sm">
-        Back to Clients
+        Back
       </a>
     </div>
   </div>
