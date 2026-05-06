@@ -226,6 +226,6 @@ CRONJOBS = [
     ("0 7 * * *", "django.core.management.call_command", ["send_anniversary_wishes"]),
 ]"""
 
-SESSION_COOKIE_AGE = 8 * 60 * 60      # 8 hours
+SESSION_COOKIE_AGE = 10 * 60 * 60      # 8 hours
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 SESSION_SAVE_EVERY_REQUEST = True     # reset inactivity timer
