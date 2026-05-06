@@ -1,13 +1,16 @@
 # projects/views.py
 
+from decimal import Decimal
+
 from django.contrib import messages
-from django.utils import timezone
 from django.contrib.auth import get_user_model
-from django.db.models import Q
-from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
+from django.db.models import Q, Sum, Count, Avg
+from django.db.models.functions import Coalesce
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse, reverse_lazy
+from django.utils import timezone
 from django.views import View
 from django.views.generic import (
     ListView,
@@ -17,87 +20,152 @@ from django.views.generic import (
     TemplateView,
 )
 
-from django.contrib.auth.models import Group  # kept if you later need
+from common.mixins import ProjectAccessMixin, ProjectWorkAccessMixin
+from common.models import Notification
+from common.notifications import create_notification
+from common.roles import (
+    ROLE_ADMIN,
+    ROLE_PROJECT_MANAGER,
+    ROLE_EMPLOYEE,
+    user_has_role,
+)
 
-from .forms import ProjectForm, TaskForm, TaskStatusForm, DeliverableForm
+from .forms import ProjectForm, TaskForm, DeliverableForm
 from .models import (
     Project,
     Task,
     Deliverable,
-    TaskStatus,
     ProjectStatus,
-    Priority,
+    TaskStatus,
     DeliverableStatus,
+    Priority,
     DeliverableType,
-    WorkLog
-)
-
-from common.notifications import create_notification
-from common.models import Notification  # for Notification.Type
-from decimal import Decimal
-from django.db.models import Sum
-from django.db.models.functions import Coalesce
-
-# 🔹 central roles + mixins
-from common.roles import (
-    ROLE_ADMIN,
-    ROLE_MANAGER,
-    ROLE_EMPLOYEE,
-    user_has_role,
-)
-from common.mixins import (
-    AdminManagerMixin,
-    StaffAllMixin,
+    WorkSession,
+    WorkSessionStatus,
 )
 
 User = get_user_model()
 
 
-# =====================================================================
-#                         ROLE HELPERS (thin layer)
-# =====================================================================
+# ============================================================
+# Role helpers
+# ============================================================
 
-
-def is_admin(user) -> bool:
+def is_admin(user):
     return user_has_role(user, ROLE_ADMIN)
 
 
-def is_manager(user) -> bool:
-    return user_has_role(user, ROLE_MANAGER)
+def is_project_manager(user):
+    return user_has_role(user, ROLE_PROJECT_MANAGER)
 
 
-def is_employee(user) -> bool:
+def is_employee(user):
     return user_has_role(user, ROLE_EMPLOYEE)
 
 
-# =====================================================================
-#                          PROJECT VIEWS
-# =====================================================================
+def is_admin_or_project_manager(user):
+    return is_admin(user) or is_project_manager(user)
 
 
-class ProjectListView(AdminManagerMixin, ListView):
+def visible_projects_for(user):
+    qs = Project.objects.select_related(
+        "client",
+        "deal",
+        "manager",
+        "event",
+    ).prefetch_related(
+        "tasks",
+        "deliverables",
+    )
+
+    if is_admin(user):
+        return qs
+
+    if is_project_manager(user):
+        return qs.filter(manager=user)
+
+    return Project.objects.none()
+
+
+def visible_tasks_for(user):
+    qs = Task.objects.select_related(
+        "project",
+        "project__client",
+        "project__manager",
+        "assigned_to",
+    )
+
+    if is_admin(user):
+        return qs
+
+    if is_project_manager(user):
+        return qs.filter(project__manager=user)
+
+    if is_employee(user):
+        return qs.filter(assigned_to=user)
+
+    return Task.objects.none()
+
+
+def visible_deliverables_for(user):
+    qs = Deliverable.objects.select_related(
+        "project",
+        "project__client",
+        "project__manager",
+        "assigned_to",
+    ).prefetch_related("tasks")
+
+    if is_admin(user):
+        return qs
+
+    if is_project_manager(user):
+        return qs.filter(project__manager=user)
+
+    if is_employee(user):
+        return qs.filter(assigned_to=user)
+
+    return Deliverable.objects.none()
+
+
+def user_has_active_work(user):
+    return WorkSession.objects.filter(
+        user=user,
+        status=WorkSessionStatus.ACTIVE,
+    ).exists()
+
+
+def close_active_work_for_target(user, task=None, deliverable=None):
+    qs = WorkSession.objects.filter(
+        user=user,
+        status__in=[WorkSessionStatus.ACTIVE, WorkSessionStatus.PAUSED],
+    )
+    if task:
+        qs = qs.filter(task=task)
+    if deliverable:
+        qs = qs.filter(deliverable=deliverable)
+
+    for session in qs:
+        session.end()
+
+
+# ============================================================
+# Projects
+# ============================================================
+
+class ProjectListView(ProjectAccessMixin, ListView):
     model = Project
     template_name = "projects/project_list.html"
     context_object_name = "projects"
     paginate_by = 20
 
     def get_queryset(self):
-        qs = Project.objects.select_related(
-            "client", "deal", "manager"
-        ).prefetch_related("tasks", "deliverables")
-
-        user = self.request.user
-
-        if is_admin(user):
-            pass  # all projects
-        elif is_manager(user):
-            qs = qs.filter(manager=user)
-        elif is_employee(user):
-            qs = qs.filter(tasks__assigned_to=user).distinct()
-        else:
-            qs = qs.none()
+        qs = visible_projects_for(self.request.user)
 
         q = self.request.GET.get("q")
+        status = self.request.GET.get("status")
+        manager_id = self.request.GET.get("manager")
+        priority = self.request.GET.get("priority")
+
         if q:
             qs = qs.filter(
                 Q(name__icontains=q)
@@ -105,136 +173,108 @@ class ProjectListView(AdminManagerMixin, ListView):
                 | Q(deal__name__icontains=q)
             )
 
-        # Optional extra filters (status / manager)
-        status = self.request.GET.get("status")
-        manager_id = self.request.GET.get("manager")
-
         if status:
             qs = qs.filter(status=status)
+
+        if priority:
+            qs = qs.filter(priority=priority)
+
         if manager_id:
             qs = qs.filter(manager_id=manager_id)
 
-        return qs
+        return qs.order_by("-created_at")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-
         context["q"] = self.request.GET.get("q", "")
         context["status_filter"] = self.request.GET.get("status", "")
+        context["priority_filter"] = self.request.GET.get("priority", "")
         context["manager_filter"] = self.request.GET.get("manager", "")
-
         context["status_choices"] = ProjectStatus.choices
-
-        # Managers list (for filter dropdown)
+        context["priority_choices"] = Priority.choices
         context["manager_choices"] = User.objects.filter(
-            groups__name__iexact="Manager"
-        ).order_by("first_name", "last_name")
-
+            is_active=True,
+            groups__name=ROLE_PROJECT_MANAGER,
+        ).order_by("first_name", "last_name", "username")
         return context
 
 
-class ProjectDetailView(AdminManagerMixin, DetailView):
-    """
-    Original simple project detail view (tasks/deliverables etc).
-    You can keep this for normal usage.
-    """
+class ProjectDetailView(ProjectAccessMixin, DetailView):
     model = Project
     template_name = "projects/project_detail.html"
     context_object_name = "project"
 
     def get_queryset(self):
-        qs = (
-            Project.objects.select_related("client", "deal", "manager")
-            .prefetch_related("tasks__assigned_to", "deliverables__tasks")
+        return visible_projects_for(self.request.user).prefetch_related(
+            "tasks__assigned_to",
+            "deliverables__assigned_to",
+            "deliverables__tasks",
         )
 
-        user = self.request.user
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        project = self.object
 
-        if is_admin(user):
-            return qs
-        elif is_manager(user):
-            return qs.filter(manager=user)
-        elif is_employee(user):
-            return qs.filter(tasks__assigned_to=user).distinct()
-        return Project.objects.none()
+        context["tasks"] = project.tasks.select_related("assigned_to").order_by(
+            "sort_order", "due_date", "status"
+        )
+        context["deliverables"] = project.deliverables.select_related("assigned_to").prefetch_related(
+            "tasks"
+        ).order_by("due_date", "status")
+        context["work_sessions"] = project.work_sessions.select_related(
+            "user", "task", "deliverable"
+        )[:20]
+        return context
 
 
-class ProjectOverviewView(AdminManagerMixin, DetailView):
+class ProjectOverviewView(ProjectAccessMixin, DetailView):
     model = Project
     template_name = "projects/project_overview.html"
     context_object_name = "project"
 
     def get_queryset(self):
-        qs = (
-            Project.objects.select_related("client", "deal", "manager")
-            .prefetch_related(
-                "tasks__assigned_to",
-                "deliverables__assigned_to",
-                # If you want, you can also prefetch deal invoices/payments later
-            )
-        )
-
-        user = self.request.user
-        if is_admin(user):
-            return qs
-        elif is_manager(user):
-            return qs.filter(manager=user)
-        elif is_employee(user):
-            return qs.filter(tasks__assigned_to=user).distinct()
-        return Project.objects.none()
+        return visible_projects_for(self.request.user)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        project: Project = self.object
+        project = self.object
         deal = project.deal
 
         contracts_qs = []
         invoices_qs = []
         payments_qs = []
-
-        invoice_total = None
-        payments_total = None
-        amount_due = None
+        invoice_total = Decimal("0.00")
+        payments_total = Decimal("0.00")
+        amount_due = Decimal("0.00")
 
         if deal:
-            # Contracts (if Deal -> Contract FK exists)
             if hasattr(deal, "contracts"):
                 contracts_qs = deal.contracts.all().annotate(
                     total_amount=Coalesce(Sum("items__line_total"), Decimal("0.00"))
                 )
 
-            # Invoices (Deal -> Invoice FK, related_name="invoices")
             if hasattr(deal, "invoices"):
                 invoices_qs = deal.invoices.all().select_related("deal")
-
-                # ✅ Payments usually linked to Invoice, not Deal
-                # Try invoice.payments reverse relation
-                # Build a payments queryset from invoices
                 invoice_ids = invoices_qs.values_list("id", flat=True)
 
-                # If Payment model has FK: invoice = ForeignKey(Invoice, related_name="payments", ...)
-                # then invoices_qs[0].payments exists, but easiest:
-                from sales.models import Payment  # adjust import if needed
-                payments_qs = (
-                    Payment.objects
-                    .filter(invoice_id__in=invoice_ids)
-                    .select_related("invoice")
-                    .order_by("-date", "-created_at")
-                )
+                try:
+                    from sales.models import Payment
+                    payments_qs = Payment.objects.filter(
+                        invoice_id__in=invoice_ids
+                    ).select_related("invoice").order_by("-date", "-created_at")
+                except Exception:
+                    payments_qs = []
 
-                # ✅ Totals (safe Coalesce to avoid None)
                 invoice_total = invoices_qs.aggregate(
                     total=Coalesce(Sum("total"), Decimal("0.00"))
                 )["total"]
 
-                payments_total = payments_qs.aggregate(
-                    total=Coalesce(Sum("amount"), Decimal("0.00"))
-                )["total"]
+                if hasattr(payments_qs, "aggregate"):
+                    payments_total = payments_qs.aggregate(
+                        total=Coalesce(Sum("amount"), Decimal("0.00"))
+                    )["total"]
 
                 amount_due = invoice_total - payments_total
-
-        tasks_qs = project.tasks.select_related("assigned_to").order_by("due_date", "status")
-        deliverables_qs = project.deliverables.select_related("assigned_to").order_by("due_date", "status")
 
         context.update(
             {
@@ -243,21 +283,18 @@ class ProjectOverviewView(AdminManagerMixin, DetailView):
                 "contracts": contracts_qs,
                 "invoices": invoices_qs,
                 "payments": payments_qs,
-
-                # ✅ KPI card values used in template
                 "invoice_total": invoice_total,
                 "payments_total": payments_total,
                 "amount_due": amount_due,
-
-                "tasks": tasks_qs,
-                "deliverables": deliverables_qs,
+                "tasks": project.tasks.select_related("assigned_to"),
+                "deliverables": project.deliverables.select_related("assigned_to").prefetch_related("tasks"),
+                "total_work_hours": project.total_work_hours,
             }
         )
         return context
 
 
-
-class ProjectCreateView(AdminManagerMixin, CreateView):
+class ProjectCreateView(ProjectAccessMixin, CreateView):
     model = Project
     form_class = ProjectForm
     template_name = "projects/project_form.html"
@@ -268,40 +305,37 @@ class ProjectCreateView(AdminManagerMixin, CreateView):
         return kwargs
 
     def form_valid(self, form):
-        """
-        After creating the project, notify the assigned manager (if any).
-        """
         response = super().form_valid(form)
-
         project = self.object
-        manager = getattr(project, "manager", None)
 
-        if manager:
+        if project.manager:
             create_notification(
-                recipient=manager,
+                recipient=project.manager,
                 actor=self.request.user,
                 notif_type=Notification.Type.PROJECT_ASSIGNED,
                 target=project,
                 message=f"You have been assigned to project: {project.name}",
             )
 
+        messages.success(self.request, "Project created successfully.")
         return response
 
     def get_success_url(self):
         return reverse("projects:project_detail", args=[self.object.pk])
 
 
-class ProjectUpdateView(AdminManagerMixin, UpdateView):
+class ProjectUpdateView(ProjectAccessMixin, UpdateView):
     model = Project
     form_class = ProjectForm
     template_name = "projects/project_form.html"
 
     def get_queryset(self):
-        qs = Project.objects.all()
         user = self.request.user
+        qs = Project.objects.all()
+
         if is_admin(user):
             return qs
-        elif is_manager(user):
+        if is_project_manager(user):
             return qs.filter(manager=user)
         return Project.objects.none()
 
@@ -311,225 +345,161 @@ class ProjectUpdateView(AdminManagerMixin, UpdateView):
         return kwargs
 
     def form_valid(self, form):
-        """
-        If the manager changes, notify the new manager.
-        """
-        old_project = self.get_object()
-        old_manager = old_project.manager
+        old = self.get_object()
+        old_manager = old.manager
 
         response = super().form_valid(form)
-
         project = self.object
-        new_manager = project.manager
 
-        if new_manager and new_manager != old_manager:
+        if project.manager and project.manager != old_manager:
             create_notification(
-                recipient=new_manager,
+                recipient=project.manager,
                 actor=self.request.user,
                 notif_type=Notification.Type.PROJECT_ASSIGNED,
                 target=project,
-                message=f"You have been reassigned to project: {project.name}",
+                message=f"You have been assigned to project: {project.name}",
             )
 
+        messages.success(self.request, "Project updated successfully.")
         return response
 
+    def get_success_url(self):
+        return reverse("projects:project_detail", args=[self.object.pk])
 
-# ---------------- PROJECT KANBAN ---------------- #
 
-
-class ProjectKanbanView(AdminManagerMixin, TemplateView):
-    """
-    Kanban board for Projects.
-    Columns = ProjectStatus
-    Cards = projects visible to current user.
-    """
-
+class ProjectKanbanView(ProjectAccessMixin, TemplateView):
     template_name = "projects/project_kanban.html"
 
     def get_queryset(self):
-        qs = (
-            Project.objects.select_related("client", "deal", "manager")
-            .prefetch_related("tasks", "deliverables")
-        )
-        user = self.request.user
-
-        if is_admin(user):
-            return qs
-        elif is_manager(user):
-            return qs.filter(manager=user)
-        elif is_employee(user):
-            return qs.filter(tasks__assigned_to=user).distinct()
-        return Project.objects.none()
+        return visible_projects_for(self.request.user)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         qs = self.get_queryset()
 
-        projects_by_status = {}
-        for key, label in ProjectStatus.choices:
-            projects_by_status[key] = qs.filter(status=key)
-        context["projects_by_status"] = projects_by_status
-        context["status_choices"] = ProjectStatus.choices
+        context["projects_by_status"] = {
+            ProjectStatus.PLANNED: qs.filter(status=ProjectStatus.PLANNED),
+            ProjectStatus.ACTIVE: qs.filter(status=ProjectStatus.ACTIVE),
+            ProjectStatus.COMPLETED: qs.filter(status=ProjectStatus.COMPLETED),
+        }
+
+        context["kanban_status_choices"] = [
+            (ProjectStatus.PLANNED, "Planned"),
+            (ProjectStatus.ACTIVE, "Active"),
+            (ProjectStatus.COMPLETED, "Completed"),
+        ]
+
         return context
 
 
-class ProjectStatusUpdateView(AdminManagerMixin, View):
-    """
-    AJAX endpoint to change project status via drag-and-drop in Kanban.
-    URL example: /projects/<pk>/set-status/
-    POST data: { "status": "active" }
-    """
-
+class ProjectStatusUpdateView(ProjectAccessMixin, View):
     def post(self, request, pk):
-        project = get_object_or_404(Project, pk=pk)
-        user = request.user
-
-        # Manager can only update their own project's status
-        if is_manager(user) and project.manager != user and not is_admin(user):
-            return JsonResponse(
-                {"success": False, "error": "Not allowed to modify this project."},
-                status=403,
-            )
-
+        project = get_object_or_404(visible_projects_for(request.user), pk=pk)
         new_status = request.POST.get("status")
-        valid_statuses = {choice[0] for choice in ProjectStatus.choices}
-        if new_status not in valid_statuses:
-            return JsonResponse(
-                {"success": False, "error": "Invalid status."}, status=400
-            )
 
-        # If trying to mark completed, enforce can_be_completed
-        if new_status == ProjectStatus.COMPLETED and hasattr(project, "can_be_completed"):
+        valid = {key for key, _ in ProjectStatus.choices}
+        if new_status not in valid:
+            return JsonResponse({"success": False, "error": "Invalid status."}, status=400)
+
+        if new_status == ProjectStatus.COMPLETED:
             if not project.can_be_completed:
                 return JsonResponse(
                     {
                         "success": False,
-                        "error": (
-                            "All tasks and deliverables must be completed "
-                            "before closing the project."
-                        ),
+                        "error": "Complete all tasks and deliver all deliverables before closing the project.",
                     },
                     status=400,
                 )
+            project.completed_at = timezone.now()
+        else:
+            project.completed_at = None
 
         project.status = new_status
-        project.save(update_fields=["status"])
+        project.save(update_fields=["status", "completed_at"])
 
         return JsonResponse({"success": True, "status": new_status})
 
 
-# =====================================================================
-#                          TASK VIEWS
-# =====================================================================
+# ============================================================
+# Tasks
+# ============================================================
 
-class TaskListView(StaffAllMixin, ListView):
-    """
-    Shows tasks according to role:
-    - Admin: all
-    - Manager: tasks for projects where manager=user
-    - Employee: tasks assigned_to=user
-
-    Only tasks belonging to projects that are NOT completed.
-    Ordered by due_date.
-    """
-
+class TaskListView(ProjectWorkAccessMixin, ListView):
     model = Task
     template_name = "projects/task_list.html"
     context_object_name = "tasks"
     paginate_by = 20
 
     def get_queryset(self):
-        qs = Task.objects.select_related("project", "assigned_to", "project__client")
-        user = self.request.user
+        qs = visible_tasks_for(self.request.user).exclude(
+            project__status=ProjectStatus.COMPLETED
+        )
 
-        # 🔹 Only tasks for projects that are NOT completed
-        qs = qs.exclude(project__status=ProjectStatus.COMPLETED)
-
-        # ---- ROLE FILTERS ----
-        if is_admin(user):
-            pass
-        elif is_manager(user):
-            qs = qs.filter(project__manager=user)
-        elif is_employee(user):
-            qs = qs.filter(assigned_to=user)
-        else:
-            qs = Task.objects.none()
-
-        # Search
         q = self.request.GET.get("q")
-        if q:
-            qs = qs.filter(
-                Q(name__icontains=q) | Q(project__name__icontains=q)
-            )
-
-        # Filters
         status = self.request.GET.get("status")
         priority = self.request.GET.get("priority")
-        due_filter = self.request.GET.get("due")
+        category = self.request.GET.get("category")
+        department = self.request.GET.get("department")
+        due = self.request.GET.get("due")
         today = timezone.localdate()
+
+        if q:
+            qs = qs.filter(Q(name__icontains=q) | Q(project__name__icontains=q))
 
         if status:
             qs = qs.filter(status=status)
+
         if priority:
             qs = qs.filter(priority=priority)
 
-        # 🔹 Due-date filter: overdue / today / upcoming / no_due
-        if due_filter == "overdue":
+        if category:
+            qs = qs.filter(category=category)
+
+        if department:
+            qs = qs.filter(department=department)
+
+        if due == "overdue":
             qs = qs.filter(due_date__lt=today).exclude(status=TaskStatus.COMPLETED)
-        elif due_filter == "today":
+        elif due == "today":
             qs = qs.filter(due_date=today)
-        elif due_filter == "upcoming":
+        elif due == "upcoming":
             qs = qs.filter(due_date__gt=today)
-        elif due_filter == "no_due":
+        elif due == "no_due":
             qs = qs.filter(due_date__isnull=True)
 
-        # Order by due_date (then status/priority)
-        qs = qs.order_by("due_date", "status", "priority", "created_at")
-
-        return qs
+        return qs.order_by("due_date", "sort_order", "status")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        from .models import TaskCategory, ProductionDepartment
 
         context["q"] = self.request.GET.get("q", "")
-        context["status_filter"] = self.request.GET.get("status", "")
-        context["priority_filter"] = self.request.GET.get("priority", "")
-        context["due_filter"] = self.request.GET.get("due", "")
-
         context["status_choices"] = TaskStatus.choices
         context["priority_choices"] = Priority.choices
-
-        # For template: possible due filter options
-        context["due_filter_options"] = [
-            ("", "All"),
-            ("overdue", "Overdue"),
-            ("today", "Due Today"),
-            ("upcoming", "Upcoming"),
-            ("no_due", "No Due Date"),
-        ]
-
+        context["category_choices"] = TaskCategory.choices
+        context["department_choices"] = ProductionDepartment.choices
+        context["status_filter"] = self.request.GET.get("status", "")
+        context["priority_filter"] = self.request.GET.get("priority", "")
+        context["category_filter"] = self.request.GET.get("category", "")
+        context["department_filter"] = self.request.GET.get("department", "")
+        context["due_filter"] = self.request.GET.get("due", "")
         return context
 
 
-class TaskCreateView(AdminManagerMixin, CreateView):
+class TaskCreateView(ProjectAccessMixin, CreateView):
     model = Task
     form_class = TaskForm
     template_name = "projects/task_form.html"
-    success_url = reverse_lazy("projects:task_list")
 
     def dispatch(self, request, *args, **kwargs):
         self.project = None
         project_pk = self.kwargs.get("project_pk")
-        if project_pk:
-            self.project = get_object_or_404(Project, pk=project_pk)
-            user = request.user
 
-            # Manager can create tasks only for their own projects; admin for all.
-            if is_manager(user) and self.project.manager != user and not is_admin(user):
-                messages.error(
-                    request,
-                    "You are not allowed to add tasks to this project.",
-                )
+        if project_pk:
+            self.project = get_object_or_404(visible_projects_for(request.user), pk=project_pk)
+
+            if not is_admin_or_project_manager(request.user):
+                messages.error(request, "You are not allowed to create tasks.")
                 return redirect("projects:project_detail", pk=self.project.pk)
 
         return super().dispatch(request, *args, **kwargs)
@@ -537,412 +507,314 @@ class TaskCreateView(AdminManagerMixin, CreateView):
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
         kwargs["user"] = self.request.user
-        if self.project is not None:
+        if self.project:
             kwargs["project"] = self.project
         return kwargs
 
     def form_valid(self, form):
-        response = super().form_valid(form)
+        task = form.save(commit=False)
 
-        task = self.object
-        assignee = getattr(task, "assigned_to", None)
+        if self.project:
+            task.project = self.project
 
-        if assignee:
-            task_label = getattr(task, "name", None) or str(task)
+        task.save()
+        form.save_m2m()
+
+        if task.assigned_to:
             create_notification(
-                recipient=assignee,
+                recipient=task.assigned_to,
                 actor=self.request.user,
                 notif_type=Notification.Type.TASK_ASSIGNED,
                 target=task,
-                message=f"You have been assigned a task: {task_label}",
+                message=f"You have been assigned a task: {task.name}",
             )
 
-        return response
+        messages.success(self.request, "Task created successfully.")
+        return redirect("projects:task_detail", pk=task.pk)
 
 
-class TaskUpdateView(AdminManagerMixin, UpdateView):
-    """
-    Only Admin + Manager can update tasks via this form.
-    Employees CANNOT access this view.
-    """
+class TaskUpdateView(ProjectAccessMixin, UpdateView):
     model = Task
+    form_class = TaskForm
     template_name = "projects/task_form.html"
-    form_class = TaskForm  # always full form
 
     def get_queryset(self):
-        qs = Task.objects.select_related("project", "assigned_to", "project__manager")
         user = self.request.user
+        qs = Task.objects.select_related("project", "assigned_to", "project__manager")
 
         if is_admin(user):
             return qs
-        elif is_manager(user):
+        if is_project_manager(user):
             return qs.filter(project__manager=user)
-        # AdminManagerMixin will already block others, but be explicit:
         return Task.objects.none()
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
         kwargs["user"] = self.request.user
+        kwargs["project"] = self.object.project
         return kwargs
 
     def form_valid(self, form):
+        old = self.get_object()
         task = form.save(commit=False)
-        user = self.request.user
-        old = Task.objects.get(pk=task.pk)
-        new_status = form.cleaned_data["status"]
 
-        # Start WorkLog
-        if new_status == TaskStatus.IN_PROGRESS and old.status != TaskStatus.IN_PROGRESS:
-            if WorkLog.objects.filter(user=user, ended_at__isnull=True).exists():
-                messages.error(self.request, "You already have another item in progress.")
-                return redirect("projects:task_detail", pk=task.pk)
+        if old.status == TaskStatus.IN_PROGRESS and task.status != TaskStatus.IN_PROGRESS:
+            close_active_work_for_target(task.assigned_to or self.request.user, task=task)
 
-            if task.first_started_at is None:
-                task.first_started_at = timezone.now()
-
-            WorkLog.objects.create(
-                user=user,
-                project=task.project,
-                task=task,
-                started_at=timezone.now()
-            )
-
-        # End WorkLog
-        if old.status == TaskStatus.IN_PROGRESS and new_status != TaskStatus.IN_PROGRESS:
-            WorkLog.objects.filter(
-                user=user, task=task, ended_at__isnull=True
-            ).update(ended_at=timezone.now())
-
-        # Completed timestamp
-        if new_status == TaskStatus.COMPLETED and task.completed_at is None:
+        if task.status == TaskStatus.COMPLETED and not task.completed_at:
             task.completed_at = timezone.now()
 
         task.save()
         form.save_m2m()
+
         messages.success(self.request, "Task updated successfully.")
-        return redirect("projects:project_detail", pk=task.project.pk)
+        return redirect("projects:task_detail", pk=task.pk)
 
 
-
-class TaskDetailView(StaffAllMixin, DetailView):
-    """
-    Visible to:
-    - Admin: any task
-    - Manager: tasks for projects they manage
-    - Employee: ONLY tasks assigned to them
-    """
+class TaskDetailView(ProjectWorkAccessMixin, DetailView):
     model = Task
     template_name = "projects/task_detail.html"
     context_object_name = "task"
 
     def get_queryset(self):
-        qs = Task.objects.select_related(
-            "project",
-            "project__client",
-            "project__manager",
-            "assigned_to",
-        ).prefetch_related("deliverables")
+        return visible_tasks_for(self.request.user).prefetch_related("deliverables")
 
-        user = self.request.user
-
-        if is_admin(user):
-            return qs
-        elif is_manager(user):
-            return qs.filter(project__manager=user)
-        elif is_employee(user):
-            return qs.filter(assigned_to=user)
-        return Task.objects.none()
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["active_work_session"] = WorkSession.objects.filter(
+            task=self.object,
+            status__in=[WorkSessionStatus.ACTIVE, WorkSessionStatus.PAUSED],
+        ).select_related("user").first()
+        context["work_sessions"] = self.object.work_sessions.select_related("user")[:20]
+        return context
 
 
-@login_required
-def ajax_load_tasks(request):
-    """
-    Returns JSON list of tasks for a given project.
-    Used by Deliverable form when project dropdown changes.
-    """
-    project_id = request.GET.get("project")
-    qs = Task.objects.none()
-
-    if project_id:
-        qs = Task.objects.filter(project_id=project_id).order_by("name")
-
-        # optional: extra permission filtering
-        user = request.user
-        if is_admin(user):
-            pass
-        elif is_manager(user):
-            qs = qs.filter(project__manager=user)
-        elif is_employee(user):
-            qs = qs.filter(assigned_to=user)
-        else:
-            qs = Task.objects.none()
-
-    data = [
-        {"id": task.id, "name": task.name}
-        for task in qs
-    ]
-    return JsonResponse(data, safe=False)
-
-
-# ---------------- TASK KANBAN ---------------- #
-
-
-class TaskKanbanView(StaffAllMixin, TemplateView):
-    """
-    Kanban board for Tasks.
-    Shows tasks only for projects that are NOT completed.
-    Columns = TaskStatus
-    """
-
+class TaskKanbanView(ProjectWorkAccessMixin, TemplateView):
     template_name = "projects/task_kanban.html"
 
     def get_queryset(self):
-        qs = Task.objects.select_related(
-            "project", "assigned_to", "project__client", "project__manager"
+        return (
+            visible_tasks_for(self.request.user)
+            .exclude(project__status=ProjectStatus.COMPLETED)
+            .select_related("project", "assigned_to")
+            .prefetch_related("deliverables")
         )
-        user = self.request.user
-
-        # 🔹 Only tasks for projects that are NOT completed
-        qs = qs.exclude(project__status=ProjectStatus.COMPLETED)
-
-        if is_admin(user):
-            pass   # full access
-        elif is_manager(user):
-            qs = qs.filter(project__manager=user)
-        elif is_employee(user):
-            qs = qs.filter(assigned_to=user)
-        else:
-            qs = Task.objects.none()
-
-        # Order by due_date so inside each column they’re roughly sorted
-        qs = qs.order_by("due_date", "status", "priority", "created_at")
-
-        return qs
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         qs = self.get_queryset()
 
-        tasks_by_status = {}
-        for key, label in TaskStatus.choices:
-            tasks_by_status[key] = qs.filter(status=key)
-        context["tasks_by_status"] = tasks_by_status
-        context["status_choices"] = TaskStatus.choices
+        context["tasks_by_status"] = {
+            "pending": qs.filter(status=TaskStatus.PENDING),
+            "in_progress": qs.filter(
+                status__in=[
+                    TaskStatus.IN_PROGRESS,
+                    TaskStatus.PAUSED,
+                ]
+            ),
+            "completed": qs.filter(status=TaskStatus.COMPLETED),
+        }
+
+        context["kanban_status_choices"] = [
+            ("pending", "Pending"),
+            ("in_progress", "In Progress"),
+            ("completed", "Completed"),
+        ]
 
         return context
 
 
-class TaskStatusUpdateView(StaffAllMixin, View):
-
+class TaskStatusUpdateView(ProjectWorkAccessMixin, View):
     def post(self, request, pk):
-        task = get_object_or_404(Task, pk=pk)
-        user = request.user
+        task = get_object_or_404(visible_tasks_for(request.user), pk=pk)
+
         new_status = request.POST.get("status")
-
-        # Permission checks
-        if is_employee(user) and task.assigned_to != user:
-            return JsonResponse({"success": False, "error": "Not allowed."}, status=403)
-
-        if is_manager(user) and task.project.manager != user and not is_admin(user):
-            return JsonResponse({"success": False, "error": "Not allowed."}, status=403)
-
-        valid = {c[0] for c in TaskStatus.choices}
-        if new_status not in valid:
-            return JsonResponse({"success": False, "error": "Invalid status"}, status=400)
-
         old_status = task.status
+        user = request.user
 
-        # --------------------------------------------------------------------
-        # 1) If moving INTO IN_PROGRESS → create WorkLog
-        # --------------------------------------------------------------------
-        if new_status == TaskStatus.IN_PROGRESS and old_status != TaskStatus.IN_PROGRESS:
-
-            # Enforce "only 1 active worklog" rule
-            if WorkLog.objects.filter(user=user, ended_at__isnull=True).exists():
-                return JsonResponse({
-                    "success": False,
-                    "error": "You already have another task/deliverable in progress."
-                }, status=400)
-
-            # Set first_started_at only once
-            if task.first_started_at is None:
-                task.first_started_at = timezone.now()
-
-            # Create WorkLog
-            WorkLog.objects.create(
-                user=user,
-                project=task.project,
-                task=task,
-                started_at=timezone.now()
+        valid = {key for key, _ in TaskStatus.choices}
+        if new_status not in valid:
+            return JsonResponse(
+                {"success": False, "error": "Invalid task status."},
+                status=400,
             )
 
-        # --------------------------------------------------------------------
-        # 2) If leaving IN_PROGRESS → close WorkLog
-        # --------------------------------------------------------------------
-        if old_status == TaskStatus.IN_PROGRESS and new_status != TaskStatus.IN_PROGRESS:
-            WorkLog.objects.filter(
-                user=user,
-                task=task,
-                ended_at__isnull=True
-            ).update(ended_at=timezone.now())
+        if is_employee(user) and task.assigned_to_id != user.id:
+            return JsonResponse(
+                {"success": False, "error": "This task is not assigned to you."},
+                status=403,
+            )
 
-        # --------------------------------------------------------------------
-        # 3) Set completed timestamp if needed
-        # --------------------------------------------------------------------
-        if new_status == TaskStatus.COMPLETED and task.completed_at is None:
+        work_user = task.assigned_to or user
+
+        # Start / Continue
+        if new_status == TaskStatus.IN_PROGRESS:
+            paused_session = WorkSession.objects.filter(
+                user=work_user,
+                task=task,
+                status=WorkSessionStatus.PAUSED,
+            ).first()
+
+            if paused_session:
+                if WorkSession.objects.filter(
+                    user=work_user,
+                    status=WorkSessionStatus.ACTIVE,
+                ).exists():
+                    return JsonResponse(
+                        {
+                            "success": False,
+                            "error": "This employee already has another active work item.",
+                        },
+                        status=400,
+                    )
+
+                paused_session.resume()
+
+            elif old_status != TaskStatus.IN_PROGRESS:
+                if WorkSession.objects.filter(
+                    user=work_user,
+                    status=WorkSessionStatus.ACTIVE,
+                ).exists():
+                    return JsonResponse(
+                        {
+                            "success": False,
+                            "error": "This employee already has another active work item.",
+                        },
+                        status=400,
+                    )
+
+                if not task.first_started_at:
+                    task.first_started_at = timezone.now()
+
+                WorkSession.objects.create(
+                    user=work_user,
+                    project=task.project,
+                    task=task,
+                    started_at=timezone.now(),
+                    last_resumed_at=timezone.now(),
+                )
+
+        # Pause
+        if new_status == TaskStatus.PAUSED:
+            session = WorkSession.objects.filter(
+                user=work_user,
+                task=task,
+                status=WorkSessionStatus.ACTIVE,
+            ).first()
+
+            if session:
+                session.pause()
+
+        # Leaving active/paused to another final/review state
+        if new_status not in [TaskStatus.IN_PROGRESS, TaskStatus.PAUSED]:
+            sessions = WorkSession.objects.filter(
+                user=work_user,
+                task=task,
+                status__in=[
+                    WorkSessionStatus.ACTIVE,
+                    WorkSessionStatus.PAUSED,
+                ],
+            )
+
+            for session in sessions:
+                session.end()
+
+        if new_status == TaskStatus.COMPLETED and not task.completed_at:
             task.completed_at = timezone.now()
 
-        # --------------------------------------------------------------------
-        # Save status
-        # --------------------------------------------------------------------
         task.status = new_status
-        task.save(update_fields=["status", "completed_at", "first_started_at"])
+        task.save(update_fields=["status", "first_started_at", "completed_at"])
 
-        return JsonResponse({"success": True, "status": new_status})
+        return JsonResponse(
+            {
+                "success": True,
+                "status": new_status,
+                "status_display": task.get_status_display(),
+            }
+        )
 
 
+# ============================================================
+# Deliverables
+# ============================================================
 
-# =====================================================================
-#                       DELIVERABLE VIEWS
-# =====================================================================
-
-class DeliverableListView(StaffAllMixin, ListView):
-    """
-    Visibility:
-    - Admin/Manager: all deliverables for projects that are NOT completed
-    - Employee: only deliverables assigned_to = request.user (also only for non-completed projects)
-
-    Ordered by due_date.
-    """
+class DeliverableListView(ProjectWorkAccessMixin, ListView):
     model = Deliverable
     template_name = "projects/deliverable_list.html"
     context_object_name = "deliverables"
     paginate_by = 20
 
     def get_queryset(self):
-        qs = Deliverable.objects.select_related(
-            "project", "project__client", "assigned_to"
+        qs = visible_deliverables_for(self.request.user).exclude(
+            project__status=ProjectStatus.COMPLETED
         )
-        user = self.request.user
 
-        # 🔹 Only deliverables for projects that are NOT completed
-        qs = qs.exclude(project__status=ProjectStatus.COMPLETED)
-
-        # ---- ROLE FILTERS ----
-        if is_admin(user) or is_manager(user):
-            # Admin + Manager: see everything (for non-completed projects)
-            pass
-        elif is_employee(user):
-            # Employee: ONLY deliverables assigned to them
-            qs = qs.filter(assigned_to=user)
-        else:
-            qs = Deliverable.objects.none()
-
-        # ----- Search ----- #
         q = self.request.GET.get("q")
-        if q:
-            qs = qs.filter(
-                Q(name__icontains=q) | Q(project__name__icontains=q)
-            )
-
-        # ----- Filters: only status + type ----- #
         status = self.request.GET.get("status")
+        category = self.request.GET.get("category")
         d_type = self.request.GET.get("type")
+
+        if q:
+            qs = qs.filter(Q(name__icontains=q) | Q(project__name__icontains=q))
 
         if status:
             qs = qs.filter(status=status)
+
+        if category:
+            qs = qs.filter(category=category)
+
         if d_type:
             qs = qs.filter(type=d_type)
 
-        # Order by due_date
-        qs = qs.order_by("due_date", "status", "created_at")
-
-        return qs
+        return qs.order_by("due_date", "status", "created_at")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        from .models import DeliverableCategory
 
         context["q"] = self.request.GET.get("q", "")
-        context["status_filter"] = self.request.GET.get("status", "")
-        context["type_filter"] = self.request.GET.get("type", "")
-
         context["status_choices"] = DeliverableStatus.choices
+        context["category_choices"] = DeliverableCategory.choices
         context["type_choices"] = DeliverableType.choices
-
-        # Optional: keep assignee choices if you ever want to add a filter later
-        context["assignee_choices"] = (
-            User.objects.filter(
-                is_active=True,
-                groups__name__in=["Manager", "Employee"],
-            )
-            .distinct()
-            .order_by("first_name", "last_name", "username")
-        )
-
+        context["status_filter"] = self.request.GET.get("status", "")
+        context["category_filter"] = self.request.GET.get("category", "")
+        context["type_filter"] = self.request.GET.get("type", "")
         return context
 
 
-class DeliverableCreateView(AdminManagerMixin, CreateView):
-    """
-    Only Admin & Manager can create.
-    Admin & Manager can create deliverables for ANY project.
-    """
+class DeliverableCreateView(ProjectAccessMixin, CreateView):
     model = Deliverable
     form_class = DeliverableForm
     template_name = "projects/deliverable_form.html"
 
     def dispatch(self, request, *args, **kwargs):
-        """
-        Optional project_pk:
-        - /projects/<project_pk>/deliverables/create/
-        - /deliverables/create/
-        """
         self.project = None
         project_pk = self.kwargs.get("project_pk")
 
         if project_pk:
-            self.project = get_object_or_404(Project, pk=project_pk)
+            self.project = get_object_or_404(visible_projects_for(request.user), pk=project_pk)
 
         return super().dispatch(request, *args, **kwargs)
-
-    def get_initial(self):
-        initial = super().get_initial()
-        if self.project:
-            initial["project"] = self.project
-        return initial
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
         kwargs["user"] = self.request.user
-        if self.project is not None:
+        if self.project:
             kwargs["project"] = self.project
         return kwargs
 
     def get_context_data(self, **kwargs):
-        """
-        So the template's `{% if project %}` branch works on create.
-        """
         context = super().get_context_data(**kwargs)
         context["project"] = self.project
         return context
 
     def form_valid(self, form):
         deliverable = form.save(commit=False)
-        user = self.request.user
 
-        # If URL had project_pk, force that project
-        if self.project is not None:
+        if self.project:
             deliverable.project = self.project
 
-        if hasattr(deliverable, "owner"):
-            deliverable.owner = user
-
-        # If assigned_to not chosen, default to project's manager
-        if (
-            deliverable.assigned_to is None
-            and deliverable.project
-            and deliverable.project.manager
-        ):
+        if not deliverable.assigned_to and deliverable.project.manager:
             deliverable.assigned_to = deliverable.project.manager
 
         deliverable.save()
@@ -952,22 +824,19 @@ class DeliverableCreateView(AdminManagerMixin, CreateView):
         return redirect("projects:deliverable_detail", pk=deliverable.pk)
 
 
-class DeliverableUpdateView(AdminManagerMixin, UpdateView):
-    """
-    Only Admin & Manager can update.
-    Both can update ANY deliverable.
-    """
+class DeliverableUpdateView(ProjectAccessMixin, UpdateView):
     model = Deliverable
     form_class = DeliverableForm
     template_name = "projects/deliverable_form.html"
 
     def get_queryset(self):
-        qs = Deliverable.objects.select_related("project", "project__manager")
         user = self.request.user
+        qs = Deliverable.objects.select_related("project", "assigned_to", "project__manager")
 
-        if is_admin(user) or is_manager(user):
-            # Admin & Manager: all deliverables
+        if is_admin(user):
             return qs
+        if is_project_manager(user):
+            return qs.filter(project__manager=user)
         return Deliverable.objects.none()
 
     def get_form_kwargs(self):
@@ -977,70 +846,18 @@ class DeliverableUpdateView(AdminManagerMixin, UpdateView):
         return kwargs
 
     def form_valid(self, form):
-        """
-        Handle:
-        - WorkLog start/stop when status crosses IN_PROGRESS
-        - first_started_at
-        - delivered_at
-        - ensure only ONE active worklog per user
-        """
+        old = self.get_object()
         deliverable = form.save(commit=False)
-        user = self.request.user
 
-        # Previous DB state
-        old = Deliverable.objects.get(pk=deliverable.pk)
-        old_status = old.status
-        new_status = form.cleaned_data.get("status", old_status)
+        if old.status == DeliverableStatus.IN_PROGRESS and deliverable.status != DeliverableStatus.IN_PROGRESS:
+            close_active_work_for_target(deliverable.assigned_to or self.request.user, deliverable=deliverable)
 
-        # WorkLog should be attached to the assignee (worker),
-        # not the manager who edits.
-        work_user = deliverable.assigned_to or user
+        if deliverable.status == DeliverableStatus.READY_TO_DELIVER and not deliverable.ready_at:
+            deliverable.ready_at = timezone.now()
 
-        # --------------------------------------------------------------------
-        # 1) Moving INTO IN_PROGRESS -> create WorkLog
-        # --------------------------------------------------------------------
-        if new_status == DeliverableStatus.IN_PROGRESS and old_status != DeliverableStatus.IN_PROGRESS:
-            if work_user:
-                # Enforce "only one active worklog per user"
-                if WorkLog.objects.filter(user=work_user, ended_at__isnull=True).exists():
-                    messages.error(
-                        self.request,
-                        "This user already has another task or deliverable in progress.",
-                    )
-                    return redirect("projects:deliverable_detail", pk=deliverable.pk)
-
-                # Set first_started_at only once
-                if deliverable.first_started_at is None:
-                    deliverable.first_started_at = timezone.now()
-
-                # Create new WorkLog session
-                WorkLog.objects.create(
-                    user=work_user,
-                    project=deliverable.project,
-                    deliverable=deliverable,
-                    started_at=timezone.now(),
-                )
-
-        # --------------------------------------------------------------------
-        # 2) Leaving IN_PROGRESS -> close WorkLog
-        # --------------------------------------------------------------------
-        if old_status == DeliverableStatus.IN_PROGRESS and new_status != DeliverableStatus.IN_PROGRESS:
-            if work_user:
-                WorkLog.objects.filter(
-                    user=work_user,
-                    deliverable=deliverable,
-                    ended_at__isnull=True,
-                ).update(ended_at=timezone.now())
-
-        # --------------------------------------------------------------------
-        # 3) Delivered timestamp
-        #    (form + status view already enforce "all tasks completed")
-        # --------------------------------------------------------------------
-        if new_status == DeliverableStatus.DELIVERED and deliverable.delivered_at is None:
+        if deliverable.status == DeliverableStatus.DELIVERED and not deliverable.delivered_at:
             deliverable.delivered_at = timezone.now()
 
-        # Save final status
-        deliverable.status = new_status
         deliverable.save()
         form.save_m2m()
 
@@ -1048,150 +865,379 @@ class DeliverableUpdateView(AdminManagerMixin, UpdateView):
         return redirect("projects:deliverable_detail", pk=deliverable.pk)
 
 
-class DeliverableDetailView(StaffAllMixin, DetailView):
-    """
-    Detail view for a single Deliverable.
-
-    Visibility:
-    - Admin: all deliverables
-    - Manager: all deliverables
-    - Employee: only deliverables assigned_to = user
-    """
+class DeliverableDetailView(ProjectWorkAccessMixin, DetailView):
     model = Deliverable
     template_name = "projects/deliverable_detail.html"
     context_object_name = "deliverable"
 
     def get_queryset(self):
-        qs = Deliverable.objects.select_related(
-            "project",
-            "project__client",
-            "project__manager",
-            "assigned_to",
-        ).prefetch_related(
-            "tasks__assigned_to"
-        )
+        return visible_deliverables_for(self.request.user)
 
-        user = self.request.user
-
-        if is_admin(user) or is_manager(user):
-            return qs
-        elif is_employee(user):
-            return qs.filter(assigned_to=user)
-        return Deliverable.objects.none()
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["active_work_session"] = WorkSession.objects.filter(
+            deliverable=self.object,
+            status__in=[WorkSessionStatus.ACTIVE, WorkSessionStatus.PAUSED],
+        ).select_related("user").first()
+        context["work_sessions"] = self.object.work_sessions.select_related("user")[:20]
+        return context
 
 
-class DeliverableKanbanView(StaffAllMixin, TemplateView):
-    """
-    Kanban board for Deliverables.
-    Columns = DeliverableStatus
-    Cards = deliverables visible to current user.
-
-    Visibility:
-    - Admin/Manager: all deliverables
-    - Employee: only assigned_to = user
-
-    Only for projects that are NOT completed.
-    """
+class DeliverableKanbanView(ProjectWorkAccessMixin, TemplateView):
     template_name = "projects/deliverable_kanban.html"
 
     def get_queryset(self):
-        qs = Deliverable.objects.select_related(
-            "project", "project__client", "assigned_to"
+        return (
+            visible_deliverables_for(self.request.user)
+            .exclude(project__status=ProjectStatus.COMPLETED)
+            .select_related("project", "assigned_to")
+            .prefetch_related("tasks")
         )
-        user = self.request.user
-
-        # 🔹 Only deliverables for projects that are NOT completed
-        qs = qs.exclude(project__status=ProjectStatus.COMPLETED)
-
-        if is_admin(user) or is_manager(user):
-            # full access (for all non-completed projects)
-            pass
-        elif is_employee(user):
-            qs = qs.filter(assigned_to=user)
-        else:
-            qs = Deliverable.objects.none()
-
-        # Order by due_date for nicer ordering inside columns
-        qs = qs.order_by("due_date", "status", "created_at")
-
-        # (Optional) keep extra filters if you ever add them in querystring
-        status = self.request.GET.get("status")
-        d_type = self.request.GET.get("type")
-        if status:
-            qs = qs.filter(status=status)
-        if d_type:
-            qs = qs.filter(type=d_type)
-
-        return qs
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         qs = self.get_queryset()
 
-        deliverables_by_status = {}
-        for key, label in DeliverableStatus.choices:
-            deliverables_by_status[key] = qs.filter(status=key)
+        context["deliverables_by_status"] = {
+            "pending": qs.filter(
+                status__in=[
+                    DeliverableStatus.PENDING,
+                    DeliverableStatus.WAITING_FOR_TASKS,
+                ]
+            ),
+            "in_progress": qs.filter(
+                status__in=[
+                    DeliverableStatus.IN_PROGRESS,
+                    DeliverableStatus.PAUSED,
+                ]
+            ),
+            "delivered": qs.filter(status=DeliverableStatus.DELIVERED),
+        }
 
-        context["deliverables_by_status"] = deliverables_by_status
-        context["status_choices"] = DeliverableStatus.choices
-        context["type_choices"] = DeliverableType.choices
+        context["kanban_status_choices"] = [
+            ("pending", "Pending"),
+            ("in_progress", "In Progress"),
+            ("delivered", "Delivered"),
+        ]
+
         return context
 
 
-class DeliverableStatusUpdateView(StaffAllMixin, View):
-
+class DeliverableStatusUpdateView(ProjectWorkAccessMixin, View):
     def post(self, request, pk):
-        deliverable = get_object_or_404(Deliverable, pk=pk)
-        user = request.user
+        deliverable = get_object_or_404(visible_deliverables_for(request.user), pk=pk)
+
         new_status = request.POST.get("status")
-
-        if is_employee(user) and deliverable.assigned_to != user:
-            return JsonResponse({"success": False, "error": "Not allowed."}, status=403)
-
-        valid = {c[0] for c in DeliverableStatus.choices}
-        if new_status not in valid:
-            return JsonResponse({"success": False, "error": "Invalid status"}, status=400)
-
         old_status = deliverable.status
+        user = request.user
 
-        # --------------------------------------------------------------------
-        # 1) Move INTO IN_PROGRESS → create new WorkLog
-        # --------------------------------------------------------------------
-        if new_status == DeliverableStatus.IN_PROGRESS and old_status != DeliverableStatus.IN_PROGRESS:
-
-            if WorkLog.objects.filter(user=user, ended_at__isnull=True).exists():
-                return JsonResponse({
-                    "success": False,
-                    "error": "You already have another task/deliverable in progress."
-                }, status=400)
-
-            if deliverable.first_started_at is None:
-                deliverable.first_started_at = timezone.now()
-
-            WorkLog.objects.create(
-                user=user,
-                project=deliverable.project,
-                deliverable=deliverable,
-                started_at=timezone.now()
+        valid = {key for key, _ in DeliverableStatus.choices}
+        if new_status not in valid:
+            return JsonResponse(
+                {"success": False, "error": "Invalid deliverable status."},
+                status=400,
             )
 
-        # --------------------------------------------------------------------
-        # 2) Leaving IN_PROGRESS → close WorkLog
-        # --------------------------------------------------------------------
-        if old_status == DeliverableStatus.IN_PROGRESS and new_status != DeliverableStatus.IN_PROGRESS:
-            WorkLog.objects.filter(
-                user=user,
-                deliverable=deliverable,
-                ended_at__isnull=True
-            ).update(ended_at=timezone.now())
+        if is_employee(user) and deliverable.assigned_to_id != user.id:
+            return JsonResponse(
+                {"success": False, "error": "This deliverable is not assigned to you."},
+                status=403,
+            )
 
-        # --------------------------------------------------------------------
-        # 3) Delivered rule
-        # --------------------------------------------------------------------
-        if new_status == DeliverableStatus.DELIVERED and deliverable.delivered_at is None:
+        if new_status in [
+            DeliverableStatus.IN_PROGRESS,
+            DeliverableStatus.CLIENT_REVIEW,
+            DeliverableStatus.INTERNAL_REVIEW,
+            DeliverableStatus.READY_TO_DELIVER,
+            DeliverableStatus.DELIVERED,
+        ]:
+            if not deliverable.required_tasks_completed:
+                return JsonResponse(
+                    {
+                        "success": False,
+                        "error": "Complete all linked tasks before moving this deliverable forward.",
+                    },
+                    status=400,
+                )
+
+        work_user = deliverable.assigned_to or user
+
+        # Start / Continue
+        if new_status == DeliverableStatus.IN_PROGRESS:
+            paused_session = WorkSession.objects.filter(
+                user=work_user,
+                deliverable=deliverable,
+                status=WorkSessionStatus.PAUSED,
+            ).first()
+
+            if paused_session:
+                if WorkSession.objects.filter(
+                    user=work_user,
+                    status=WorkSessionStatus.ACTIVE,
+                ).exists():
+                    return JsonResponse(
+                        {
+                            "success": False,
+                            "error": "This employee already has another active work item.",
+                        },
+                        status=400,
+                    )
+
+                paused_session.resume()
+
+            elif old_status != DeliverableStatus.IN_PROGRESS:
+                if WorkSession.objects.filter(
+                    user=work_user,
+                    status=WorkSessionStatus.ACTIVE,
+                ).exists():
+                    return JsonResponse(
+                        {
+                            "success": False,
+                            "error": "This employee already has another active work item.",
+                        },
+                        status=400,
+                    )
+
+                if not deliverable.first_started_at:
+                    deliverable.first_started_at = timezone.now()
+
+                WorkSession.objects.create(
+                    user=work_user,
+                    project=deliverable.project,
+                    deliverable=deliverable,
+                    started_at=timezone.now(),
+                    last_resumed_at=timezone.now(),
+                )
+
+        # Pause
+        if new_status == DeliverableStatus.PAUSED:
+            session = WorkSession.objects.filter(
+                user=work_user,
+                deliverable=deliverable,
+                status=WorkSessionStatus.ACTIVE,
+            ).first()
+
+            if session:
+                session.pause()
+
+        # Leaving active/paused to another state
+        if new_status not in [DeliverableStatus.IN_PROGRESS, DeliverableStatus.PAUSED]:
+            sessions = WorkSession.objects.filter(
+                user=work_user,
+                deliverable=deliverable,
+                status__in=[
+                    WorkSessionStatus.ACTIVE,
+                    WorkSessionStatus.PAUSED,
+                ],
+            )
+
+            for session in sessions:
+                session.end()
+
+        if new_status == DeliverableStatus.READY_TO_DELIVER and not deliverable.ready_at:
+            deliverable.ready_at = timezone.now()
+
+        if new_status == DeliverableStatus.DELIVERED and not deliverable.delivered_at:
             deliverable.delivered_at = timezone.now()
 
         deliverable.status = new_status
-        deliverable.save(update_fields=["status", "delivered_at", "first_started_at"])
+        deliverable.save(
+            update_fields=[
+                "status",
+                "first_started_at",
+                "ready_at",
+                "delivered_at",
+            ]
+        )
 
-        return JsonResponse({"success": True, "status": new_status})
+        return JsonResponse(
+            {
+                "success": True,
+                "status": new_status,
+                "status_display": deliverable.get_status_display(),
+            }
+        )
+
+# ============================================================
+# Work session views
+# ============================================================
+
+class StartTaskWorkView(ProjectWorkAccessMixin, View):
+    def post(self, request, pk):
+        task = get_object_or_404(visible_tasks_for(request.user), pk=pk)
+
+        if is_employee(request.user) and task.assigned_to_id != request.user.id:
+            messages.error(request, "This task is not assigned to you.")
+            return redirect("projects:task_detail", pk=task.pk)
+
+        work_user = task.assigned_to or request.user
+
+        if user_has_active_work(work_user):
+            messages.error(request, "This employee already has another active work item.")
+            return redirect("projects:task_detail", pk=task.pk)
+
+        if not task.first_started_at:
+            task.first_started_at = timezone.now()
+
+        task.status = TaskStatus.IN_PROGRESS
+        task.save(update_fields=["status", "first_started_at"])
+
+        WorkSession.objects.create(
+            user=work_user,
+            project=task.project,
+            task=task,
+            started_at=timezone.now(),
+            last_resumed_at=timezone.now(),
+        )
+
+        messages.success(request, "Task work started.")
+        return redirect("projects:task_detail", pk=task.pk)
+
+
+class StartDeliverableWorkView(ProjectWorkAccessMixin, View):
+    def post(self, request, pk):
+        deliverable = get_object_or_404(visible_deliverables_for(request.user), pk=pk)
+
+        if is_employee(request.user) and deliverable.assigned_to_id != request.user.id:
+            messages.error(request, "This deliverable is not assigned to you.")
+            return redirect("projects:deliverable_detail", pk=deliverable.pk)
+
+        if not deliverable.required_tasks_completed:
+            messages.error(request, "Complete linked tasks before starting this deliverable.")
+            return redirect("projects:deliverable_detail", pk=deliverable.pk)
+
+        work_user = deliverable.assigned_to or request.user
+
+        if user_has_active_work(work_user):
+            messages.error(request, "This employee already has another active work item.")
+            return redirect("projects:deliverable_detail", pk=deliverable.pk)
+
+        if not deliverable.first_started_at:
+            deliverable.first_started_at = timezone.now()
+
+        deliverable.status = DeliverableStatus.IN_PROGRESS
+        deliverable.save(update_fields=["status", "first_started_at"])
+
+        WorkSession.objects.create(
+            user=work_user,
+            project=deliverable.project,
+            deliverable=deliverable,
+            started_at=timezone.now(),
+            last_resumed_at=timezone.now(),
+        )
+
+        messages.success(request, "Deliverable work started.")
+        return redirect("projects:deliverable_detail", pk=deliverable.pk)
+
+
+class PauseWorkSessionView(ProjectWorkAccessMixin, View):
+    def post(self, request, pk):
+        session = get_object_or_404(WorkSession, pk=pk)
+
+        if not is_admin_or_project_manager(request.user) and session.user_id != request.user.id:
+            messages.error(request, "Not allowed.")
+            return redirect("projects:work_in_progress")
+
+        session.pause()
+
+        if session.task:
+            session.task.status = TaskStatus.PAUSED
+            session.task.save(update_fields=["status"])
+            return redirect("projects:task_detail", pk=session.task.pk)
+
+        session.deliverable.status = DeliverableStatus.PAUSED
+        session.deliverable.save(update_fields=["status"])
+        return redirect("projects:deliverable_detail", pk=session.deliverable.pk)
+
+
+class ResumeWorkSessionView(ProjectWorkAccessMixin, View):
+    def post(self, request, pk):
+        session = get_object_or_404(WorkSession, pk=pk)
+
+        if not is_admin_or_project_manager(request.user) and session.user_id != request.user.id:
+            messages.error(request, "Not allowed.")
+            return redirect("projects:work_in_progress")
+
+        if user_has_active_work(session.user):
+            messages.error(request, "This employee already has another active work item.")
+            return redirect("projects:work_in_progress")
+
+        session.resume()
+
+        if session.task:
+            session.task.status = TaskStatus.IN_PROGRESS
+            session.task.save(update_fields=["status"])
+            return redirect("projects:task_detail", pk=session.task.pk)
+
+        session.deliverable.status = DeliverableStatus.IN_PROGRESS
+        session.deliverable.save(update_fields=["status"])
+        return redirect("projects:deliverable_detail", pk=session.deliverable.pk)
+
+
+class EndWorkSessionView(ProjectWorkAccessMixin, View):
+    def post(self, request, pk):
+        session = get_object_or_404(WorkSession, pk=pk)
+
+        if not is_admin_or_project_manager(request.user) and session.user_id != request.user.id:
+            messages.error(request, "Not allowed.")
+            return redirect("projects:work_in_progress")
+
+        session.end()
+        messages.success(request, "Work session ended.")
+
+        if session.task:
+            return redirect("projects:task_detail", pk=session.task.pk)
+        return redirect("projects:deliverable_detail", pk=session.deliverable.pk)
+
+
+class WorkInProgressView(ProjectWorkAccessMixin, ListView):
+    model = WorkSession
+    template_name = "projects/work_in_progress.html"
+    context_object_name = "work_sessions"
+
+    def get_queryset(self):
+        qs = WorkSession.objects.select_related(
+            "user",
+            "project",
+            "task",
+            "deliverable",
+        ).filter(
+            status__in=[WorkSessionStatus.ACTIVE, WorkSessionStatus.PAUSED]
+        )
+
+        user = self.request.user
+
+        if is_admin(user):
+            return qs
+
+        if is_project_manager(user):
+            return qs.filter(project__manager=user)
+
+        if is_employee(user):
+            return qs.filter(user=user)
+
+        return WorkSession.objects.none()
+
+
+# ============================================================
+# AJAX
+# ============================================================
+
+@login_required
+def ajax_load_tasks(request):
+    project_id = request.GET.get("project")
+    qs = Task.objects.none()
+
+    if project_id:
+        qs = visible_tasks_for(request.user).filter(project_id=project_id).order_by("sort_order", "name")
+
+    data = [
+        {
+            "id": task.id,
+            "name": task.name,
+            "status": task.status,
+            "category": task.category,
+        }
+        for task in qs
+    ]
+    return JsonResponse(data, safe=False)

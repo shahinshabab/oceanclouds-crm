@@ -5,7 +5,7 @@ ROLE_CRM_MANAGER = "CRM Manager"
 ROLE_PROJECT_MANAGER = "Project Manager"
 ROLE_EMPLOYEE = "Employee"
 
-# Temporary old role support if you already have "Manager" group
+# Temporary old role support if you still have old "Manager" group
 ROLE_MANAGER = "Manager"
 
 
@@ -19,9 +19,17 @@ SALES_ACCESS_ROLES = [
     ROLE_CRM_MANAGER,
 ]
 
+# For project main pages only
 PROJECT_ACCESS_ROLES = [
     ROLE_ADMIN,
     ROLE_PROJECT_MANAGER,
+]
+
+# For task and deliverable pages
+PROJECT_WORK_ACCESS_ROLES = [
+    ROLE_ADMIN,
+    ROLE_PROJECT_MANAGER,
+    ROLE_EMPLOYEE,
 ]
 
 INQUIRY_ACCESS_ROLES = [
@@ -68,7 +76,19 @@ def can_access_sales(user):
 
 
 def can_access_project(user):
+    """
+    Project main access:
+    Admin + Project Manager only.
+    """
     return user_has_role(user, *PROJECT_ACCESS_ROLES)
+
+
+def can_access_project_work(user):
+    """
+    Task/deliverable access:
+    Admin + Project Manager + Employee.
+    """
+    return user_has_role(user, *PROJECT_WORK_ACCESS_ROLES)
 
 
 def can_access_inquiry(user):

@@ -500,3 +500,78 @@ class Ticket(TimeStamped):
             last = Ticket.objects.order_by("-ticket_number").first()
             self.ticket_number = (last.ticket_number + 1) if last and last.ticket_number else 1
         super().save(*args, **kwargs)
+
+
+
+# common/models.py
+
+
+class UserSessionEndReason(models.TextChoices):
+    LOGOUT = "logout", "Manual Logout"
+    AUTO_TIMEOUT = "auto_timeout", "Auto Timeout"
+    SYSTEM = "system", "System"
+    UNKNOWN = "unknown", "Unknown"
+
+
+class UserLoginSession(models.Model):
+    """
+    Tracks website login/logout duration for every user.
+
+    This belongs in common app because it is global,
+    not project-specific.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="login_sessions",
+    )
+
+    session_key = models.CharField(max_length=100, db_index=True)
+
+    login_at = models.DateTimeField(default=timezone.now, db_index=True)
+    logout_at = models.DateTimeField(null=True, blank=True, db_index=True)
+
+    end_reason = models.CharField(
+        max_length=30,
+        choices=UserSessionEndReason.choices,
+        blank=True,
+        default="",
+        db_index=True,
+    )
+
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["-login_at"]
+        indexes = [
+            models.Index(fields=["user", "login_at"]),
+            models.Index(fields=["user", "logout_at"]),
+            models.Index(fields=["session_key"]),
+            models.Index(fields=["logout_at", "end_reason"]),
+        ]
+
+    def __str__(self):
+        return f"{self.user} login {self.login_at} - {self.logout_at or 'ACTIVE'}"
+
+    @property
+    def is_active(self):
+        return self.logout_at is None
+
+    @property
+    def duration_seconds(self):
+        end = self.logout_at or timezone.now()
+        return int((end - self.login_at).total_seconds())
+
+    @property
+    def duration_hours(self):
+        return round(self.duration_seconds / 3600, 2)
+
+    def close(self, reason=UserSessionEndReason.LOGOUT):
+        if self.logout_at:
+            return
+
+        self.logout_at = timezone.now()
+        self.end_reason = reason
+        self.save(update_fields=["logout_at", "end_reason"])

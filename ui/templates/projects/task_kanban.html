@@ -2,24 +2,17 @@
 {% load roles_tags %}
 
 {% block content %}
-<div class="container py-4">
+<div class="container-fluid py-4">
 
-  {% has_role request.user "Admin" as is_admin %}
-  {% has_role request.user "Manager" as is_manager %}
-  {% has_role request.user "Employee" as is_employee %}
+  {% is_admin request.user as is_admin %}
+  {% is_project_manager request.user as is_project_manager %}
+  {% is_employee request.user as is_employee %}
 
-  <!-- Header -->
   <div class="d-flex justify-content-between align-items-center mb-3">
     <div>
       <h1 class="h3 mb-0">Task Kanban</h1>
       <small class="text-muted">
-        {% if is_admin or is_manager %}
-          Drag cards between columns to update status.
-        {% elif is_employee %}
-          You can drag tasks assigned to you to update their status.
-        {% else %}
-          View-only board.
-        {% endif %}
+        Pending, In Progress and Completed only. Other statuses are available in table/detail view.
       </small>
     </div>
 
@@ -27,198 +20,162 @@
       <a href="{% url 'projects:task_list' %}" class="btn btn-outline-secondary btn-sm">
         Table View
       </a>
+
+      {% if is_admin or is_project_manager %}
+        <a href="{% url 'projects:task_create' %}" class="btn btn-primary btn-sm">
+          + New Task
+        </a>
+      {% endif %}
     </div>
   </div>
-  
-  <!-- Kanban Board -->
+
   <div class="row g-3" id="task-kanban-board">
 
-    <!-- Pending Column -->
-    <div class="col-md-4">
-      <div class="card h-100">
-        <div class="card-header bg-light">
-          <strong>Pending</strong>
-        </div>
-        <div class="card-body p-2 kanban-column"
-             data-kanban-column
-             data-status="pending">
-          {% for task in tasks_by_status.pending %}
-            <div class="card mb-2 shadow-sm kanban-card"
-                 {% if is_admin or is_manager or task.assigned_to_id == request.user.id %}
-                   draggable="true"
-                   data-update-url="{% url 'projects:task_set_status' task.id %}"
-                 {% endif %}
-                 data-type="task"
-                 data-id="{{ task.id }}">
-              <div class="card-body py-2 px-2">
-                <div class="fw-semibold small">
-                  <a href="{% url 'projects:task_detail' task.pk %}" class="text-decoration-none">
-                    {{ task.name }}
-                  </a>
-                </div>
-                <div class="small text-muted">
-                  Project: {{ task.project.name }}
-                </div>
-                <div class="small text-muted">
-                  {% if task.assigned_to %}
-                    {{ task.assigned_to.get_full_name|default:task.assigned_to.username }}
-                  {% else %}
-                    Unassigned
-                  {% endif %}
-                </div>
+    {% for status_key, status_label in kanban_status_choices %}
+      <div class="col-lg-4 col-md-6">
+        <div class="card h-100 border-0 shadow-sm">
 
-                {# Directory + count summary from related deliverables #}
-                {% if task.deliverables.all %}
-                  <div class="small text-muted mt-1">
-                    {% for d in task.deliverables.all %}
-                      {{ d.directory }}
-                      {% if d.count %} ({{ d.count }}){% endif %}
-                      {% if not forloop.last %} · {% endif %}
-                    {% endfor %}
+          <div class="card-header bg-body border-bottom d-flex justify-content-between align-items-center">
+            <strong>{{ status_label }}</strong>
+            <span class="badge bg-light text-muted border">
+              {{ tasks_by_status|get_item:status_key|length }}
+            </span>
+          </div>
+
+          <div class="card-body p-2 kanban-column"
+               data-kanban-column
+               data-status="{{ status_key }}"
+               style="min-height: 480px;">
+
+            {% for task in tasks_by_status|get_item:status_key %}
+              <div class="card mb-2 shadow-sm kanban-card"
+                   {% if is_admin or is_project_manager or task.assigned_to_id == request.user.id %}
+                     draggable="true"
+                     data-update-url="{% url 'projects:task_set_status' task.id %}"
+                   {% endif %}
+                   data-type="task"
+                   data-id="{{ task.id }}">
+
+                <div class="card-body p-2">
+
+                  <div class="d-flex justify-content-between gap-2">
+                    <div class="fw-semibold small">
+                      <a href="{% url 'projects:task_detail' task.pk %}" class="text-decoration-none">
+                        {{ task.name }}
+                      </a>
+                    </div>
+
+                    {% if task.status == "paused" %}
+                      <span class="badge bg-warning text-dark">Paused</span>
+                    {% elif task.status == "in_progress" %}
+                      <span class="badge bg-success">Working</span>
+                    {% endif %}
                   </div>
-                {% endif %}
 
-                {% if task.due_date %}
-                  <div class="small mt-1">
-                    <span class="badge bg-light text-muted border">
-                      Due: {{ task.due_date }}
+                  <div class="small text-muted mt-1">
+                    Project:
+                      {% if is_admin or is_project_manager %}
+                        <a href="{% url 'projects:project_detail' task.project.pk %}" class="text-decoration-none">
+                          {{ task.project.name }}
+                        </a>
+                      {% else %}
+                        {{ task.project.name }}
+                      {% endif %}
+                  </div>
+
+                  <div class="small text-muted">
+                    Assignee:
+                    {% if task.assigned_to %}
+                      {{ task.assigned_to.get_full_name|default:task.assigned_to.username }}
+                    {% else %}
+                      <span class="text-warning">Unassigned</span>
+                    {% endif %}
+                  </div>
+
+                  <div class="d-flex flex-wrap gap-1 mt-2">
+                    <span class="badge bg-light text-dark border">
+                      {{ task.get_department_display }}
+                    </span>
+
+                    <span class="badge bg-light text-dark border">
+                      {{ task.get_category_display }}
+                    </span>
+
+                    <span class="badge
+                      {% if task.priority == 'critical' %}
+                        bg-danger
+                      {% elif task.priority == 'high' %}
+                        bg-warning text-dark
+                      {% elif task.priority == 'medium' %}
+                        bg-info text-dark
+                      {% else %}
+                        bg-light text-muted border
+                      {% endif %}
+                    ">
+                      {{ task.get_priority_display }}
                     </span>
                   </div>
-                {% endif %}
-              </div>
-            </div>
-          {% empty %}
-            <div class="text-muted small px-2">
-              No pending tasks.
-            </div>
-          {% endfor %}
-        </div>
-      </div>
-    </div>
 
-    <!-- In Progress Column -->
-    <div class="col-md-4">
-      <div class="card h-100">
-        <div class="card-header bg-light">
-          <strong>In Progress</strong>
-        </div>
-        <div class="card-body p-2 kanban-column"
-             data-kanban-column
-             data-status="in_progress">
-          {% for task in tasks_by_status.in_progress %}
-            <div class="card mb-2 shadow-sm kanban-card"
-                 {% if is_admin or is_manager or task.assigned_to_id == request.user.id %}
-                   draggable="true"
-                   data-update-url="{% url 'projects:task_set_status' task.id %}"
-                 {% endif %}
-                 data-type="task"
-                 data-id="{{ task.id }}">
-              <div class="card-body py-2 px-2">
-                <div class="fw-semibold small">
-                  <a href="{% url 'projects:task_detail' task.pk %}" class="text-decoration-none">
-                    {{ task.name }}
-                  </a>
-                </div>
-                <div class="small text-muted">
-                  Project: {{ task.project.name }}
-                </div>
-                <div class="small text-muted">
-                  {% if task.assigned_to %}
-                    {{ task.assigned_to.get_full_name|default:task.assigned_to.username }}
-                  {% else %}
-                    Unassigned
+                  {% if task.directory %}
+                    <div class="small text-muted mt-2 text-truncate">
+                      Folder: {{ task.directory }}
+                    </div>
                   {% endif %}
-                </div>
 
-                {% if task.deliverables.all %}
-                  <div class="small text-muted mt-1">
-                    {% for d in task.deliverables.all %}
-                      {{ d.directory }}
-                      {% if d.count %} ({{ d.count }}){% endif %}
-                      {% if not forloop.last %} · {% endif %}
-                    {% endfor %}
-                  </div>
-                {% endif %}
-
-                {% if task.due_date %}
-                  <div class="small mt-1">
-                    <span class="badge bg-light text-muted border">
-                      Due: {{ task.due_date }}
-                    </span>
-                  </div>
-                {% endif %}
-              </div>
-            </div>
-          {% empty %}
-            <div class="text-muted small px-2">
-              No in-progress tasks.
-            </div>
-          {% endfor %}
-        </div>
-      </div>
-    </div>
-
-    <!-- Completed Column -->
-    <div class="col-md-4">
-      <div class="card h-100">
-        <div class="card-header bg-light">
-          <strong>Completed</strong>
-        </div>
-        <div class="card-body p-2 kanban-column"
-             data-kanban-column
-             data-status="completed">
-          {% for task in tasks_by_status.completed %}
-            <div class="card mb-2 shadow-sm kanban-card"
-                 {% if is_admin or is_manager or task.assigned_to_id == request.user.id %}
-                   draggable="true"
-                   data-update-url="{% url 'projects:task_set_status' task.id %}"
-                 {% endif %}
-                 data-type="task"
-                 data-id="{{ task.id }}">
-              <div class="card-body py-2 px-2">
-                <div class="fw-semibold small">
-                  <a href="{% url 'projects:task_detail' task.pk %}" class="text-decoration-none">
-                    {{ task.name }}
-                  </a>
-                </div>
-                <div class="small text-muted">
-                  Project: {{ task.project.name }}
-                </div>
-                <div class="small text-muted">
-                  {% if task.assigned_to %}
-                    {{ task.assigned_to.get_full_name|default:task.assigned_to.username }}
-                  {% else %}
-                    Unassigned
+                  {% if task.count %}
+                    <div class="small text-muted">
+                      Count: {{ task.count }}
+                    </div>
                   {% endif %}
+
+                  <div class="d-flex flex-wrap gap-1 mt-2">
+                    {% if task.due_date %}
+                      <span class="badge {% if task.is_overdue %}bg-danger{% else %}bg-light text-muted border{% endif %}">
+                        Due: {{ task.due_date }}
+                      </span>
+                    {% endif %}
+
+                    {% if task.total_work_hours %}
+                      <span class="badge bg-light text-muted border">
+                        Work: {{ task.total_work_hours }} hrs
+                      </span>
+                    {% endif %}
+                  </div>
+
+                  {% if status_key == "in_progress" %}
+                    {% if is_admin or is_project_manager or task.assigned_to_id == request.user.id %}
+                      <div class="mt-2">
+                        {% if task.status == "paused" %}
+                          <button type="button"
+                                  class="btn btn-success btn-sm w-100 js-status-button"
+                                  data-update-url="{% url 'projects:task_set_status' task.id %}"
+                                  data-status="in_progress">
+                            Continue
+                          </button>
+                        {% else %}
+                          <button type="button"
+                                  class="btn btn-outline-warning btn-sm w-100 js-status-button"
+                                  data-update-url="{% url 'projects:task_set_status' task.id %}"
+                                  data-status="paused">
+                            Pause
+                          </button>
+                        {% endif %}
+                      </div>
+                    {% endif %}
+                  {% endif %}
+
                 </div>
-
-                {% if task.deliverables.all %}
-                  <div class="small text-muted mt-1">
-                    {% for d in task.deliverables.all %}
-                      {{ d.directory }}
-                      {% if d.count %} ({{ d.count }}){% endif %}
-                      {% if not forloop.last %} · {% endif %}
-                    {% endfor %}
-                  </div>
-                {% endif %}
-
-                {% if task.due_date %}
-                  <div class="small mt-1">
-                    <span class="badge bg-light text-muted border">
-                      Due: {{ task.due_date }}
-                    </span>
-                  </div>
-                {% endif %}
               </div>
-            </div>
-          {% empty %}
-            <div class="text-muted small px-2">
-              No completed tasks.
-            </div>
-          {% endfor %}
+            {% empty %}
+              <div class="text-muted small px-2 py-3 text-center">
+                No tasks.
+              </div>
+            {% endfor %}
+
+          </div>
         </div>
       </div>
-    </div>
+    {% endfor %}
 
   </div>
 </div>
@@ -242,13 +199,45 @@ function getCookie(name) {
 const csrftoken = getCookie("csrftoken");
 let draggedTaskCard = null;
 
+function postStatus(updateUrl, newStatus) {
+  const formData = new URLSearchParams();
+  formData.append("status", newStatus);
+
+  return fetch(updateUrl, {
+    method: "POST",
+    headers: {
+      "X-CSRFToken": csrftoken,
+      "X-Requested-With": "XMLHttpRequest",
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: formData.toString(),
+  }).then(async (response) => {
+    let data = {};
+    try {
+      data = await response.json();
+    } catch (e) {
+      data = {
+        success: false,
+        error: "Server returned an invalid response.",
+      };
+    }
+
+    if (!response.ok && data.success !== false) {
+      data.success = false;
+      data.error = data.error || "Request failed.";
+    }
+
+    return data;
+  });
+}
+
 document.querySelectorAll(".kanban-card").forEach((card) => {
   card.addEventListener("dragstart", (e) => {
-    // Only allow drag if browser thinks it's draggable
     if (card.getAttribute("draggable") !== "true") {
       e.preventDefault();
       return;
     }
+
     draggedTaskCard = card;
     e.dataTransfer.effectAllowed = "move";
     card.classList.add("opacity-50");
@@ -274,36 +263,49 @@ document.querySelectorAll("[data-kanban-column]").forEach((column) => {
   column.addEventListener("drop", (e) => {
     e.preventDefault();
     column.classList.remove("bg-light");
+
     if (!draggedTaskCard) return;
 
+    const card = draggedTaskCard;
+    const oldParent = card.parentNode;
     const newStatus = column.dataset.status;
-    const updateUrl = draggedTaskCard.dataset.updateUrl;
+    const updateUrl = card.dataset.updateUrl;
 
-    // If this card has no update URL (view-only), just ignore
-    if (!updateUrl) {
-      return;
-    }
+    if (!updateUrl) return;
 
-    column.appendChild(draggedTaskCard);
+    column.appendChild(card);
 
-    const formData = new URLSearchParams();
-    formData.append("status", newStatus);
+    postStatus(updateUrl, newStatus)
+      .then((data) => {
+        if (!data.success) {
+          oldParent.appendChild(card);
+          alert(data.error || "Could not update task status.");
+          return;
+        }
 
-    fetch(updateUrl, {
-      method: "POST",
-      headers: {
-        "X-CSRFToken": csrftoken,
-        "X-Requested-With": "XMLHttpRequest",
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: formData.toString(),
-    })
-      .then((response) => response.json())
+        window.location.reload();
+      })
+      .catch((error) => {
+        console.error(error);
+        oldParent.appendChild(card);
+        alert("Error updating task status.");
+      });
+  });
+});
+
+document.querySelectorAll(".js-status-button").forEach((button) => {
+  button.addEventListener("click", () => {
+    const updateUrl = button.dataset.updateUrl;
+    const newStatus = button.dataset.status;
+
+    button.disabled = true;
+
+    postStatus(updateUrl, newStatus)
       .then((data) => {
         if (!data.success) {
           alert(data.error || "Could not update task status.");
-          window.location.reload();
         }
+        window.location.reload();
       })
       .catch((error) => {
         console.error(error);

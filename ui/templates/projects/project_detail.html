@@ -3,200 +3,426 @@
 {% load roles_tags %}
 
 {% block content %}
-<div class="container py-4">
+<div class="container-fluid py-4">
 
-  {% has_role user ROLE_ADMIN ROLE_MANAGER as can_manage_project %}
+  {% is_admin request.user as is_admin %}
+  {% is_project_manager request.user as is_project_manager %}
+  {% is_employee request.user as is_employee %}
 
   <!-- Header -->
   <div class="mb-3 d-flex justify-content-between align-items-start">
     <div>
       <h1 class="h3 mb-1">{{ project.name }}</h1>
-      <div class="text-muted">
-        Client: {{ project.client }}
-        {% if project.deal %} · Deal: {{ project.deal }}{% endif %}
-      </div>
-    </div>
-    <div>
-      <a href="{% url 'projects:project_overview' project.pk %}" class="btn btn-outline-secondary btn-sm">
-        Full Overview
-      </a>
-    </div>
-  </div>
 
-  <!-- Data Grid -->
-  <div class="row g-3 mb-4">
-    <div class="col-md-4">
-      <div class="small text-uppercase text-muted mb-1">Manager</div>
-      <div class="fw-semibold">{{ project.manager|default:"Unassigned" }}</div>
-    </div>
-    <div class="col-md-4">
-      <div class="small text-uppercase text-muted mb-1">Status</div>
-      <div>
-        {% if project.status == "completed" %}
-          <span class="badge bg-success me-1">{{ project.get_status_display }}</span>
-        {% elif project.status == "active" %}
-          <span class="badge bg-primary me-1">{{ project.get_status_display }}</span>
-        {% elif project.status == "on_hold" %}
-          <span class="badge bg-warning text-dark me-1">{{ project.get_status_display }}</span>
-        {% elif project.status == "cancelled" %}
-          <span class="badge bg-danger me-1">{{ project.get_status_display }}</span>
+      <div class="text-muted">
+        Client:
+        {% if project.client %}
+          {{ project.client }}
         {% else %}
-          <span class="badge bg-secondary me-1">{{ project.get_status_display }}</span>
+          <span class="text-warning">Not linked</span>
+        {% endif %}
+
+        {% if project.deal %}
+          · Deal: {{ project.deal }}
+        {% endif %}
+        {% if project.project_directory %}
+          · Directory: {{ project.project_directory }}
         {% endif %}
       </div>
     </div>
-    <div class="col-md-4">
-      <div class="small text-uppercase text-muted mb-1">Priority</div>
-      <div class="fw-semibold">{{ project.get_priority_display }}</div>
-    </div>
 
-    <div class="col-md-4">
-      <div class="small text-uppercase text-muted mb-1">Start Date</div>
-      <div class="fw-semibold">{{ project.start_date|default:"—" }}</div>
+    <div class="d-flex gap-2">
+      <a href="{% url 'projects:project_kanban' %}" class="btn btn-outline-secondary btn-sm">
+        Kanban
+      </a>
+
+      <a href="{% url 'projects:project_overview' project.pk %}" class="btn btn-outline-secondary btn-sm">
+        Full Overview
+      </a>
+
+      {% if is_admin or is_project_manager %}
+        <a href="{% url 'projects:project_update' project.pk %}" class="btn btn-primary btn-sm">
+          Edit Project
+        </a>
+      {% endif %}
     </div>
-    <div class="col-md-4">
-      <div class="small text-uppercase text-muted mb-1">Due Date</div>
-      <div class="fw-semibold">{{ project.due_date|default:"—" }}</div>
-    </div>
-    <div class="col-md-4">
-      <div class="small text-uppercase text-muted mb-1">Progress</div>
-      <div class="fw-semibold">{{ project.progress_percent }}%</div>
-      <div class="mt-1">
-        <div class="progress" style="height: 4px;">
-          {% with pct=project.progress_percent|default_if_none:0 %}
-            <div class="progress-bar
-              {% if pct < 30 %}
-                bg-danger
-              {% elif pct < 70 %}
-                bg-warning
-              {% else %}
-                bg-success
-              {% endif %}"
-              style="width: {{ project.progress_bar_width }}%;">
-            </div>
-          {% endwith %}
+  </div>
+
+  <!-- Summary Cards -->
+  <div class="row g-3 mb-4">
+    <div class="col-md-3">
+      <div class="card h-100 border-0 shadow-sm">
+        <div class="card-body">
+          <div class="small text-uppercase text-muted mb-1">Status</div>
+          <div>
+            {% if project.status == "completed" %}
+              <span class="badge bg-success">{{ project.get_status_display }}</span>
+            {% elif project.status == "active" %}
+              <span class="badge bg-primary">{{ project.get_status_display }}</span>
+            {% elif project.status == "on_hold" %}
+              <span class="badge bg-warning text-dark">{{ project.get_status_display }}</span>
+            {% elif project.status == "cancelled" %}
+              <span class="badge bg-danger">{{ project.get_status_display }}</span>
+            {% else %}
+              <span class="badge bg-secondary">{{ project.get_status_display }}</span>
+            {% endif %}
+          </div>
+
+          <div class="small text-muted mt-2">
+            Priority:
+            <span class="fw-semibold">{{ project.get_priority_display }}</span>
+          </div>
         </div>
       </div>
     </div>
 
-    <div class="col-md-4">
-      <div class="small text-uppercase text-muted mb-1">Deal</div>
-      <div class="fw-semibold">{{ project.deal|default:"—" }}</div>
-    </div>
-    {% if project.event %}
-      <div class="col-md-4">
-        <div class="small text-uppercase text-muted mb-1">Event</div>
-        <div class="fw-semibold">{{ project.event }}</div>
+    <div class="col-md-3">
+      <div class="card h-100 border-0 shadow-sm">
+        <div class="card-body">
+          <div class="small text-uppercase text-muted mb-1">Manager</div>
+          <div class="fw-semibold">
+            {% if project.manager %}
+              {{ project.manager.get_full_name|default:project.manager.username }}
+            {% else %}
+              Unassigned
+            {% endif %}
+          </div>
+
+          {% if project.event %}
+            <div class="small text-muted mt-2">
+              Event: {{ project.event }}
+            </div>
+          {% endif %}
+          <div class="small text-muted mt-2">
+            Directory:
+            <span class="fw-semibold">
+              {% if project.project_directory %}
+                {{ project.project_directory }}
+              {% else %}
+                —
+              {% endif %}
+            </span>
+          </div>
+        </div>
       </div>
-    {% endif %}
+    </div>
+
+    <div class="col-md-3">
+      <div class="card h-100 border-0 shadow-sm">
+        <div class="card-body">
+          <div class="small text-uppercase text-muted mb-1">Schedule</div>
+          <div class="small">
+            Start:
+            <span class="fw-semibold">{{ project.start_date|default:"—" }}</span>
+          </div>
+          <div class="small">
+            Due:
+            <span class="fw-semibold {% if project.is_overdue %}text-danger{% endif %}">
+              {{ project.due_date|default:"—" }}
+            </span>
+            {% if project.is_overdue %}
+              <span class="badge bg-danger ms-1">Overdue</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3">
+      <div class="card h-100 border-0 shadow-sm">
+        <div class="card-body">
+          <div class="d-flex justify-content-between small text-muted mb-1">
+            <span>Progress</span>
+            <span>{{ project.progress_percent }}%</span>
+          </div>
+
+          <div class="progress" style="height: 6px;">
+            {% with pct=project.progress_percent|default_if_none:0 %}
+              <div class="progress-bar
+                {% if pct < 30 %}
+                  bg-danger
+                {% elif pct < 70 %}
+                  bg-warning
+                {% else %}
+                  bg-success
+                {% endif %}"
+                style="width: {{ project.progress_bar_width }}%;">
+              </div>
+            {% endwith %}
+          </div>
+
+          <div class="small text-muted mt-2">
+            Total work:
+            <span class="fw-semibold">{{ project.total_work_hours|default:"0" }} hrs</span>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Description -->
   {% if project.description %}
-    <div class="card mb-4">
+    <div class="card mb-4 border-0 shadow-sm">
       <div class="card-body">
         <div class="small text-uppercase text-muted mb-2">Description</div>
-        <div class="fw-normal">
-          {{ project.description|linebreaksbr }}
-        </div>
+        <div>{{ project.description|linebreaksbr }}</div>
       </div>
     </div>
   {% endif %}
 
-  <div class="row">
-    <!-- Tasks Section -->
-    <div class="col-md-6 mb-4">
-      <div class="card h-100">
-        <div class="card-header d-flex justify-content-between align-items-center">
-          <h5 class="mb-0">Tasks</h5>
-          {% if can_manage_project %}
-            <a href="{% url 'projects:task_create' %}" class="btn btn-sm btn-primary">
+  <div class="row g-3">
+
+    <!-- Tasks -->
+    <div class="col-lg-6">
+      <div class="card h-100 border-0 shadow-sm">
+        <div class="card-header bg-body border-bottom d-flex justify-content-between align-items-center">
+          <div>
+            <strong>Tasks</strong>
+            <span class="badge bg-light text-muted border ms-1">{{ tasks|length }}</span>
+          </div>
+
+          {% if is_admin or is_project_manager %}
+            <a href="{% url 'projects:task_create_for_project' project.pk %}"
+               class="btn btn-sm btn-primary">
               + Add Task
             </a>
           {% endif %}
         </div>
-        <div class="list-group list-group-flush">
-          {% for task in project.tasks.all %}
-            <a href="{% url 'projects:task_detail' task.pk %}"
-               class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
-              <div>
-                <div class="fw-semibold">{{ task.name }}</div>
-                <small class="text-muted">
-                  Assigned: {{ task.assigned_to|default:"Unassigned" }} ·
-                  Status: {{ task.get_status_display }} ·
-                  Due: {{ task.due_date|default:"—" }}
-                </small>
-              </div>
-              {% if task.status == "completed" %}
-                <span class="badge bg-success">Done</span>
-              {% elif task.status == "in_progress" %}
-                <span class="badge bg-primary">In Progress</span>
-              {% elif task.status == "blocked" %}
-                <span class="badge bg-warning text-dark">Blocked</span>
-              {% endif %}
-            </a>
-          {% empty %}
-            <div class="list-group-item text-muted">
+
+        <div class="card-body p-0">
+          {% if tasks %}
+            <div class="table-responsive">
+              <table class="table table-sm table-hover align-middle mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th>Task</th>
+                    <th>Category</th>
+                    <th>Assignee</th>
+                    <th>Status</th>
+                    <th>Due</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for task in tasks %}
+                    <tr>
+                      <td>
+                        <a href="{% url 'projects:task_detail' task.pk %}"
+                           class="fw-semibold text-decoration-none">
+                          {{ task.name }}
+                        </a>
+                        {% if task.directory %}
+                          <div class="small text-muted text-truncate">
+                            {{ task.directory }}
+                          </div>
+                        {% endif %}
+                      </td>
+
+                      <td>
+                        <span class="badge bg-light text-dark border">
+                          {{ task.get_category_display }}
+                        </span>
+                        <div class="small text-muted">{{ task.get_department_display }}</div>
+                      </td>
+
+                      <td>
+                        {% if task.assigned_to %}
+                          {{ task.assigned_to.get_full_name|default:task.assigned_to.username }}
+                        {% else %}
+                          <span class="text-muted">Unassigned</span>
+                        {% endif %}
+                      </td>
+
+                      <td>
+                        {% if task.status == "completed" %}
+                          <span class="badge bg-success">{{ task.get_status_display }}</span>
+                        {% elif task.status == "in_progress" %}
+                          <span class="badge bg-primary">{{ task.get_status_display }}</span>
+                        {% elif task.status == "paused" %}
+                          <span class="badge bg-warning text-dark">{{ task.get_status_display }}</span>
+                        {% elif task.status == "blocked" %}
+                          <span class="badge bg-danger">{{ task.get_status_display }}</span>
+                        {% else %}
+                          <span class="badge bg-secondary">{{ task.get_status_display }}</span>
+                        {% endif %}
+                      </td>
+
+                      <td>
+                        {% if task.due_date %}
+                          <span class="{% if task.is_overdue %}text-danger fw-semibold{% endif %}">
+                            {{ task.due_date }}
+                          </span>
+                        {% else %}
+                          —
+                        {% endif %}
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            <div class="p-3 text-muted">
               No tasks yet.
             </div>
-          {% endfor %}
+          {% endif %}
         </div>
       </div>
     </div>
 
-    <!-- Deliverables Section -->
-    <div class="col-md-6 mb-4">
-      <div class="card h-100">
-        <div class="card-header d-flex justify-content-between align-items-center">
-          <h5 class="mb-0">Deliverables</h5>
-          {% if can_manage_project %}
-            <a href="{% url 'projects:deliverable_create' %}"
+    <!-- Deliverables -->
+    <div class="col-lg-6">
+      <div class="card h-100 border-0 shadow-sm">
+        <div class="card-header bg-body border-bottom d-flex justify-content-between align-items-center">
+          <div>
+            <strong>Deliverables</strong>
+            <span class="badge bg-light text-muted border ms-1">{{ deliverables|length }}</span>
+          </div>
+
+          {% if is_admin or is_project_manager %}
+            <a href="{% url 'projects:deliverable_create_for_project' project.pk %}"
                class="btn btn-sm btn-primary">
               + Add Deliverable
             </a>
           {% endif %}
         </div>
-        <div class="list-group list-group-flush">
-          {% for d in project.deliverables.all %}
-            <a href="{% url 'projects:deliverable_detail' d.pk %}"
-               class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
-              <div>
-                <div class="fw-semibold">{{ d.name }}</div>
-                <small class="text-muted">
-                  Type: {{ d.get_type_display }} ·
-                  Status: {{ d.get_status_display }} ·
-                  Due: {{ d.due_date|default:"—" }}
-                  {% if d.file_link %}
-                    · <a href="{{ d.file_link }}" target="_blank">File</a>
-                  {% endif %}
-                </small>
-              </div>
-              {% if d.status == "delivered" %}
-                <span class="badge bg-success">Delivered</span>
-              {% elif d.status == "in_progress" %}
-                <span class="badge bg-primary">In Progress</span>
-              {% endif %}
-            </a>
-          {% empty %}
-            <div class="list-group-item text-muted">
+
+        <div class="card-body p-0">
+          {% if deliverables %}
+            <div class="table-responsive">
+              <table class="table table-sm table-hover align-middle mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th>Deliverable</th>
+                    <th>Category</th>
+                    <th>Tasks</th>
+                    <th>Status</th>
+                    <th>Due</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for d in deliverables %}
+                    <tr>
+                      <td>
+                        <a href="{% url 'projects:deliverable_detail' d.pk %}"
+                           class="fw-semibold text-decoration-none">
+                          {{ d.name }}
+                        </a>
+                        {% if d.file_link %}
+                          <div class="small">
+                            <a href="{{ d.file_link }}" target="_blank" class="text-decoration-none">
+                              Final File
+                            </a>
+                          </div>
+                        {% endif %}
+                      </td>
+
+                      <td>
+                        <span class="badge bg-light text-dark border">
+                          {{ d.get_category_display }}
+                        </span>
+                        <div class="small text-muted">{{ d.get_type_display }}</div>
+                      </td>
+
+                      <td>
+                        {% if d.linked_task_count %}
+                          <div class="small text-muted">
+                            {{ d.completed_task_count }}/{{ d.linked_task_count }}
+                          </div>
+                          <div class="progress" style="height: 4px; min-width: 70px;">
+                            <div class="progress-bar"
+                                 style="width: {{ d.task_progress_percent }}%;">
+                            </div>
+                          </div>
+                        {% else %}
+                          <span class="text-muted small">No tasks</span>
+                        {% endif %}
+                      </td>
+
+                      <td>
+                        {% if d.status == "delivered" %}
+                          <span class="badge bg-success">{{ d.get_status_display }}</span>
+                        {% elif d.status == "in_progress" %}
+                          <span class="badge bg-primary">{{ d.get_status_display }}</span>
+                        {% elif d.status == "paused" %}
+                          <span class="badge bg-warning text-dark">{{ d.get_status_display }}</span>
+                        {% elif d.status == "revision_requested" %}
+                          <span class="badge bg-warning text-dark">{{ d.get_status_display }}</span>
+                        {% else %}
+                          <span class="badge bg-secondary">{{ d.get_status_display }}</span>
+                        {% endif %}
+                      </td>
+
+                      <td>
+                        {% if d.due_date %}
+                          <span class="{% if d.is_overdue %}text-danger fw-semibold{% endif %}">
+                            {{ d.due_date }}
+                          </span>
+                        {% else %}
+                          —
+                        {% endif %}
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            <div class="p-3 text-muted">
               No deliverables yet.
             </div>
-          {% endfor %}
+          {% endif %}
         </div>
       </div>
     </div>
+
   </div>
 
-  <!-- Action Row -->
-  <div class="text-center mt-3">
-    {% if can_manage_project %}
-      <a href="{% url 'projects:project_update' project.pk %}"
-         class="btn btn-primary me-2">
-        Edit Project
-      </a>
-    {% endif %}
-    <a href="{% url 'projects:project_list' %}"
-       class="btn btn-secondary">
+  <!-- Active Work Sessions -->
+  {% if work_sessions %}
+    <div class="card border-0 shadow-sm mt-4">
+      <div class="card-header bg-body border-bottom">
+        <strong>Recent Work Sessions</strong>
+      </div>
+
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>User</th>
+                <th>Target</th>
+                <th>Status</th>
+                <th>Started</th>
+                <th class="text-end">Work Hours</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for session in work_sessions %}
+                <tr>
+                  <td>{{ session.user.get_full_name|default:session.user.username }}</td>
+                  <td>
+                    {% if session.task %}
+                      Task: {{ session.task.name }}
+                    {% elif session.deliverable %}
+                      Deliverable: {{ session.deliverable.name }}
+                    {% else %}
+                      —
+                    {% endif %}
+                  </td>
+                  <td>{{ session.get_status_display }}</td>
+                  <td>{{ session.started_at }}</td>
+                  <td class="text-end">{{ session.live_work_hours }} hrs</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  {% endif %}
+
+  <div class="text-center mt-4">
+    <a href="{% url 'projects:project_list' %}" class="btn btn-secondary">
       Back to Projects
     </a>
   </div>

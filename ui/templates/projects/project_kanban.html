@@ -3,187 +3,150 @@
 {% load roles_tags %}
 
 {% block content %}
-<div class="container py-4">
+<div class="container-fluid py-4">
 
-  {% has_role user ROLE_ADMIN ROLE_MANAGER as can_drag %}
+  {% is_admin request.user as is_admin %}
+  {% is_project_manager request.user as is_project_manager %}
 
-  <!-- Header -->
   <div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 class="h3 mb-0">Project Kanban</h1>
+    <div>
+      <h1 class="h3 mb-0">Project Kanban</h1>
+      <small class="text-muted">
+        {% if is_admin or is_project_manager %}
+          Drag projects between Planned, Active and Completed.
+        {% else %}
+          View-only project board.
+        {% endif %}
+      </small>
+    </div>
+
     <div class="d-flex gap-2">
       <a href="{% url 'projects:project_list' %}" class="btn btn-outline-secondary btn-sm">
         Table View
       </a>
+
+      {% if is_admin or is_project_manager %}
+        <a href="{% url 'projects:project_create' %}" class="btn btn-primary btn-sm">
+          + New Project
+        </a>
+      {% endif %}
     </div>
   </div>
 
-  <!-- Kanban Board -->
   <div class="row g-3" id="project-kanban-board">
 
-    <!-- Planned Column -->
-    <div class="col-md-4">
-      <div class="card h-100">
-        <div class="card-header bg-light">
-          <strong>Planned</strong>
-        </div>
-        <div class="card-body p-2 kanban-column"
-             data-kanban-column
-             data-status="planned">
-          {% for project in projects_by_status.planned %}
-            <div class="card mb-2 shadow-sm kanban-card"
-                 {% if can_drag %}draggable="true"{% endif %}
-                 data-type="project"
-                 data-id="{{ project.id }}"
-                 {% if can_drag %}
-                   data-update-url="{% url 'projects:project_set_status' project.id %}"
-                 {% endif %}>
-              <div class="card-body py-2 px-2">
-                <div class="fw-semibold small text-truncate">
-                  <a href="{% url 'projects:project_detail' project.pk %}"
-                     class="text-decoration-none">
-                    {{ project.name }}
-                  </a>
-                </div>
-                <div class="small text-muted text-truncate">
-                  Client: {{ project.client }}
-                </div>
-                <div class="small mt-1 d-flex flex-wrap align-items-center gap-1">
-                  <span class="badge bg-secondary">{{ project.get_status_display }}</span>
-                  {% if project.due_date %}
-                    <span class="badge {% if project.is_overdue %}bg-danger{% else %}bg-light text-muted border{% endif %}">
-                      Due: {{ project.due_date }}
-                    </span>
-                  {% endif %}
-                </div>
-              </div>
-            </div>
-          {% empty %}
-            <div class="text-muted small px-2">
-              No planned projects.
-            </div>
-          {% endfor %}
-        </div>
-      </div>
-    </div>
+    {% for status_key, status_label in kanban_status_choices %}
+      <div class="col-lg-4 col-md-6">
+        <div class="card h-100 border-0 shadow-sm">
 
-    <!-- Active Column -->
-    <div class="col-md-4">
-      <div class="card h-100">
-        <div class="card-header bg-light">
-          <strong>Active</strong>
-        </div>
-        <div class="card-body p-2 kanban-column"
-             data-kanban-column
-             data-status="active">
-          {% for project in projects_by_status.active %}
-            <div class="card mb-2 shadow-sm kanban-card"
-                 {% if can_drag %}draggable="true"{% endif %}
-                 data-type="project"
-                 data-id="{{ project.id }}"
-                 {% if can_drag %}
-                   data-update-url="{% url 'projects:project_set_status' project.id %}"
-                 {% endif %}>
-              <div class="card-body py-2 px-2">
-                <div class="fw-semibold small text-truncate">
-                  <a href="{% url 'projects:project_detail' project.pk %}"
-                     class="text-decoration-none">
-                    {{ project.name }}
-                  </a>
-                </div>
-                <div class="small text-muted text-truncate">
-                  Client: {{ project.client }}
-                </div>
-                <div class="small mt-1 d-flex flex-column gap-1">
-                  <div>
-                    <span class="badge bg-primary me-1">{{ project.get_status_display }}</span>
-                    <span class="small text-muted">
-                      {{ project.progress_percent }}% done
-                    </span>
+          <div class="card-header bg-body border-bottom d-flex justify-content-between align-items-center">
+            <strong>{{ status_label }}</strong>
+            <span class="badge bg-light text-muted border">
+              {{ projects_by_status|get_item:status_key|length }}
+            </span>
+          </div>
+
+          <div class="card-body p-2 kanban-column"
+               data-kanban-column
+               data-status="{{ status_key }}"
+               style="min-height: 480px;">
+
+            {% for project in projects_by_status|get_item:status_key %}
+              <div class="card mb-2 shadow-sm kanban-card"
+                   {% if is_admin or is_project_manager %}
+                     draggable="true"
+                     data-update-url="{% url 'projects:project_set_status' project.id %}"
+                   {% endif %}
+                   data-type="project"
+                   data-id="{{ project.id }}">
+
+                <div class="card-body p-2">
+
+                  <div class="fw-semibold small text-truncate">
+                    <a href="{% url 'projects:project_detail' project.pk %}" class="text-decoration-none">
+                      {{ project.name }}
+                    </a>
                   </div>
-                  <div class="progress" style="height: 4px;">
-                    {% with pct=project.progress_percent|default_if_none:0 %}
+
+                  <div class="small text-muted text-truncate mt-1">
+                    Client:
+                    {% if project.client %}
+                      {{ project.client }}
+                    {% else %}
+                      <span class="text-warning">Not linked</span>
+                    {% endif %}
+                  </div>
+
+                  <div class="small text-muted text-truncate">
+                    Manager:
+                    {% if project.manager %}
+                      {{ project.manager.get_full_name|default:project.manager.username }}
+                    {% else %}
+                      Unassigned
+                    {% endif %}
+                  </div>
+
+                  <div class="d-flex flex-wrap gap-1 mt-2">
+                    <span class="badge bg-secondary">
+                      {{ project.get_status_display }}
+                    </span>
+
+                    <span class="badge
+                      {% if project.priority == 'critical' %}
+                        bg-danger
+                      {% elif project.priority == 'high' %}
+                        bg-warning text-dark
+                      {% else %}
+                        bg-light text-muted border
+                      {% endif %}
+                    ">
+                      {{ project.get_priority_display }}
+                    </span>
+
+                    {% if project.due_date %}
+                      <span class="badge {% if project.is_overdue %}bg-danger{% else %}bg-light text-muted border{% endif %}">
+                        Due: {{ project.due_date }}
+                      </span>
+                    {% endif %}
+                  </div>
+
+                  <div class="mt-2">
+                    <div class="d-flex justify-content-between small text-muted mb-1">
+                      <span>Progress</span>
+                      <span>{{ project.progress_percent }}%</span>
+                    </div>
+
+                    <div class="progress" style="height: 5px;">
                       <div class="progress-bar
-                        {% if pct < 30 %}
+                        {% if project.progress_percent < 30 %}
                           bg-danger
-                        {% elif pct < 70 %}
+                        {% elif project.progress_percent < 70 %}
                           bg-warning
                         {% else %}
                           bg-success
                         {% endif %}"
                         style="width: {{ project.progress_bar_width }}%;">
                       </div>
-                    {% endwith %}
+                    </div>
                   </div>
-                </div>
-              </div>
-            </div>
-          {% empty %}
-            <div class="text-muted small px-2">
-              No active projects.
-            </div>
-          {% endfor %}
-        </div>
-      </div>
-    </div>
 
-    <!-- Completed Column -->
-    <div class="col-md-4">
-      <div class="card h-100">
-        <div class="card-header bg-light">
-          <strong>Completed</strong>
-        </div>
-        <div class="card-body p-2 kanban-column"
-             data-kanban-column
-             data-status="completed">
-          {% for project in projects_by_status.completed %}
-            <div class="card mb-2 shadow-sm kanban-card"
-                 {% if can_drag %}draggable="true"{% endif %}
-                 data-type="project"
-                 data-id="{{ project.id }}"
-                 {% if can_drag %}
-                   data-update-url="{% url 'projects:project_set_status' project.id %}"
-                 {% endif %}>
-              <div class="card-body py-2 px-2">
-                <div class="fw-semibold small text-truncate">
-                  <a href="{% url 'projects:project_detail' project.pk %}"
-                     class="text-decoration-none">
-                    {{ project.name }}
-                  </a>
-                </div>
-                <div class="small text-muted text-truncate">
-                  Client: {{ project.client }}
-                </div>
-                <div class="small mt-1 d-flex flex-column gap-1">
-                  <div>
-                    <span class="badge bg-success me-1">{{ project.get_status_display }}</span>
-                    <span class="small text-muted">
-                      {{ project.progress_percent }}% done
-                    </span>
-                  </div>
-                  <div class="progress" style="height: 4px;">
-                    {% with pct=project.progress_percent|default_if_none:0 %}
-                      <div class="progress-bar bg-success"
-                           style="width: {{ project.progress_bar_width }}%;">
-                      </div>
-                    {% endwith %}
-                  </div>
                 </div>
               </div>
-            </div>
-          {% empty %}
-            <div class="text-muted small px-2">
-              No completed projects.
-            </div>
-          {% endfor %}
+            {% empty %}
+              <div class="text-muted small px-2 py-3 text-center">
+                No projects.
+              </div>
+            {% endfor %}
+
+          </div>
         </div>
       </div>
-    </div>
+    {% endfor %}
 
   </div>
 </div>
 
 <script>
-/* existing JS unchanged */
 function getCookie(name) {
   let cookieValue = null;
   if (document.cookie && document.cookie !== "") {
@@ -204,6 +167,11 @@ let draggedCard = null;
 
 document.querySelectorAll(".kanban-card").forEach((card) => {
   card.addEventListener("dragstart", (e) => {
+    if (card.getAttribute("draggable") !== "true") {
+      e.preventDefault();
+      return;
+    }
+
     draggedCard = card;
     e.dataTransfer.effectAllowed = "move";
     card.classList.add("opacity-50");
@@ -229,14 +197,14 @@ document.querySelectorAll("[data-kanban-column]").forEach((column) => {
   column.addEventListener("drop", (e) => {
     e.preventDefault();
     column.classList.remove("bg-light");
+
     if (!draggedCard) return;
 
+    const oldParent = draggedCard.parentNode;
     const newStatus = column.dataset.status;
     const updateUrl = draggedCard.dataset.updateUrl;
-    if (!updateUrl) {
-      // non-admin/manager dragged? Just ignore
-      return;
-    }
+
+    if (!updateUrl) return;
 
     column.appendChild(draggedCard);
 
@@ -255,12 +223,14 @@ document.querySelectorAll("[data-kanban-column]").forEach((column) => {
       .then((response) => response.json())
       .then((data) => {
         if (!data.success) {
+          oldParent.appendChild(draggedCard);
           alert(data.error || "Could not update project status.");
           window.location.reload();
         }
       })
       .catch((error) => {
         console.error(error);
+        oldParent.appendChild(draggedCard);
         alert("Error updating project status.");
         window.location.reload();
       });

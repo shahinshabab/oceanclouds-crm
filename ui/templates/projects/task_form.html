@@ -2,42 +2,53 @@
 {% load roles_tags %}
 
 {% block content %}
-<div class="container py-3 max-w-2xl">
+<div class="container py-4">
 
-  {% has_role user ROLE_ADMIN as is_admin %}
-  {% has_role user ROLE_MANAGER as is_manager %}
+  {% is_admin request.user as is_admin %}
+  {% is_project_manager request.user as is_project_manager %}
 
   <!-- Header -->
   <div class="d-flex justify-content-between align-items-start mb-3">
     <div>
-      <h2 class="fw-semibold mb-1">
-        {% if object %}
-          Edit Task
-        {% else %}
-          New Task
-        {% endif %}
-      </h2>
+      <h1 class="h3 mb-1">
+        {% if object %}Edit Task{% else %}New Task{% endif %}
+      </h1>
 
       {% if object %}
-        <small class="text-muted">
+        <div class="text-muted small">
           Project:
-          <a href="{% url 'projects:project_detail' object.project.pk %}">
+          <a href="{% url 'projects:project_detail' object.project.pk %}" class="text-decoration-none">
             {{ object.project.name }}
           </a>
-          · Client: {{ object.project.client }}
-        </small>
+          · Client:
+          {% if object.project.client %}
+            {{ object.project.client }}
+          {% else %}
+            Not linked
+          {% endif %}
+        </div>
+      {% else %}
+        <div class="text-muted small">
+          Create an internal production task such as import, culling, editing, colour, export, or QC.
+        </div>
       {% endif %}
     </div>
 
-    <div class="mt-2 mt-md-0">
+    <div class="d-flex gap-2">
       {% if object %}
+        <a href="{% url 'projects:task_detail' object.pk %}"
+           class="btn btn-sm btn-outline-secondary">
+          Task Detail
+        </a>
+
         <a href="{% url 'projects:project_detail' object.project.pk %}"
            class="btn btn-sm btn-outline-secondary">
-          ← Back to Project
+          Project
         </a>
       {% endif %}
+
       <a href="{% url 'projects:task_list' %}"
-         class="btn btn-sm btn-outline-secondary ms-1">
+         class="btn btn-sm btn-outline-secondary">
         All Tasks
       </a>
     </div>
@@ -52,135 +63,159 @@
       </div>
     {% endif %}
 
-    <div class="card shadow-sm">
-      <div class="card-body">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-body border-bottom">
+        <strong>Task Information</strong>
+      </div>
 
-        <!-- Row 1: Name / Project / Assigned To -->
-        <div class="row">
-          <!-- Name -->
-          <div class="col-md-4 mb-3">
+      <div class="card-body">
+        <div class="row g-3">
+
+          <div class="col-md-6">
             <label class="form-label">
               {{ form.name.label }}{% if form.name.field.required %} *{% endif %}
             </label>
             {{ form.name }}
-            {{ form.name.errors }}
+            <div class="text-danger small">{{ form.name.errors }}</div>
           </div>
 
-          <!-- Project -->
-          <div class="col-md-4 mb-3">
+          <div class="col-md-6">
             <label class="form-label">
-              Project{% if not object and form.project.field.required %} *{% endif %}
+              {{ form.project.label }}{% if form.project.field.required %} *{% endif %}
             </label>
-            {% if not object %}
-              {{ form.project }}
-              {{ form.project.errors }}
-            {% else %}
-              <div class="form-control-plaintext">
+
+            {% if object %}
+              <div class="form-control-plaintext border rounded px-2 bg-light">
                 {{ object.project.name }}
               </div>
+            {% else %}
+              {{ form.project }}
             {% endif %}
+
+            <div class="text-danger small">{{ form.project.errors }}</div>
           </div>
 
-          <!-- Assigned To -->
-          <div class="col-md-4 mb-3">
+          <div class="col-md-4">
+            <label class="form-label">
+              {{ form.department.label }}{% if form.department.field.required %} *{% endif %}
+            </label>
+            {{ form.department }}
+            <div class="text-danger small">{{ form.department.errors }}</div>
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label">
+              {{ form.category.label }}{% if form.category.field.required %} *{% endif %}
+            </label>
+            {{ form.category }}
+            <div class="text-danger small">{{ form.category.errors }}</div>
+          </div>
+
+          <div class="col-md-4">
             <label class="form-label">
               {{ form.assigned_to.label }}{% if form.assigned_to.field.required %} *{% endif %}
             </label>
             {{ form.assigned_to }}
-            {{ form.assigned_to.errors }}
+            <div class="text-danger small">{{ form.assigned_to.errors }}</div>
           </div>
-        </div>
 
-        <!-- Row 2: Directory / Type / Count -->
-        <div class="row">
-          <div class="col-md-4 mb-3">
+          <div class="col-md-6">
             <label class="form-label">
               {{ form.directory.label }}{% if form.directory.field.required %} *{% endif %}
             </label>
             {{ form.directory }}
-            {{ form.directory.errors }}
+            {% if form.directory.help_text %}
+              <div class="form-text">{{ form.directory.help_text }}</div>
+            {% endif %}
+            <div class="text-danger small">{{ form.directory.errors }}</div>
           </div>
-          <div class="col-md-4 mb-3">
-            <label class="form-label">
-              {{ form.type.label }}{% if form.type.field.required %} *{% endif %}
-            </label>
-            {{ form.type }}
-            {{ form.type.errors }}
-          </div>
-          <div class="col-md-4 mb-3">
+
+          <div class="col-md-6">
             <label class="form-label">
               {{ form.count.label }}{% if form.count.field.required %} *{% endif %}
             </label>
             {{ form.count }}
-            {{ form.count.errors }}
+            <div class="form-text">Example: 1500 RAW photos, 4 folders, 3 reels, etc.</div>
+            <div class="text-danger small">{{ form.count.errors }}</div>
           </div>
-        </div>
 
-        <!-- Row 3: Status / Priority / Due Date -->
-        <div class="row">
-          <!-- Status -->
-          <div class="col-md-4 mb-3">
+          <div class="col-md-3">
             <label class="form-label">
               {{ form.status.label }}{% if form.status.field.required %} *{% endif %}
             </label>
             {{ form.status }}
-            {{ form.status.errors }}
+            <div class="text-danger small">{{ form.status.errors }}</div>
           </div>
 
-          <!-- Priority -->
-          <div class="col-md-4 mb-3">
+          <div class="col-md-3">
             <label class="form-label">
               {{ form.priority.label }}{% if form.priority.field.required %} *{% endif %}
             </label>
             {{ form.priority }}
-            {{ form.priority.errors }}
+            <div class="text-danger small">{{ form.priority.errors }}</div>
           </div>
 
-          <!-- Due Date -->
-          <div class="col-md-4 mb-3">
+          <div class="col-md-3">
             <label class="form-label">
               {{ form.due_date.label }}{% if form.due_date.field.required %} *{% endif %}
             </label>
             {{ form.due_date }}
-            {{ form.due_date.errors }}
+            <div class="text-danger small">{{ form.due_date.errors }}</div>
           </div>
-        </div>
 
-        <!-- Description (full width) -->
-        <div class="mb-3">
-          <label class="form-label">
-            {{ form.description.label }}{% if form.description.field.required %} *{% endif %}
-          </label>
-          {{ form.description }}
-          {% if form.description.help_text %}
-            <div class="form-text">{{ form.description.help_text }}</div>
-          {% endif %}
-          {{ form.description.errors }}
-        </div>
+          <div class="col-md-3">
+            <label class="form-label">
+              {{ form.estimated_minutes.label }}{% if form.estimated_minutes.field.required %} *{% endif %}
+            </label>
+            {{ form.estimated_minutes }}
+            <div class="form-text">Optional estimate.</div>
+            <div class="text-danger small">{{ form.estimated_minutes.errors }}</div>
+          </div>
 
+          <div class="col-md-3">
+            <label class="form-label">
+              {{ form.sort_order.label }}{% if form.sort_order.field.required %} *{% endif %}
+            </label>
+            {{ form.sort_order }}
+            <div class="form-text">Lower number appears first.</div>
+            <div class="text-danger small">{{ form.sort_order.errors }}</div>
+          </div>
+
+          <div class="col-md-9">
+            <label class="form-label">
+              {{ form.description.label }}{% if form.description.field.required %} *{% endif %}
+            </label>
+            {{ form.description }}
+            {% if form.description.help_text %}
+              <div class="form-text">{{ form.description.help_text }}</div>
+            {% endif %}
+            <div class="text-danger small">{{ form.description.errors }}</div>
+          </div>
+
+        </div>
       </div>
     </div>
 
-    <!-- Buttons -->
-    <div class="text-center mt-3">
-      <button type="submit" class="btn btn-primary">
-        {% if object %}Save Changes{% else %}Create Task{% endif %}
-      </button>
+    <div class="d-flex justify-content-center gap-2 mt-3">
+      {% if is_admin or is_project_manager %}
+        <button type="submit" class="btn btn-primary">
+          {% if object %}Save Changes{% else %}Create Task{% endif %}
+        </button>
+      {% endif %}
 
       {% if object %}
-        <a href="{% url 'projects:project_detail' object.project.pk %}"
-           class="btn btn-secondary ms-2">
+        <a href="{% url 'projects:task_detail' object.pk %}"
+           class="btn btn-secondary">
           Cancel
         </a>
       {% else %}
         <a href="{% url 'projects:task_list' %}"
-           class="btn btn-secondary ms-2">
+           class="btn btn-secondary">
           Cancel
         </a>
       {% endif %}
     </div>
 
   </form>
-
 </div>
 {% endblock %}

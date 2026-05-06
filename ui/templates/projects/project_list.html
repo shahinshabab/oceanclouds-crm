@@ -3,21 +3,27 @@
 {% load roles_tags %}
 
 {% block content %}
-<div class="container py-4">
+<div class="container-fluid py-4">
 
-  {% has_role user ROLE_ADMIN as can_create_project %}
-  {% has_role user ROLE_ADMIN ROLE_MANAGER as can_edit_projects %}
+  {% is_admin request.user as is_admin %}
+  {% is_project_manager request.user as is_project_manager %}
+  {% is_employee request.user as is_employee %}
 
   <!-- Header Row -->
   <div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 class="h3 mb-0">Projects</h1>
+    <div>
+      <h1 class="h3 mb-0">Projects</h1>
+      <small class="text-muted">
+        Manage wedding/event production projects.
+      </small>
+    </div>
 
     <div class="d-flex gap-2">
       <a href="{% url 'projects:project_kanban' %}" class="btn btn-outline-secondary btn-sm">
         Kanban View
       </a>
-      {# Only Admin role can create projects (matches AdminOnlyMixin) #}
-      {% if can_create_project %}
+
+      {% if is_admin or is_project_manager %}
         <a href="{% url 'projects:project_create' %}" class="btn btn-success btn-sm">
           + New Project
         </a>
@@ -27,7 +33,7 @@
 
   <!-- Search + Filters Row -->
   <form method="get" class="row g-2 align-items-end mb-3">
-    <div class="col-md-5">
+    <div class="col-lg-4 col-md-6">
       <label class="form-label small text-muted text-uppercase mb-1">Search</label>
       <input type="text"
              name="q"
@@ -36,7 +42,7 @@
              placeholder="Search by project, client, or deal">
     </div>
 
-    <div class="col-md-3">
+    <div class="col-lg-2 col-md-3">
       <label class="form-label small text-muted text-uppercase mb-1">Status</label>
       <select name="status" class="form-select">
         <option value="">All statuses</option>
@@ -48,10 +54,22 @@
       </select>
     </div>
 
-    <div class="col-md-3">
-      <label class="form-label small text-muted text-uppercase mb-1">Manager</label>
+    <div class="col-lg-2 col-md-3">
+      <label class="form-label small text-muted text-uppercase mb-1">Priority</label>
+      <select name="priority" class="form-select">
+        <option value="">All priorities</option>
+        {% for value, label in priority_choices %}
+          <option value="{{ value }}" {% if priority_filter == value %}selected{% endif %}>
+            {{ label }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="col-lg-3 col-md-6">
+      <label class="form-label small text-muted text-uppercase mb-1">Project Manager</label>
       <select name="manager" class="form-select">
-        <option value="">All managers</option>
+        <option value="">All project managers</option>
         {% for manager in manager_choices %}
           <option value="{{ manager.id }}" {% if manager_filter|add:'' == manager.id|add:'' %}selected{% endif %}>
             {{ manager.get_full_name|default:manager.username }}
@@ -60,7 +78,7 @@
       </select>
     </div>
 
-    <div class="col-md-1 d-grid">
+    <div class="col-lg-1 col-md-2 d-grid">
       <button class="btn btn-outline-secondary" type="submit">
         Apply
       </button>
@@ -68,29 +86,114 @@
   </form>
 
   <!-- Data Table -->
-  <div class="card">
+  <div class="card border-0 shadow-sm">
     <div class="card-body p-0">
-      <table class="table table-hover align-middle mb-0">
-        <thead class="table-light">
-          <tr>
-            <th>Project</th>
-            <th>Client</th>
-            <th>Manager</th>
-            <th>Status</th>
-            <th>Due</th>
-            <th class="text-end">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for project in projects %}
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light">
             <tr>
-              <td>
-                <a href="{% url 'projects:project_detail' project.pk %}"
-                   class="fw-semibold text-decoration-none">
-                  {{ project.name }}
-                </a>
-                <div class="mt-1">
-                  <div class="progress" style="height: 4px;">
+              <th>Project</th>
+              <th>Client / Deal</th>
+              <th>Manager</th>
+              <th>Status</th>
+              <th>Priority</th>
+              <th>Due</th>
+              <th>Progress</th>
+              <th class="text-end">Actions</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {% for project in projects %}
+              <tr>
+                <td>
+                  <a href="{% url 'projects:project_detail' project.pk %}"
+                     class="fw-semibold text-decoration-none">
+                    {{ project.name }}
+                  </a>
+
+                  {% if project.event %}
+                    <div class="small text-muted">
+                      Event: {{ project.event }}
+                    </div>
+                  {% endif %}
+                </td>
+
+                <td>
+                  <div>
+                    {% if project.client %}
+                      {{ project.client }}
+                    {% else %}
+                      <span class="text-warning">Client not linked</span>
+                    {% endif %}
+                  </div>
+
+                  <div class="small text-muted">
+                    Deal:
+                    {% if project.deal %}
+                      {{ project.deal }}
+                    {% else %}
+                      —
+                    {% endif %}
+                  </div>
+                </td>
+
+                <td>
+                  {% if project.manager %}
+                    {{ project.manager.get_full_name|default:project.manager.username }}
+                  {% else %}
+                    <span class="text-muted">Unassigned</span>
+                  {% endif %}
+                </td>
+
+                <td>
+                  {% if project.status == "completed" %}
+                    <span class="badge bg-success">{{ project.get_status_display }}</span>
+                  {% elif project.status == "active" %}
+                    <span class="badge bg-primary">{{ project.get_status_display }}</span>
+                  {% elif project.status == "on_hold" %}
+                    <span class="badge bg-warning text-dark">{{ project.get_status_display }}</span>
+                  {% elif project.status == "cancelled" %}
+                    <span class="badge bg-danger">{{ project.get_status_display }}</span>
+                  {% else %}
+                    <span class="badge bg-secondary">{{ project.get_status_display }}</span>
+                  {% endif %}
+                </td>
+
+                <td>
+                  {% if project.priority == "critical" %}
+                    <span class="badge bg-danger">{{ project.get_priority_display }}</span>
+                  {% elif project.priority == "high" %}
+                    <span class="badge bg-warning text-dark">{{ project.get_priority_display }}</span>
+                  {% elif project.priority == "medium" %}
+                    <span class="badge bg-info text-dark">{{ project.get_priority_display }}</span>
+                  {% else %}
+                    <span class="badge bg-light text-muted border">{{ project.get_priority_display }}</span>
+                  {% endif %}
+                </td>
+
+                <td>
+                  {% if project.due_date %}
+                    <span class="{% if project.is_overdue %}text-danger fw-semibold{% endif %}">
+                      {{ project.due_date }}
+                    </span>
+                    {% if project.is_overdue %}
+                      <div class="small text-danger">Overdue</div>
+                    {% endif %}
+                  {% else %}
+                    —
+                  {% endif %}
+                </td>
+
+                <td style="min-width: 140px;">
+                  <div class="d-flex justify-content-between small text-muted mb-1">
+                    <span>{{ project.progress_percent }}%</span>
+                    {% if project.total_work_hours %}
+                      <span>{{ project.total_work_hours }}h</span>
+                    {% endif %}
+                  </div>
+
+                  <div class="progress" style="height: 5px;">
                     {% with pct=project.progress_percent|default_if_none:0 %}
                       <div class="progress-bar
                         {% if pct < 30 %}
@@ -104,50 +207,39 @@
                       </div>
                     {% endwith %}
                   </div>
-                </div>
-              </td>
+                </td>
 
-              <td>{{ project.client }}</td>
-              <td>{{ project.manager|default:"Unassigned" }}</td>
-              <td>
-                {% if project.status == "completed" %}
-                  <span class="badge bg-success">{{ project.get_status_display }}</span>
-                {% elif project.status == "active" %}
-                  <span class="badge bg-primary">{{ project.get_status_display }}</span>
-                {% elif project.status == "on_hold" %}
-                  <span class="badge bg-warning text-dark">{{ project.get_status_display }}</span>
-                {% elif project.status == "cancelled" %}
-                  <span class="badge bg-danger">{{ project.get_status_display }}</span>
-                {% else %}
-                  <span class="badge bg-secondary">{{ project.get_status_display }}</span>
-                {% endif %}
-              </td>
-              <td>{{ project.due_date|default:"—" }}</td>
-              <td class="text-end">
-                <div class="btn-group btn-group-sm">
-                  <a href="{% url 'projects:project_detail' project.pk %}"
-                     class="btn btn-outline-secondary">
-                    View
-                  </a>
-                  {# Edit allowed for Admin + Manager (matches AdminManagerMixin) #}
-                  {% if can_edit_projects %}
-                    <a href="{% url 'projects:project_update' project.pk %}"
+                <td class="text-end">
+                  <div class="btn-group btn-group-sm">
+                    <a href="{% url 'projects:project_detail' project.pk %}"
                        class="btn btn-outline-secondary">
-                      Edit
+                      View
                     </a>
-                  {% endif %}
-                </div>
-              </td>
-            </tr>
-          {% empty %}
-            <tr>
-              <td colspan="6" class="text-center text-muted py-4">
-                No projects found.
-              </td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+
+                    <a href="{% url 'projects:project_overview' project.pk %}"
+                       class="btn btn-outline-secondary">
+                      Overview
+                    </a>
+
+                    {% if is_admin or is_project_manager %}
+                      <a href="{% url 'projects:project_update' project.pk %}"
+                         class="btn btn-outline-primary">
+                        Edit
+                      </a>
+                    {% endif %}
+                  </div>
+                </td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="8" class="text-center text-muted py-4">
+                  No projects found.
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 
@@ -158,7 +250,7 @@
         {% if page_obj.has_previous %}
           <li class="page-item">
             <a class="page-link"
-               href="?page={{ page_obj.previous_page_number }}&q={{ q }}&status={{ status_filter }}&manager={{ manager_filter }}">
+               href="?page={{ page_obj.previous_page_number }}&q={{ q }}&status={{ status_filter }}&priority={{ priority_filter }}&manager={{ manager_filter }}">
               Previous
             </a>
           </li>
@@ -173,7 +265,7 @@
         {% if page_obj.has_next %}
           <li class="page-item">
             <a class="page-link"
-               href="?page={{ page_obj.next_page_number }}&q={{ q }}&status={{ status_filter }}&manager={{ manager_filter }}">
+               href="?page={{ page_obj.next_page_number }}&q={{ q }}&status={{ status_filter }}&priority={{ priority_filter }}&manager={{ manager_filter }}">
               Next
             </a>
           </li>
@@ -181,5 +273,6 @@
       </ul>
     </nav>
   {% endif %}
+
 </div>
 {% endblock %}

@@ -24,12 +24,10 @@ from projects.models import (
     Project,
     Task,
     Deliverable,
-    FileType,
     DeliverableType,
     TaskStatus,
     DeliverableStatus,
     ProjectStatus,
-    WorkLog,
 )
 from sales.models import (
     Deal,

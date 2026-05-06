@@ -73,7 +73,7 @@ THIRD_PARTY_APPS = [
 
 
 LOCAL_APPS = [
-    "common",
+    "common.apps.CommonConfig",
     "crm",
     "sales",
     "events",
@@ -94,6 +94,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "common.middleware.CloseExpiredLoginSessionsMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -226,6 +227,6 @@ CRONJOBS = [
     ("0 7 * * *", "django.core.management.call_command", ["send_anniversary_wishes"]),
 ]"""
 
-SESSION_COOKIE_AGE = 10 * 60 * 60      # 8 hours
+SESSION_COOKIE_AGE = 10 * 60 * 60      # 10 hours
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False
-SESSION_SAVE_EVERY_REQUEST = True     # reset inactivity timer
+SESSION_SAVE_EVERY_REQUEST = True      # reset inactivity timer

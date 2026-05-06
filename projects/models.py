@@ -3,16 +3,16 @@
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models import Q, Sum
 from django.urls import reverse
 from django.utils import timezone
-from django.db.models import Q 
 
 from common.models import TimeStamped, Owned
 
 
-# -----------------------------
+# ============================================================
 # Choice enums
-# -----------------------------
+# ============================================================
 
 class ProjectStatus(models.TextChoices):
     PLANNED = "planned", "Planned"
@@ -22,13 +22,6 @@ class ProjectStatus(models.TextChoices):
     CANCELLED = "cancelled", "Cancelled"
 
 
-class TaskStatus(models.TextChoices):
-    PENDING = "pending", "Pending"
-    IN_PROGRESS = "in_progress", "In Progress"
-    COMPLETED = "completed", "Completed"
-    BLOCKED = "blocked", "Blocked"
-
-
 class Priority(models.TextChoices):
     LOW = "low", "Low"
     MEDIUM = "medium", "Medium"
@@ -36,42 +29,103 @@ class Priority(models.TextChoices):
     CRITICAL = "critical", "Critical"
 
 
-class DeliverableStatus(models.TextChoices):
+class ProductionDepartment(models.TextChoices):
+    PHOTO = "photo", "Photo"
+    VIDEO = "video", "Video"
+    DESIGN = "design", "Design"
+    ALBUM = "album", "Album"
+    MIXED = "mixed", "Mixed"
+    OTHER = "other", "Other"
+
+
+class TaskCategory(models.TextChoices):
+    IMPORT = "import", "Import"
+    SELECTION = "selection", "Selection / Culling"
+    EDITING = "editing", "Editing"
+    COLOR = "color", "Color / Grading"
+    AUDIO = "audio", "Audio / Sync"
+    DESIGN = "design", "Design"
+    EXPORT = "export", "Export"
+    QC = "qc", "Quality Check"
+    DELIVERY_SUPPORT = "delivery_support", "Delivery Support"
+    OTHER = "other", "Other"
+
+
+class DeliverableCategory(models.TextChoices):
+    ALBUM = "album", "Album"
+    POSTER = "poster", "Poster"
+    SAVE_THE_DATE = "save_the_date", "Save the Date"
+    PROMO_VIDEO = "promo_video", "Promo Video"
+    REEL = "reel", "Video Reel"
+    HIGHLIGHT_FILM = "highlight_film", "Highlight Film"
+    FULL_FILM = "full_film", "Full Wedding Film"
+    PHOTO_SET = "photo_set", "Edited Photo Set"
+    OTHER = "other", "Other"
+
+
+class TaskStatus(models.TextChoices):
     PENDING = "pending", "Pending"
     IN_PROGRESS = "in_progress", "In Progress"
+    PAUSED = "paused", "Paused"
+    REVIEW = "review", "Review"
+    REVISION = "revision", "Revision"
+    COMPLETED = "completed", "Completed"
+    BLOCKED = "blocked", "Blocked"
+    CANCELLED = "cancelled", "Cancelled"
+
+
+class DeliverableStatus(models.TextChoices):
+    PENDING = "pending", "Pending"
+    WAITING_FOR_TASKS = "waiting_for_tasks", "Waiting for Tasks"
+    IN_PROGRESS = "in_progress", "In Progress"
+    PAUSED = "paused", "Paused"
+    INTERNAL_REVIEW = "internal_review", "Internal Review"
+    CLIENT_REVIEW = "client_review", "Client Review"
+    REVISION_REQUESTED = "revision_requested", "Revision Requested"
+    READY_TO_DELIVER = "ready_to_deliver", "Ready to Deliver"
     DELIVERED = "delivered", "Delivered"
     CANCELLED = "cancelled", "Cancelled"
 
 
-class FileType(models.TextChoices):
-    IMAGE = "image", "Image"
-    VIDEO = "video", "Video"
-    MIXED = "mixed", "Image + Video"
-    OTHER = "other", "Other"
-
-
 class DeliverableType(models.TextChoices):
     DIGITAL = "digital", "Digital"
-    PHYSICAL = "physical", "Physical item"
+    PHYSICAL = "physical", "Physical"
     MIXED = "mixed", "Digital + Physical"
 
 
-# -----------------------------
+class WorkTargetType(models.TextChoices):
+    TASK = "task", "Task"
+    DELIVERABLE = "deliverable", "Deliverable"
+
+
+class WorkSessionStatus(models.TextChoices):
+    ACTIVE = "active", "Active"
+    PAUSED = "paused", "Paused"
+    ENDED = "ended", "Ended"
+
+
+
+# ============================================================
 # Project
-# -----------------------------
+# ============================================================
 
 class Project(TimeStamped, Owned):
     """
-    Internal coordination unit for a wedding / deal.
-    Typically created by ADMIN and assigned to one responsible MANAGER.
+    One wedding/event production project.
+
+    Client/deal are optional so old projects can be created first
+    and linked later.
     """
 
     name = models.CharField(max_length=255)
 
     client = models.ForeignKey(
         "crm.Client",
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
         related_name="projects",
+        null=True,
+        blank=True,
+        help_text="Optional at first. Can be linked later.",
     )
 
     deal = models.ForeignKey(
@@ -80,13 +134,24 @@ class Project(TimeStamped, Owned):
         related_name="projects",
         null=True,
         blank=True,
-        help_text="Linked sales deal (optional).",
+        help_text="Optional linked deal. Can be linked later.",
     )
 
-    description = models.TextField(
+    event = models.ForeignKey(
+        "events.Event",
+        on_delete=models.SET_NULL,
+        related_name="projects",
+        null=True,
         blank=True,
-        help_text="Internal notes or summary of what this project covers.",
+        help_text="Optional linked wedding/event.",
     )
+    project_directory = models.CharField(
+        max_length=500,
+        blank=True,
+        default="",
+        help_text="Main folder or drive path for this project.",
+    )
+    description = models.TextField(blank=True)
 
     manager = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -94,22 +159,14 @@ class Project(TimeStamped, Owned):
         related_name="managed_projects",
         null=True,
         blank=True,
-        help_text="Project owner on the operations side (usually a Manager).",
+        help_text="Project Manager responsible for this project.",
     )
 
-    start_date = models.DateField(
-        null=True,
-        blank=True,
-        help_text="Planned start date for this project.",
-    )
-    due_date = models.DateField(
-        null=True,
-        blank=True,
-        help_text="Target completion date for this project.",
-    )
+    start_date = models.DateField(null=True, blank=True)
+    due_date = models.DateField(null=True, blank=True)
 
     status = models.CharField(
-        max_length=20,
+        max_length=30,
         choices=ProjectStatus.choices,
         default=ProjectStatus.PLANNED,
         db_index=True,
@@ -122,14 +179,7 @@ class Project(TimeStamped, Owned):
         db_index=True,
     )
 
-    event = models.ForeignKey(
-        "events.Event",
-        on_delete=models.SET_NULL,
-        related_name="projects",
-        null=True,
-        blank=True,
-        help_text="Event this project is handling (wedding, reception, etc.).",
-    )
+    completed_at = models.DateTimeField(null=True, blank=True, db_index=True)
 
     class Meta:
         ordering = ["-created_at"]
@@ -137,118 +187,113 @@ class Project(TimeStamped, Owned):
             models.Index(fields=["status"]),
             models.Index(fields=["priority"]),
             models.Index(fields=["due_date"]),
+            models.Index(fields=["completed_at"]),
+            models.Index(fields=["manager", "status"]),
         ]
 
-    def __str__(self) -> str:
-        return f"{self.name} ({self.client})"
-
-    # ---------- URLs ---------- #
+    def __str__(self):
+        if self.client:
+            return f"{self.name} ({self.client})"
+        return self.name
 
     def get_absolute_url(self):
         return reverse("projects:project_detail", args=[self.pk])
 
-    # ---------- Progress / completion helpers ---------- #
-
     @property
-    def progress_percent(self) -> int:
-        """
-        Overall progress based on:
-        - Completed tasks
-        - Delivered deliverables
-        """
-        task_total = self.tasks.count()
-        deliv_total = self.deliverables.count()
-        total_items = task_total + deliv_total
-
-        if not total_items:
-            return 0
-
-        completed_tasks = self.tasks.filter(status=TaskStatus.COMPLETED).count()
-        delivered_items = self.deliverables.filter(
-            status=DeliverableStatus.DELIVERED
-        ).count()
-
-        done = completed_tasks + delivered_items
-        return int((done / total_items) * 100)
-
-    @property
-    def progress_bar_width(self) -> int:
-        """
-        Returns a minimum of 5% so that '0%' progress
-        still shows a visible bar in the UI.
-        """
-        pct = int(self.progress_percent or 0)
-        return max(pct, 5)
-
-    @property
-    def tasks_completed(self) -> bool:
-        """
-        True if there is at least one task and
-        all tasks are marked COMPLETED.
-        """
-        if not self.tasks.exists():
-            return False
-        return not self.tasks.exclude(status=TaskStatus.COMPLETED).exists()
-
-    @property
-    def deliverables_delivered(self) -> bool:
-        """
-        True if there is at least one deliverable and
-        all are marked DELIVERED.
-        """
-        if not self.deliverables.exists():
-            return False
-        return not self.deliverables.exclude(
-            status=DeliverableStatus.DELIVERED
-        ).exists()
-
-    @property
-    def can_be_completed(self) -> bool:
-        """
-        Project can be marked COMPLETED only if:
-        - All tasks are completed (if any), AND
-        - All deliverables are delivered (if any).
-        """
-        return self.tasks_completed and self.deliverables_delivered
-
-    @property
-    def is_overdue(self) -> bool:
-        """
-        Project is overdue if there is a due_date,
-        it's not completed/cancelled, and today > due_date.
-        """
+    def is_overdue(self):
         if not self.due_date:
             return False
-        if self.status in {ProjectStatus.COMPLETED, ProjectStatus.CANCELLED}:
+        if self.status in [ProjectStatus.COMPLETED, ProjectStatus.CANCELLED]:
             return False
         return timezone.localdate() > self.due_date
 
+    @property
+    def tasks_completed(self):
+        """
+        True if there are tasks and all non-cancelled tasks are completed.
+        """
+        qs = self.tasks.exclude(status=TaskStatus.CANCELLED)
+        if not qs.exists():
+            return False
+        return not qs.exclude(status=TaskStatus.COMPLETED).exists()
+
+    @property
+    def deliverables_delivered(self):
+        """
+        True if there are deliverables and all non-cancelled deliverables are delivered.
+        """
+        qs = self.deliverables.exclude(status=DeliverableStatus.CANCELLED)
+        if not qs.exists():
+            return False
+        return not qs.exclude(status=DeliverableStatus.DELIVERED).exists()
+
+    @property
+    def can_be_completed(self):
+        return self.tasks_completed and self.deliverables_delivered
+
+    @property
+    def progress_percent(self):
+        """
+        Report-friendly progress:
+        - 50% based on task completion
+        - 50% based on deliverable delivery
+        """
+        task_qs = self.tasks.exclude(status=TaskStatus.CANCELLED)
+        deliverable_qs = self.deliverables.exclude(status=DeliverableStatus.CANCELLED)
+
+        task_total = task_qs.count()
+        deliverable_total = deliverable_qs.count()
+
+        task_score = 0
+        deliverable_score = 0
+
+        if task_total:
+            completed = task_qs.filter(status=TaskStatus.COMPLETED).count()
+            task_score = (completed / task_total) * 50
+
+        if deliverable_total:
+            delivered = deliverable_qs.filter(status=DeliverableStatus.DELIVERED).count()
+            deliverable_score = (delivered / deliverable_total) * 50
+
+        return int(task_score + deliverable_score)
+
+    @property
+    def progress_bar_width(self):
+        return max(int(self.progress_percent or 0), 5)
+
+    @property
+    def total_work_seconds(self):
+        return self.work_sessions.aggregate(
+            total=Sum("work_seconds")
+        )["total"] or 0
+
+    @property
+    def total_work_hours(self):
+        return round(self.total_work_seconds / 3600, 2)
+
     def mark_completed(self):
-        """
-        Safe helper to mark the project as COMPLETED,
-        enforcing tasks + deliverables completion.
-        """
         if self.status == ProjectStatus.COMPLETED:
-            return  # idempotent
+            return
 
         if not self.can_be_completed:
             raise ValidationError(
-                "Cannot complete project until all tasks and deliverables are done."
+                "Cannot complete project until all tasks are completed and all deliverables are delivered."
             )
 
+        now = timezone.now()
         self.status = ProjectStatus.COMPLETED
-        self.save(update_fields=["status"])
+        self.completed_at = now
+        self.save(update_fields=["status", "completed_at"])
 
 
-# -----------------------------
+# ============================================================
 # Task
-# -----------------------------
+# ============================================================
 
 class Task(TimeStamped, Owned):
     """
-    Internal work item under a Project.
-    Manager assigns tasks to employees in their team.
-    One task typically refers to editing / culling a specific folder/batch.
+    Internal production work:
+    import photos, colour photos, grade videos, design, export, QC, etc.
     """
 
     project = models.ForeignKey(
@@ -257,47 +302,36 @@ class Task(TimeStamped, Owned):
         related_name="tasks",
     )
 
-    name = models.CharField(
-        max_length=255,
-        help_text="Short name for the task (e.g., 'Culling – Haldi Photos').",
+    name = models.CharField(max_length=255)
+
+    department = models.CharField(
+        max_length=30,
+        choices=ProductionDepartment.choices,
+        default=ProductionDepartment.OTHER,
+        db_index=True,
     )
 
-    directory = models.CharField(
-        max_length=255,
-        blank=True,
-        default="",
-        help_text="Folder path or directory for source files (optional).",
+    category = models.CharField(
+        max_length=40,
+        choices=TaskCategory.choices,
+        default=TaskCategory.OTHER,
+        db_index=True,
     )
 
-    type = models.CharField(
-        max_length=20,
-        choices=FileType.choices,
-        default=FileType.IMAGE,
-        help_text="Main file type handled in this task.",
-    )
-
-    count = models.CharField(
-        max_length=255,
-        blank=True,
-        help_text="File count or brief notes (e.g., '1500 RAW photos', '3 reels').",
-    )
-
-    description = models.TextField(
-        blank=True,
-        help_text="Detailed instructions or notes for this task.",
-    )
+    directory = models.CharField(max_length=255, blank=True, default="")
+    count = models.CharField(max_length=255, blank=True)
+    description = models.TextField(blank=True)
 
     assigned_to = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
-        related_name="tasks",
+        related_name="project_tasks",
         null=True,
         blank=True,
-        help_text="Employee responsible for this task.",
     )
 
     status = models.CharField(
-        max_length=20,
+        max_length=30,
         choices=TaskStatus.choices,
         default=TaskStatus.PENDING,
         db_index=True,
@@ -310,69 +344,77 @@ class Task(TimeStamped, Owned):
         db_index=True,
     )
 
-    due_date = models.DateField(
+    due_date = models.DateField(null=True, blank=True, db_index=True)
+
+    estimated_minutes = models.PositiveIntegerField(
         null=True,
         blank=True,
-        db_index=True,
-        help_text="Target date for completing this task.",
+        help_text="Optional estimated time in minutes.",
     )
-    first_started_at = models.DateTimeField(
-        null=True,
-        blank=True,
-        help_text="When this task was first moved from Pending to In Progress.",
-    )
-    completed_at = models.DateTimeField(
-        null=True,
-        blank=True,
-        help_text="Timestamp when the task was marked completed.",
-    )
-    
+
+    sort_order = models.PositiveIntegerField(default=0)
+
+    first_started_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    completed_at = models.DateTimeField(null=True, blank=True, db_index=True)
+
     class Meta:
-        ordering = ["status", "priority", "due_date", "created_at"]
+        ordering = ["sort_order", "due_date", "status", "priority", "created_at"]
         indexes = [
-            models.Index(fields=["status"]),
-            models.Index(fields=["priority"]),
+            models.Index(fields=["project", "status"]),
+            models.Index(fields=["assigned_to", "status"]),
+            models.Index(fields=["department", "category"]),
             models.Index(fields=["due_date"]),
+            models.Index(fields=["completed_at"]),
         ]
 
-    def __str__(self) -> str:
-        return f"{self.name} ({self.project})"
+    def __str__(self):
+        return f"{self.name} - {self.project}"
 
     def get_absolute_url(self):
         return reverse("projects:task_detail", args=[self.pk])
 
     @property
-    def is_completed(self) -> bool:
+    def is_completed(self):
         return self.status == TaskStatus.COMPLETED
 
     @property
-    def is_overdue(self) -> bool:
+    def is_active_working(self):
+        return self.status == TaskStatus.IN_PROGRESS
+
+    @property
+    def is_overdue(self):
         if not self.due_date:
             return False
-        if self.is_completed:
+        if self.status in [TaskStatus.COMPLETED, TaskStatus.CANCELLED]:
             return False
         return timezone.localdate() > self.due_date
 
-    def mark_completed(self):
-        """
-        Mark the task as COMPLETED and set completed_at timestamp.
-        """
-        if self.is_completed:
-            return  # idempotent
+    @property
+    def total_work_seconds(self):
+        return self.work_sessions.aggregate(
+            total=Sum("work_seconds")
+        )["total"] or 0
 
+    @property
+    def total_work_hours(self):
+        return round(self.total_work_seconds / 3600, 2)
+
+    def mark_completed(self):
+        now = timezone.now()
         self.status = TaskStatus.COMPLETED
-        self.completed_at = timezone.now()
+        if not self.completed_at:
+            self.completed_at = now
         self.save(update_fields=["status", "completed_at"])
 
 
-# -----------------------------
+# ============================================================
 # Deliverable
-# -----------------------------
+# ============================================================
 
 class Deliverable(TimeStamped, Owned):
     """
-    Final output for the client – edited photos, videos, albums, etc.
-    Assigned to a Manager or Employee who is responsible to complete and hand over.
+    Client-facing final output:
+    album, poster, save-the-date, reel, promo, final film, etc.
     """
 
     project = models.ForeignKey(
@@ -381,251 +423,319 @@ class Deliverable(TimeStamped, Owned):
         related_name="deliverables",
     )
 
-    name = models.CharField(
-        max_length=255,
-        help_text="Name of deliverable (e.g., 'Edited Wedding Photos', 'Highlight Film').",
-    )
+    name = models.CharField(max_length=255)
 
-    directory = models.CharField(
-        max_length=255,
-        blank=True,
-        default="",
-        help_text="Folder path or directory for source files (optional).",
-    )
-
-    description = models.TextField(
-        blank=True,
-        help_text="Internal description or notes for this deliverable.",
-    )
-
-    assigned_to = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="deliverables_assigned",
-        help_text="Manager or employee responsible for this deliverable.",
+    category = models.CharField(
+        max_length=40,
+        choices=DeliverableCategory.choices,
+        default=DeliverableCategory.OTHER,
+        db_index=True,
     )
 
     type = models.CharField(
         max_length=20,
         choices=DeliverableType.choices,
         default=DeliverableType.DIGITAL,
-        help_text="Whether this deliverable is digital, physical, or mixed.",
+        db_index=True,
+    )
+
+    department = models.CharField(
+        max_length=30,
+        choices=ProductionDepartment.choices,
+        default=ProductionDepartment.OTHER,
+        db_index=True,
+    )
+
+    directory = models.CharField(max_length=255, blank=True, default="")
+    description = models.TextField(blank=True)
+
+    assigned_to = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="project_deliverables",
     )
 
     status = models.CharField(
-        max_length=20,
+        max_length=40,
         choices=DeliverableStatus.choices,
         default=DeliverableStatus.PENDING,
         db_index=True,
     )
 
-    # DIGITAL STORAGE
-    file_link = models.URLField(
-        blank=True,
-        help_text="Google Drive / S3 / file URL where the deliverable is stored.",
-    )
-
-    file = models.FileField(
-        upload_to="deliverables/",
-        blank=True,
-        null=True,
-        help_text="Optional file stored in your own storage.",
-    )
-
-    # Link to tasks that produced this deliverable
     tasks = models.ManyToManyField(
-        "Task",
+        Task,
         related_name="deliverables",
         blank=True,
-        help_text="Tasks that produced this deliverable.",
+        help_text="Tasks required before this deliverable can start/deliver.",
     )
 
-    # PHYSICAL HANDOVER
+    file_link = models.URLField(blank=True)
+    file = models.FileField(upload_to="deliverables/", blank=True, null=True)
+
+    preview_link = models.URLField(blank=True)
+    version = models.PositiveIntegerField(default=1)
+    revision_count = models.PositiveIntegerField(default=0)
+
     delivery_medium = models.CharField(
-        max_length=50,
+        max_length=100,
         blank=True,
-        help_text="e.g., Pendrive, Printed album, Photo book, Framed print.",
+        help_text="Google Drive, WhatsApp, Pendrive, Printed Album, etc.",
     )
-    quantity = models.PositiveIntegerField(
-        null=True,
-        blank=True,
-        help_text="Number of physical items (if applicable).",
-    )
-    handed_over_to = models.CharField(
-        max_length=255,
-        blank=True,
-        help_text="Name of person who received it (bride/groom/family).",
-    )
+    quantity = models.PositiveIntegerField(null=True, blank=True)
+    handed_over_to = models.CharField(max_length=255, blank=True)
 
-    due_date = models.DateField(
-        null=True,
-        blank=True,
-        db_index=True,
-        help_text="Target date for delivering this item.",
-    )
-    first_started_at = models.DateTimeField(
-        null=True,
-        blank=True,
-        help_text="When this deliverable was first moved from Pending to In Progress.",
-    )
-    delivered_at = models.DateTimeField(
-        null=True,
-        blank=True,
-        help_text="Timestamp when this deliverable was marked delivered.",
-    )
+    due_date = models.DateField(null=True, blank=True, db_index=True)
+
+    first_started_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    ready_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    delivered_at = models.DateTimeField(null=True, blank=True, db_index=True)
 
     class Meta:
-        ordering = ["status", "due_date", "created_at"]
+        ordering = ["due_date", "status", "created_at"]
         indexes = [
-            models.Index(fields=["status"]),
+            models.Index(fields=["project", "status"]),
+            models.Index(fields=["assigned_to", "status"]),
+            models.Index(fields=["department", "category"]),
+            models.Index(fields=["type", "status"]),
             models.Index(fields=["due_date"]),
+            models.Index(fields=["delivered_at"]),
         ]
 
-    def __str__(self) -> str:
-        return f"{self.name} ({self.project})"
+    def __str__(self):
+        return f"{self.name} - {self.project}"
 
     def get_absolute_url(self):
         return reverse("projects:deliverable_detail", args=[self.pk])
 
     @property
-    def is_delivered(self) -> bool:
+    def is_delivered(self):
         return self.status == DeliverableStatus.DELIVERED
 
     @property
-    def is_overdue(self) -> bool:
+    def is_overdue(self):
         if not self.due_date:
             return False
-        if self.is_delivered:
+        if self.status in [DeliverableStatus.DELIVERED, DeliverableStatus.CANCELLED]:
             return False
         return timezone.localdate() > self.due_date
 
-    def can_be_marked_delivered(self) -> bool:
+    @property
+    def linked_task_count(self):
+        return self.tasks.count()
+
+    @property
+    def completed_task_count(self):
+        return self.tasks.filter(status=TaskStatus.COMPLETED).count()
+
+    @property
+    def task_progress_percent(self):
+        total = self.linked_task_count
+        if total == 0:
+            return 0
+        return int((self.completed_task_count / total) * 100)
+
+    @property
+    def required_tasks_completed(self):
         """
-        A deliverable can be marked as DELIVERED only if:
-        - It has no related tasks, OR
-        - All related tasks are COMPLETED.
+        Deliverable can move to IN_PROGRESS only when linked tasks are completed.
+        If no tasks are linked, allow manual progress.
         """
         qs = self.tasks.all()
         if not qs.exists():
-            return True  # no tasks linked → allow
+            return True
         return not qs.exclude(status=TaskStatus.COMPLETED).exists()
 
-    def mark_delivered(self):
-        """
-        Safe helper that enforces the task-completion rule.
-        """
-        if self.is_delivered:
-            return  # idempotent
+    @property
+    def total_work_seconds(self):
+        return self.work_sessions.aggregate(
+            total=Sum("work_seconds")
+        )["total"] or 0
 
+    @property
+    def total_work_hours(self):
+        return round(self.total_work_seconds / 3600, 2)
+
+    def can_move_to_in_progress(self):
+        return self.required_tasks_completed
+
+    def can_be_marked_delivered(self):
+        return self.required_tasks_completed
+
+    def mark_delivered(self):
         if not self.can_be_marked_delivered():
             raise ValidationError(
-                "All related tasks must be completed before marking this deliverable as delivered."
+                "All linked tasks must be completed before this deliverable can be delivered."
             )
 
+        now = timezone.now()
         self.status = DeliverableStatus.DELIVERED
-        self.delivered_at = timezone.now()
+        if not self.delivered_at:
+            self.delivered_at = now
         self.save(update_fields=["status", "delivered_at"])
 
 
-class WorkLog(TimeStamped, Owned):
-    """
-    Tracks an 'active work' session for a Task or Deliverable.
 
-    - A row is created when a user starts working (status -> IN_PROGRESS).
-    - 'ended_at' is set when the item leaves IN_PROGRESS (to pending/blocked/completed).
-    - Each user can have at most ONE active WorkLog (ended_at IS NULL)
-      so they cannot have two tasks/deliverables in progress at the same time.
+# ============================================================
+# Work session tracking
+# ============================================================
+
+class WorkSession(TimeStamped, Owned):
+    """
+    Actual work timer for a task or deliverable.
+
+    Rules:
+    - One employee can have only one ACTIVE work session at a time.
+    - PAUSED sessions do not count future time.
+    - work_seconds stores counted time.
+    - Admin/project manager can view all; restriction is only for who can start work.
     """
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name="work_logs",
+        related_name="project_work_sessions",
     )
 
     project = models.ForeignKey(
         Project,
         on_delete=models.CASCADE,
-        related_name="work_logs",
+        related_name="work_sessions",
     )
 
     task = models.ForeignKey(
-        "projects.Task",
+        Task,
         on_delete=models.CASCADE,
         null=True,
         blank=True,
-        related_name="work_logs",
-        help_text="If this work session is for a Task.",
+        related_name="work_sessions",
     )
 
     deliverable = models.ForeignKey(
-        "projects.Deliverable",
+        Deliverable,
         on_delete=models.CASCADE,
         null=True,
         blank=True,
-        related_name="work_logs",
-        help_text="If this work session is for a Deliverable.",
+        related_name="work_sessions",
     )
 
-    started_at = models.DateTimeField(
+    status = models.CharField(
+        max_length=20,
+        choices=WorkSessionStatus.choices,
+        default=WorkSessionStatus.ACTIVE,
         db_index=True,
-        help_text="When the user started working (status -> IN_PROGRESS).",
     )
-    ended_at = models.DateTimeField(
-        null=True,
-        blank=True,
-        db_index=True,
-        help_text="When the user stopped working (status left IN_PROGRESS).",
-    )
+
+    started_at = models.DateTimeField(default=timezone.now, db_index=True)
+    last_resumed_at = models.DateTimeField(null=True, blank=True)
+    paused_at = models.DateTimeField(null=True, blank=True)
+    ended_at = models.DateTimeField(null=True, blank=True, db_index=True)
+
+    work_seconds = models.PositiveIntegerField(default=0)
+
+    note = models.TextField(blank=True)
 
     class Meta:
         ordering = ["-started_at"]
+        indexes = [
+            models.Index(fields=["user", "status"]),
+            models.Index(fields=["project", "status"]),
+            models.Index(fields=["task", "status"]),
+            models.Index(fields=["deliverable", "status"]),
+            models.Index(fields=["started_at"]),
+            models.Index(fields=["ended_at"]),
+        ]
         constraints = [
-            # Either task OR deliverable must be set (not both, not neither)
-            models.CheckConstraint(
+           models.CheckConstraint(
                 condition=(
-                    (Q(task__isnull=False) & Q(deliverable__isnull=True))
-                    | (Q(task__isnull=True) & Q(deliverable__isnull=False))
+                    (Q(task__isnull=False) & Q(deliverable__isnull=True)) |
+                    (Q(task__isnull=True) & Q(deliverable__isnull=False))
                 ),
-                name="worklog_single_target",
+                name="worksession_single_target",
             ),
-            # At most ONE active (ended_at IS NULL) worklog per user
             models.UniqueConstraint(
                 fields=["user"],
-                condition=Q(ended_at__isnull=True),
-                name="worklog_one_active_per_user",
+                condition=Q(status=WorkSessionStatus.ACTIVE),
+                name="one_active_worksession_per_user",
             ),
         ]
 
     def __str__(self):
         target = self.task or self.deliverable
-        return f"WorkLog({self.user} on {target} from {self.started_at} to {self.ended_at or 'ACTIVE'})"
+        return f"{self.user} - {target} - {self.status}"
 
     @property
-    def duration_seconds(self) -> int:
+    def target(self):
+        return self.task or self.deliverable
+
+    @property
+    def live_work_seconds(self):
         """
-        Duration in seconds for this work session.
-        If still active, uses current time.
+        Returns stored work_seconds + currently active running time.
+        Paused time is not counted.
         """
-        end = self.ended_at or timezone.now()
-        return int((end - self.started_at).total_seconds())
-    
+        total = self.work_seconds
+        if self.status == WorkSessionStatus.ACTIVE and self.last_resumed_at:
+            total += int((timezone.now() - self.last_resumed_at).total_seconds())
+        return total
+
+    @property
+    def live_work_hours(self):
+        return round(self.live_work_seconds / 3600, 2)
+
     def clean(self):
         super().clean()
 
         if (self.task is None) == (self.deliverable is None):
-            raise ValidationError("WorkLog must have exactly one of task or deliverable.")
+            raise ValidationError("WorkSession must have exactly one target: task or deliverable.")
 
-        target_project = None
+        target_project_id = None
         if self.task_id:
-            target_project = self.task.project_id
+            target_project_id = self.task.project_id
         if self.deliverable_id:
-            target_project = self.deliverable.project_id
+            target_project_id = self.deliverable.project_id
 
-        if self.project_id and target_project and self.project_id != target_project:
-            raise ValidationError("WorkLog.project must match the target's project.")
+        if self.project_id and target_project_id and self.project_id != target_project_id:
+            raise ValidationError("WorkSession.project must match the target project.")
+
     def save(self, *args, **kwargs):
+        if self.status == WorkSessionStatus.ACTIVE and not self.last_resumed_at:
+            self.last_resumed_at = self.started_at or timezone.now()
         self.full_clean()
         return super().save(*args, **kwargs)
+
+    def _add_active_duration(self):
+        if self.status == WorkSessionStatus.ACTIVE and self.last_resumed_at:
+            delta = timezone.now() - self.last_resumed_at
+            self.work_seconds += max(int(delta.total_seconds()), 0)
+
+    def pause(self):
+        if self.status != WorkSessionStatus.ACTIVE:
+            return
+
+        now = timezone.now()
+        self._add_active_duration()
+        self.status = WorkSessionStatus.PAUSED
+        self.paused_at = now
+        self.save(update_fields=["work_seconds", "status", "paused_at"])
+
+    def resume(self):
+        if self.status != WorkSessionStatus.PAUSED:
+            return
+
+        now = timezone.now()
+        self.status = WorkSessionStatus.ACTIVE
+        self.last_resumed_at = now
+        self.paused_at = None
+        self.save(update_fields=["status", "last_resumed_at", "paused_at"])
+
+    def end(self):
+        if self.status == WorkSessionStatus.ENDED:
+            return
+
+        now = timezone.now()
+        self._add_active_duration()
+        self.status = WorkSessionStatus.ENDED
+        self.ended_at = now
+        self.save(update_fields=["work_seconds", "status", "ended_at"])

@@ -2,13 +2,28 @@
 {% load roles_tags %}
 
 {% block content %}
-<div class="container py-3 max-w-2xl">
+<div class="container py-4">
 
-  {% has_role user ROLE_ADMIN ROLE_MANAGER as can_edit_project %}
+  {% is_admin request.user as is_admin %}
+  {% is_project_manager request.user as is_project_manager %}
 
-  <h2 class="fw-semibold mb-4">
-    {% if object %}Edit Project{% else %}New Project{% endif %}
-  </h2>
+  <div class="d-flex justify-content-between align-items-start mb-3">
+    <div>
+      <h1 class="h3 mb-1">
+        {% if object %}Edit Project{% else %}New Project{% endif %}
+      </h1>
+      <div class="text-muted small">
+        Client, deal and event are optional. You can create a project first and link them later.
+      </div>
+    </div>
+
+    <div>
+      <a href="{% if object %}{% url 'projects:project_detail' object.pk %}{% else %}{% url 'projects:project_list' %}{% endif %}"
+         class="btn btn-outline-secondary btn-sm">
+        Back
+      </a>
+    </div>
+  </div>
 
   <form method="post" novalidate>
     {% csrf_token %}
@@ -19,101 +34,130 @@
       </div>
     {% endif %}
 
-    <div class="card shadow-sm">
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-body border-bottom">
+        <strong>Project Information</strong>
+      </div>
+
       <div class="card-body">
 
-        <!-- Row 1: Name / Client / Deal -->
-        <div class="row">
-          <div class="col-md-4 mb-3">
+        <div class="row g-3">
+          <div class="col-md-6">
             <label class="form-label">
               {{ form.name.label }}{% if form.name.field.required %} *{% endif %}
             </label>
             {{ form.name }}
-            {{ form.name.errors }}
+            {% if form.name.help_text %}
+              <div class="form-text">{{ form.name.help_text }}</div>
+            {% endif %}
+            <div class="text-danger small">{{ form.name.errors }}</div>
           </div>
-          <div class="col-md-4 mb-3">
-            <label class="form-label">
-              {{ form.client.label }}{% if form.client.field.required %} *{% endif %}
-            </label>
-            {{ form.client }}
-            {{ form.client.errors }}
-          </div>
-          <div class="col-md-4 mb-3">
-            <label class="form-label">
-              {{ form.deal.label }}{% if form.deal.field.required %} *{% endif %}
-            </label>
-            {{ form.deal }}
-            {{ form.deal.errors }}
-          </div>
-        </div>
 
-        <!-- Row 2: Manager / Status / Priority -->
-        <div class="row">
-          <div class="col-md-4 mb-3">
+          <div class="col-md-6">
             <label class="form-label">
               {{ form.manager.label }}{% if form.manager.field.required %} *{% endif %}
             </label>
             {{ form.manager }}
-            {{ form.manager.errors }}
+            {% if form.manager.help_text %}
+              <div class="form-text">{{ form.manager.help_text }}</div>
+            {% endif %}
+            <div class="text-danger small">{{ form.manager.errors }}</div>
           </div>
-          <div class="col-md-4 mb-3">
+
+          <div class="col-md-4">
+            <label class="form-label">
+              {{ form.client.label }}{% if form.client.field.required %} *{% endif %}
+            </label>
+            {{ form.client }}
+            <div class="form-text">Optional. Link client now or later.</div>
+            <div class="text-danger small">{{ form.client.errors }}</div>
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label">
+              {{ form.deal.label }}{% if form.deal.field.required %} *{% endif %}
+            </label>
+            {{ form.deal }}
+            <div class="form-text">Optional. Useful when project is connected to sales flow.</div>
+            <div class="text-danger small">{{ form.deal.errors }}</div>
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label">
+              {{ form.event.label }}{% if form.event.field.required %} *{% endif %}
+            </label>
+            {{ form.event }}
+            <div class="form-text">Optional wedding/event reference.</div>
+            <div class="text-danger small">{{ form.event.errors }}</div>
+          </div>
+
+          <div class="col-md-12">
+            <label class="form-label">
+              {{ form.project_directory.label }}{% if form.project_directory.field.required %} *{% endif %}
+            </label>
+            {{ form.project_directory }}
+            <div class="form-text">
+              Optional. Example: Google Drive/Weddings/2026/Afsal Wedding or D:/Wedding Projects/Afsal.
+            </div>
+            <div class="text-danger small">{{ form.project_directory.errors }}</div>
+          </div>
+
+          <div class="col-md-4">
             <label class="form-label">
               {{ form.status.label }}{% if form.status.field.required %} *{% endif %}
             </label>
             {{ form.status }}
-            {{ form.status.errors }}
+            <div class="text-danger small">{{ form.status.errors }}</div>
           </div>
-          <div class="col-md-4 mb-3">
+
+          <div class="col-md-4">
             <label class="form-label">
               {{ form.priority.label }}{% if form.priority.field.required %} *{% endif %}
             </label>
             {{ form.priority }}
-            {{ form.priority.errors }}
+            <div class="text-danger small">{{ form.priority.errors }}</div>
           </div>
-        </div>
 
-        <!-- Row 3: Start / Due -->
-        <div class="row">
-          <div class="col-md-4 mb-3">
+          <div class="col-md-2">
             <label class="form-label">
               {{ form.start_date.label }}{% if form.start_date.field.required %} *{% endif %}
             </label>
             {{ form.start_date }}
-            {{ form.start_date.errors }}
+            <div class="text-danger small">{{ form.start_date.errors }}</div>
           </div>
-          <div class="col-md-4 mb-3">
+
+          <div class="col-md-2">
             <label class="form-label">
               {{ form.due_date.label }}{% if form.due_date.field.required %} *{% endif %}
             </label>
             {{ form.due_date }}
-            {{ form.due_date.errors }}
+            <div class="text-danger small">{{ form.due_date.errors }}</div>
           </div>
-        </div>
 
-        <!-- Row 4: Description (full-width) -->
-        <div class="mb-3">
-          <label class="form-label">
-            {{ form.description.label }}{% if form.description.field.required %} *{% endif %}
-          </label>
-          {{ form.description }}
-          {% if form.description.help_text %}
-            <div class="form-text">{{ form.description.help_text }}</div>
-          {% endif %}
-          {{ form.description.errors }}
+          <div class="col-12">
+            <label class="form-label">
+              {{ form.description.label }}{% if form.description.field.required %} *{% endif %}
+            </label>
+            {{ form.description }}
+            {% if form.description.help_text %}
+              <div class="form-text">{{ form.description.help_text }}</div>
+            {% endif %}
+            <div class="text-danger small">{{ form.description.errors }}</div>
+          </div>
         </div>
 
       </div>
     </div>
 
-    <!-- Buttons -->
-    <div class="text-center mt-3">
-      {% if can_edit_project %}
+    <div class="d-flex justify-content-center gap-2 mt-3">
+      {% if is_admin or is_project_manager %}
         <button type="submit" class="btn btn-primary">
-          Save
+          Save Project
         </button>
       {% endif %}
+
       <a href="{% if object %}{% url 'projects:project_detail' object.pk %}{% else %}{% url 'projects:project_list' %}{% endif %}"
-         class="btn btn-secondary ms-2">
+         class="btn btn-secondary">
         Cancel
       </a>
     </div>

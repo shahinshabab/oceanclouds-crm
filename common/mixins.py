@@ -6,6 +6,7 @@ from .roles import (
     CRM_ACCESS_ROLES,
     SALES_ACCESS_ROLES,
     PROJECT_ACCESS_ROLES,
+    PROJECT_WORK_ACCESS_ROLES,
     INQUIRY_ACCESS_ROLES,
     INQUIRY_MANAGE_ROLES,
     user_has_role,
@@ -28,6 +29,10 @@ class CRMAccessMixin(RolesRequiredMixin):
     - Leads
     - Client Reviews
     - CRM dashboard
+
+    Access:
+    - Admin
+    - CRM Manager
     """
     allowed_roles = CRM_ACCESS_ROLES
 
@@ -40,6 +45,10 @@ class SalesAccessMixin(RolesRequiredMixin):
     - Contracts
     - Invoices
     - Payments
+
+    Access:
+    - Admin
+    - CRM Manager
     """
     allowed_roles = SALES_ACCESS_ROLES
 
@@ -47,16 +56,46 @@ class SalesAccessMixin(RolesRequiredMixin):
 class ProjectAccessMixin(RolesRequiredMixin):
     """
     Use for:
-    - Projects
-    - Tasks
-    - Project workflow
+    - Project list
+    - Project detail
+    - Project create/update
+    - Project overview
+    - Project kanban
+
+    Access:
+    - Admin
+    - Project Manager
+
+    Employees should NOT access project pages directly.
+    CRM Manager should NOT access project pages.
     """
     allowed_roles = PROJECT_ACCESS_ROLES
+
+
+class ProjectWorkAccessMixin(RolesRequiredMixin):
+    """
+    Use for:
+    - Task list/detail/kanban/status
+    - Deliverable list/detail/kanban/status
+    - Work sessions
+
+    Access:
+    - Admin
+    - Project Manager
+    - Employee
+    """
+    allowed_roles = PROJECT_WORK_ACCESS_ROLES
 
 
 class InquiryAccessMixin(RolesRequiredMixin):
     """
     Everyone can see/create inquiries.
+
+    Access:
+    - Admin
+    - CRM Manager
+    - Project Manager
+    - Employee
     """
     allowed_roles = INQUIRY_ACCESS_ROLES
 
@@ -74,6 +113,10 @@ class AdminCRMManagerMixin(CRMAccessMixin):
 
 
 class AdminManagerMixin(CRMAccessMixin):
+    """
+    Old name kept only for old CRM/Sales views.
+    Do not use this in project app anymore.
+    """
     pass
 
 

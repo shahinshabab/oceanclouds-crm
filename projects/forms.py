@@ -5,52 +5,52 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.db.models import Q
 
-from .models import Project, Task, Deliverable, TaskStatus, DeliverableStatus
+from common.roles import (
+    ROLE_ADMIN,
+    ROLE_PROJECT_MANAGER,
+    ROLE_EMPLOYEE,
+    user_has_role,
+)
+
+from .models import (
+    Project,
+    Task,
+    Deliverable,
+    ProjectStatus,
+    TaskStatus,
+    DeliverableStatus,
+)
 
 User = get_user_model()
 
 
-# ---------- Bootstrap base + widgets ---------- #
-
 class BootstrapModelForm(forms.ModelForm):
-    """
-    Base form to automatically add Bootstrap classes to widgets.
-    - Text / number / email / URL / textarea / date / time => form-control
-    - Select / ModelChoiceField => form-select
-    - Checkbox => form-check-input
-    """
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        for name, field in self.fields.items():
+        for _, field in self.fields.items():
             widget = field.widget
+            existing = widget.attrs.get("class", "")
 
-            # Keep any existing classes
-            existing_classes = widget.attrs.get("class", "")
-
-            # Checkbox
             if isinstance(widget, forms.CheckboxInput):
-                widget.attrs["class"] = (existing_classes + " form-check-input").strip()
-
-            # Selects (ChoiceField, ModelChoiceField, etc.)
+                widget.attrs["class"] = (existing + " form-check-input").strip()
             elif isinstance(widget, (forms.Select, forms.SelectMultiple)):
-                widget.attrs["class"] = (existing_classes + " form-select").strip()
-
-            # Everything else → form-control
+                widget.attrs["class"] = (existing + " form-select").strip()
             else:
-                widget.attrs["class"] = (existing_classes + " form-control").strip()
+                widget.attrs["class"] = (existing + " form-control").strip()
 
 
 class DateInput(forms.DateInput):
     input_type = "date"
 
 
-class DateTimeInput(forms.DateTimeInput):
-    input_type = "datetime-local"
+def users_in_roles(*role_names):
+    return (
+        User.objects.filter(is_active=True, groups__name__in=role_names)
+        .distinct()
+        .order_by("first_name", "last_name", "username")
+    )
 
-
-# ---------- Project ---------- #
 
 class ProjectForm(BootstrapModelForm):
     class Meta:
@@ -60,6 +60,7 @@ class ProjectForm(BootstrapModelForm):
             "client",
             "deal",
             "event",
+            "project_directory",
             "description",
             "manager",
             "start_date",
@@ -68,115 +69,92 @@ class ProjectForm(BootstrapModelForm):
             "priority",
         ]
         widgets = {
+            "description": forms.Textarea(attrs={"rows": 3}),
             "start_date": DateInput(),
             "due_date": DateInput(),
-            "description": forms.Textarea(attrs={"rows": 3}),
         }
 
     def __init__(self, *args, **kwargs):
-        # we still accept user, but don't strictly need it now
-        kwargs.pop("user", None)
+        self.user = kwargs.pop("user", None)
         super().__init__(*args, **kwargs)
 
-        # ---- Manager dropdown queryset: only "Manager" group ----
-        try:
-            manager_group = Group.objects.get(name__iexact="Manager")
-            manager_qs = manager_group.user_set.filter(is_active=True)
-        except Group.DoesNotExist:
-            manager_qs = User.objects.none()
-
-        # Exclude admins / superusers even if they were added to Manager group
-        manager_qs = manager_qs.exclude(
-            Q(is_superuser=True) | Q(groups__name__iexact="Admin")
-        ).distinct()
-
-        self.fields["manager"].queryset = manager_qs.order_by(
-            "first_name",
-            "last_name",
-            "username",
-        )
+        self.fields["client"].required = False
+        self.fields["deal"].required = False
+        self.fields["event"].required = False
+        self.fields["project_directory"].required = False
         self.fields["manager"].required = False
 
+        self.fields["manager"].queryset = users_in_roles(ROLE_PROJECT_MANAGER)
 
-# ---------- Task ---------- #
+        if self.user and user_has_role(self.user, ROLE_PROJECT_MANAGER):
+            self.fields["manager"].initial = self.user
+
 
 class TaskForm(BootstrapModelForm):
     class Meta:
         model = Task
         fields = [
-            "project",       # project selectable (or pre-filled from URL)
+            "project",
             "name",
+            "department",
+            "category",
             "directory",
-            "type",
             "count",
             "description",
             "assigned_to",
             "status",
             "priority",
             "due_date",
+            "estimated_minutes",
+            "sort_order",
         ]
         widgets = {
-            "directory": forms.TextInput(
-                attrs={"placeholder": "e.g. 'Rohan-Aisha/01_Haldi/RAW'"}
-            ),
-            "count": forms.TextInput(
-                attrs={"placeholder": "e.g. '1500 RAW photos', '3 reels'"}
-            ),
+            "directory": forms.TextInput(attrs={"placeholder": "e.g. Wedding/RAW/Photos"}),
+            "count": forms.TextInput(attrs={"placeholder": "e.g. 1500 RAW photos"}),
             "description": forms.Textarea(attrs={"rows": 3}),
             "due_date": DateInput(),
         }
 
     def __init__(self, *args, **kwargs):
-        # accept BOTH user and project, but never pass them to super()
-        user = kwargs.pop("user", None)
+        self.user = kwargs.pop("user", None)
         project = kwargs.pop("project", None)
         super().__init__(*args, **kwargs)
 
-        # ---- Project dropdown ----
-        qs = Project.objects.order_by("name")
+        qs = Project.objects.all().order_by("-created_at")
 
-        # Manager: only their own projects
-        if user and user.groups.filter(name__iexact="Manager").exists():
-            qs = qs.filter(manager=user)
+        if self.user and user_has_role(self.user, ROLE_PROJECT_MANAGER):
+            qs = qs.filter(manager=self.user)
 
         self.fields["project"].queryset = qs
 
-        # If a specific project was passed (from URL), preselect it
-        if project is not None:
+        if project:
             self.fields["project"].initial = project
+            self.fields["project"].queryset = Project.objects.filter(pk=project.pk)
 
-        # ---- Assigned_to dropdown (Employees) ----
-        try:
-            employee_group = Group.objects.get(name__iexact="Employee")
-            self.fields["assigned_to"].queryset = employee_group.user_set.filter(
-                is_active=True
-            ).order_by("first_name", "last_name", "username")
-        except Group.DoesNotExist:
-            self.fields["assigned_to"].queryset = User.objects.none()
+        self.fields["assigned_to"].queryset = users_in_roles(ROLE_EMPLOYEE)
+
+    def clean_status(self):
+        status = self.cleaned_data.get("status")
+
+        if status == TaskStatus.IN_PROGRESS:
+            assigned_to = self.cleaned_data.get("assigned_to")
+            if not assigned_to:
+                raise forms.ValidationError("Assign an employee before moving task to In Progress.")
+
+        return status
 
 
-class TaskStatusForm(BootstrapModelForm):
-    """
-    Simplified form for employees to update only status.
-    """
-
+class TaskStatusForm(forms.ModelForm):
     class Meta:
         model = Task
         fields = ["status"]
 
     def clean_status(self):
         status = self.cleaned_data["status"]
-        if status not in [
-            TaskStatus.PENDING,
-            TaskStatus.IN_PROGRESS,
-            TaskStatus.COMPLETED,
-            TaskStatus.BLOCKED,
-        ]:
-            raise forms.ValidationError("Invalid status.")
+        if status not in dict(TaskStatus.choices):
+            raise forms.ValidationError("Invalid task status.")
         return status
 
-
-# ---------- Deliverable ---------- #
 
 class DeliverableForm(BootstrapModelForm):
     class Meta:
@@ -184,67 +162,73 @@ class DeliverableForm(BootstrapModelForm):
         fields = [
             "project",
             "name",
+            "category",
+            "type",
+            "department",
             "directory",
             "description",
-            "type",
-            "status",
             "assigned_to",
+            "status",
             "tasks",
+            "preview_link",
             "file_link",
             "file",
+            "version",
+            "revision_count",
             "delivery_medium",
             "quantity",
             "handed_over_to",
             "due_date",
         ]
         widgets = {
-            "directory": forms.TextInput(
-                attrs={"placeholder": "Folder/path where final deliverables are stored"}
-            ),
+            "directory": forms.TextInput(attrs={"placeholder": "Final output folder/path"}),
             "description": forms.Textarea(attrs={"rows": 3}),
             "due_date": DateInput(),
+            "tasks": forms.SelectMultiple(attrs={"size": 8}),
         }
 
     def __init__(self, *args, **kwargs):
-        user = kwargs.pop("user", None)
+        self.user = kwargs.pop("user", None)
         project = kwargs.pop("project", None)
         super().__init__(*args, **kwargs)
 
-        # ----- Project limiting ----- #
-        qs = Project.objects.order_by("name")
-        if user and user.groups.filter(name__iexact="Manager").exists():
-            qs = qs.filter(manager=user)
-        self.fields["project"].queryset = qs
+        project_qs = Project.objects.all().order_by("-created_at")
 
-        if project is not None:
+        if self.user and user_has_role(self.user, ROLE_PROJECT_MANAGER):
+            project_qs = project_qs.filter(manager=self.user)
+
+        self.fields["project"].queryset = project_qs
+
+        if project:
             self.fields["project"].initial = project
+            self.fields["project"].queryset = Project.objects.filter(pk=project.pk)
+            self.fields["tasks"].queryset = project.tasks.all().order_by("sort_order", "name")
+        elif self.instance and self.instance.pk:
+            self.fields["tasks"].queryset = self.instance.project.tasks.all().order_by("sort_order", "name")
+        else:
+            self.fields["tasks"].queryset = Task.objects.none()
 
-        # ----- Limit tasks to selected project (if passed from view) ----- #
-        if project is not None and "tasks" in self.fields:
-            self.fields["tasks"].queryset = project.tasks.all()
-
-        # ----- Assignee choices: all active Managers + Employees ----- #
-        if "assigned_to" in self.fields:
-            user_qs = User.objects.filter(
-                is_active=True,
-                groups__name__in=["Manager", "Employee"],
-            ).distinct().order_by("first_name", "last_name", "username")
-            self.fields["assigned_to"].queryset = user_qs
+        self.fields["assigned_to"].queryset = users_in_roles(
+            ROLE_PROJECT_MANAGER,
+            ROLE_EMPLOYEE,
+        )
 
     def clean(self):
-        cleaned_data = super().clean()
-        status = cleaned_data.get("status")
-        tasks = cleaned_data.get("tasks")
+        cleaned = super().clean()
+        status = cleaned.get("status")
+        tasks = cleaned.get("tasks")
 
-        # If using instance.tasks when tasks not on form:
-        if tasks is None and self.instance.pk:
-            tasks = self.instance.tasks.all()
+        if status in [
+            DeliverableStatus.IN_PROGRESS,
+            DeliverableStatus.INTERNAL_REVIEW,
+            DeliverableStatus.CLIENT_REVIEW,
+            DeliverableStatus.READY_TO_DELIVER,
+            DeliverableStatus.DELIVERED,
+        ]:
+            if tasks and tasks.exists():
+                if tasks.exclude(status=TaskStatus.COMPLETED).exists():
+                    raise forms.ValidationError(
+                        "All linked tasks must be completed before moving this deliverable forward."
+                    )
 
-        if status == DeliverableStatus.DELIVERED and tasks is not None:
-            # If there are linked tasks, all must be COMPLETED
-            if tasks.exists() and tasks.exclude(status=TaskStatus.COMPLETED).exists():
-                raise forms.ValidationError(
-                    "You can only mark this deliverable as Delivered when all linked tasks are Completed."
-                )
-
-        return cleaned_data
+        return cleaned

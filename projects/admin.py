@@ -71,7 +71,6 @@ class TaskAdmin(admin.ModelAdmin):
         "name",
         "project",
         "assigned_to",
-        "type",
         "status",
         "priority",
         "due_date",
@@ -81,7 +80,6 @@ class TaskAdmin(admin.ModelAdmin):
     list_filter = (
         "status",
         "priority",
-        "type",
         "assigned_to",
         "due_date",
     )

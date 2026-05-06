@@ -1,26 +1,40 @@
-{# templates/projects/project_overview.html #}
 {% extends "ui/base.html" %}
 {% load roles_tags %}
 
 {% block content %}
-<div class="container py-4">
+<div class="container-fluid py-4">
 
-  {% has_role user ROLE_ADMIN ROLE_MANAGER as can_manage %}
+  {% is_admin request.user as is_admin %}
+  {% is_project_manager request.user as is_project_manager %}
 
   <!-- Header -->
   <div class="d-flex justify-content-between align-items-start mb-3">
     <div>
       <h1 class="h3 mb-1">Project Overview – {{ project.name }}</h1>
       <div class="text-muted">
-        Client: {{ client }}{% if deal %} · Deal: {{ deal }}{% endif %}
+        Client:
+        {% if client %}
+          {{ client }}
+        {% else %}
+          <span class="text-warning">Not linked</span>
+        {% endif %}
+
+        {% if deal %}
+          · Deal: {{ deal }}
+        {% endif %}
+        {% if project.project_directory %}
+          · Directory: {{ project.project_directory }}
+        {% endif %}
       </div>
     </div>
+
     <div class="d-flex gap-2">
       <a href="{% url 'projects:project_detail' project.pk %}"
          class="btn btn-outline-secondary btn-sm">
         Operational View
       </a>
-      {% if can_manage %}
+
+      {% if is_admin or is_project_manager %}
         <a href="{% url 'projects:project_update' project.pk %}"
            class="btn btn-primary btn-sm">
           Edit Project
@@ -31,55 +45,93 @@
 
   <!-- Top summary row -->
   <div class="row g-3 mb-4">
-    <div class="col-md-3">
-      <div class="card h-100">
+    <div class="col-lg-3 col-md-6">
+      <div class="card h-100 border-0 shadow-sm">
         <div class="card-body">
           <div class="small text-uppercase text-muted mb-1">Status</div>
-          <div>
-            {% if project.status == "completed" %}
-              <span class="badge bg-success me-1">{{ project.get_status_display }}</span>
-            {% elif project.status == "active" %}
-              <span class="badge bg-primary me-1">{{ project.get_status_display }}</span>
-            {% elif project.status == "on_hold" %}
-              <span class="badge bg-warning text-dark me-1">{{ project.get_status_display }}</span>
-            {% elif project.status == "cancelled" %}
-              <span class="badge bg-danger me-1">{{ project.get_status_display }}</span>
-            {% else %}
-              <span class="badge bg-secondary me-1">{{ project.get_status_display }}</span>
-            {% endif %}
-          </div>
+
+          {% if project.status == "completed" %}
+            <span class="badge bg-success">{{ project.get_status_display }}</span>
+          {% elif project.status == "active" %}
+            <span class="badge bg-primary">{{ project.get_status_display }}</span>
+          {% elif project.status == "on_hold" %}
+            <span class="badge bg-warning text-dark">{{ project.get_status_display }}</span>
+          {% elif project.status == "cancelled" %}
+            <span class="badge bg-danger">{{ project.get_status_display }}</span>
+          {% else %}
+            <span class="badge bg-secondary">{{ project.get_status_display }}</span>
+          {% endif %}
+
           <div class="small text-muted mt-2">
-            Priority: <span class="fw-semibold">{{ project.get_priority_display }}</span>
+            Priority:
+            <span class="fw-semibold">{{ project.get_priority_display }}</span>
           </div>
+
           <div class="small text-muted">
-            Manager: <span class="fw-semibold">{{ project.manager|default:"Unassigned" }}</span>
+            Manager:
+            <span class="fw-semibold">
+              {% if project.manager %}
+                {{ project.manager.get_full_name|default:project.manager.username }}
+              {% else %}
+                Unassigned
+              {% endif %}
+            </span>
+          </div>
+          <div class="small mt-2">
+            <span class="text-muted">Directory:</span>
+            <span class="fw-semibold">
+              {% if project.project_directory %}
+                {{ project.project_directory }}
+              {% else %}
+                —
+              {% endif %}
+            </span>
           </div>
         </div>
       </div>
     </div>
 
-    <div class="col-md-5">
-      <div class="card h-100">
+    <div class="col-lg-3 col-md-6">
+      <div class="card h-100 border-0 shadow-sm">
         <div class="card-body">
           <div class="small text-uppercase text-muted mb-1">Schedule</div>
+        
           <div class="small mb-1">
             <span class="text-muted">Start:</span>
             <span class="fw-semibold">{{ project.start_date|default:"—" }}</span>
           </div>
+
           <div class="small mb-1">
             <span class="text-muted">Due:</span>
-            <span class="fw-semibold">
+            <span class="fw-semibold {% if project.is_overdue %}text-danger{% endif %}">
               {{ project.due_date|default:"—" }}
-              {% if project.is_overdue %}
-                <span class="badge bg-danger ms-1">Overdue</span>
-              {% endif %}
             </span>
+            {% if project.is_overdue %}
+              <span class="badge bg-danger ms-1">Overdue</span>
+            {% endif %}
           </div>
-          <div class="small mt-2">
-            <span class="text-muted">Progress:</span>
+
+          {% if project.completed_at %}
+            <div class="small">
+              <span class="text-muted">Completed:</span>
+              <span class="fw-semibold">{{ project.completed_at }}</span>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-3 col-md-6">
+      <div class="card h-100 border-0 shadow-sm">
+        <div class="card-body">
+          <div class="small text-uppercase text-muted mb-1">Progress</div>
+
+          <div class="d-flex justify-content-between small mb-1">
+            <span>Completion</span>
             <span class="fw-semibold">{{ project.progress_percent }}%</span>
           </div>
-          <div class="progress mt-1" style="height: 6px;">
+
+          <div class="progress" style="height: 6px;">
             {% with pct=project.progress_percent|default_if_none:0 %}
               <div class="progress-bar
                 {% if pct < 30 %}
@@ -93,30 +145,34 @@
               </div>
             {% endwith %}
           </div>
+
+          <div class="small text-muted mt-2">
+            Work hours:
+            <span class="fw-semibold">{{ total_work_hours|default:"0" }} hrs</span>
+          </div>
         </div>
       </div>
     </div>
 
-    <div class="col-md-4">
-      <div class="card h-100">
+    <div class="col-lg-3 col-md-6">
+      <div class="card h-100 border-0 shadow-sm">
         <div class="card-body">
           <div class="small text-uppercase text-muted mb-1">Financial Summary</div>
+
           <div class="small d-flex justify-content-between">
             <span>Invoice Total</span>
-            <span class="fw-semibold">
-              {% if invoice_total is not None %}₹ {{ invoice_total }}{% else %}—{% endif %}
-            </span>
+            <span class="fw-semibold">₹ {{ invoice_total|default:"0.00" }}</span>
           </div>
+
           <div class="small d-flex justify-content-between">
             <span>Payments Received</span>
-            <span class="fw-semibold">
-              {% if payments_total is not None %}₹ {{ payments_total }}{% else %}—{% endif %}
-            </span>
+            <span class="fw-semibold">₹ {{ payments_total|default:"0.00" }}</span>
           </div>
+
           <div class="small d-flex justify-content-between mt-2 border-top pt-2">
             <span>Amount Due</span>
             <span class="fw-semibold {% if amount_due and amount_due > 0 %}text-danger{% endif %}">
-              {% if amount_due is not None %}₹ {{ amount_due }}{% else %}—{% endif %}
+              ₹ {{ amount_due|default:"0.00" }}
             </span>
           </div>
         </div>
@@ -124,11 +180,12 @@
     </div>
   </div>
 
-  <!-- 1. Client Details -->
-  <div class="card mb-3">
-    <div class="card-header">
+  <!-- Client Details -->
+  <div class="card border-0 shadow-sm mb-3">
+    <div class="card-header bg-body border-bottom">
       <strong>Client Details</strong>
     </div>
+
     <div class="card-body">
       {% if client %}
         <div class="row g-3">
@@ -136,38 +193,42 @@
             <div class="small text-uppercase text-muted mb-1">Name</div>
             <div class="fw-semibold">{{ client }}</div>
           </div>
+
           <div class="col-md-4">
             <div class="small text-uppercase text-muted mb-1">Phone</div>
             <div class="fw-semibold">{{ client.phone|default:"—" }}</div>
           </div>
+
           <div class="col-md-4">
             <div class="small text-uppercase text-muted mb-1">Email</div>
             <div class="fw-semibold">{{ client.email|default:"—" }}</div>
           </div>
         </div>
       {% else %}
-        <div class="text-muted">No client attached to this project.</div>
+        <div class="text-muted">
+          No client attached to this project yet.
+        </div>
       {% endif %}
     </div>
   </div>
 
-  <!-- 2. Deal & Contracts -->
-  <div class="card mb-3">
-    <div class="card-header">
+  <!-- Deal & Contracts -->
+  <div class="card border-0 shadow-sm mb-3">
+    <div class="card-header bg-body border-bottom">
       <strong>Deal & Contract</strong>
     </div>
+
     <div class="card-body">
       {% if deal %}
-        <div class="mb-2">
+        <div class="mb-3">
           <div class="small text-uppercase text-muted mb-1">Deal</div>
           <div class="fw-semibold">{{ deal }}</div>
         </div>
 
         {% if contracts %}
-          <div class="small text-uppercase text-muted mb-1">Contracts</div>
           <div class="table-responsive">
             <table class="table table-sm align-middle mb-0">
-              <thead>
+              <thead class="table-light">
                 <tr>
                   <th>Number</th>
                   <th>Status</th>
@@ -177,7 +238,7 @@
               <tbody>
                 {% for c in contracts %}
                   <tr>
-                    <td>{{ c.number }}</td>
+                    <td>{{ c.number|default:c.pk }}</td>
                     <td>{{ c.get_status_display|default:c.status }}</td>
                     <td class="text-end">
                       {% if c.total_amount %}₹ {{ c.total_amount }}{% else %}—{% endif %}
@@ -193,21 +254,24 @@
           </div>
         {% endif %}
       {% else %}
-        <div class="text-muted">No deal linked to this project.</div>
+        <div class="text-muted">
+          No deal linked to this project.
+        </div>
       {% endif %}
     </div>
   </div>
 
-  <!-- 3. Invoices -->
-  <div class="card mb-3">
-    <div class="card-header">
+  <!-- Invoices -->
+  <div class="card border-0 shadow-sm mb-3">
+    <div class="card-header bg-body border-bottom">
       <strong>Invoices</strong>
     </div>
+
     <div class="card-body">
       {% if invoices %}
         <div class="table-responsive">
           <table class="table table-sm align-middle mb-0">
-            <thead>
+            <thead class="table-light">
               <tr>
                 <th>Number</th>
                 <th>Issue Date</th>
@@ -217,40 +281,40 @@
                 <th class="text-end">Paid</th>
               </tr>
             </thead>
+
             <tbody>
               {% for inv in invoices %}
                 <tr>
-                  <td>{{ inv.number }}</td>
+                  <td>{{ inv.number|default:inv.pk }}</td>
                   <td>{{ inv.issue_date|default:"—" }}</td>
                   <td>{{ inv.due_date|default:"—" }}</td>
                   <td>{{ inv.get_status_display|default:inv.status }}</td>
-                  <td class="text-end">
-                    {% if inv.total %}₹ {{ inv.total }}{% else %}—{% endif %}
-                  </td>
-                  <td class="text-end">
-                    {% if inv.amount_paid %}₹ {{ inv.amount_paid }}{% else %}—{% endif %}
-                  </td>
+                  <td class="text-end">₹ {{ inv.total|default:"0.00" }}</td>
+                  <td class="text-end">₹ {{ inv.amount_paid|default:"0.00" }}</td>
                 </tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
       {% else %}
-        <div class="text-muted">No invoices found for this project.</div>
+        <div class="text-muted">
+          No invoices found for this project.
+        </div>
       {% endif %}
     </div>
   </div>
 
-  <!-- 4. Payments -->
-  <div class="card mb-3">
-    <div class="card-header">
+  <!-- Payments -->
+  <div class="card border-0 shadow-sm mb-3">
+    <div class="card-header bg-body border-bottom">
       <strong>Payments</strong>
     </div>
+
     <div class="card-body">
       {% if payments %}
         <div class="table-responsive">
           <table class="table table-sm align-middle mb-0">
-            <thead>
+            <thead class="table-light">
               <tr>
                 <th>Date</th>
                 <th>Invoice</th>
@@ -258,121 +322,155 @@
                 <th class="text-end">Amount</th>
               </tr>
             </thead>
+
             <tbody>
               {% for p in payments %}
                 <tr>
                   <td>{{ p.date|default:"—" }}</td>
                   <td>{{ p.invoice.number|default:p.invoice }}</td>
                   <td>{{ p.method|default:"—" }}</td>
-                  <td class="text-end">
-                    {% if p.amount %}₹ {{ p.amount }}{% else %}—{% endif %}
-                  </td>
+                  <td class="text-end">₹ {{ p.amount|default:"0.00" }}</td>
                 </tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
       {% else %}
-        <div class="text-muted">No payments recorded yet.</div>
+        <div class="text-muted">
+          No payments recorded yet.
+        </div>
       {% endif %}
     </div>
   </div>
 
-  <!-- 5. Project Tasks & Deliverables -->
-  <div class="row">
-    <div class="col-md-6 mb-3">
-      <div class="card h-100">
-        <div class="card-header d-flex justify-content-between align-items-center">
+  <!-- Tasks & Deliverables -->
+  <div class="row g-3">
+    <div class="col-lg-6">
+      <div class="card h-100 border-0 shadow-sm">
+        <div class="card-header bg-body border-bottom d-flex justify-content-between align-items-center">
           <strong>Tasks</strong>
-          {% if can_manage %}
-            <a href="{% url 'projects:task_create' %}" class="btn btn-sm btn-outline-primary">
+
+          {% if is_admin or is_project_manager %}
+            <a href="{% url 'projects:task_create_for_project' project.pk %}"
+               class="btn btn-sm btn-outline-primary">
               + Add Task
             </a>
           {% endif %}
         </div>
+
         <div class="card-body p-0">
           {% if tasks %}
             <div class="table-responsive">
               <table class="table table-sm align-middle mb-0">
-                <thead>
+                <thead class="table-light">
                   <tr>
                     <th>Name</th>
+                    <th>Category</th>
                     <th>Assignee</th>
                     <th>Status</th>
                     <th>Due</th>
+                    <th class="text-end">Hours</th>
                   </tr>
                 </thead>
+
                 <tbody>
                   {% for t in tasks %}
                     <tr>
                       <td>
-                        <a href="{% url 'projects:task_detail' t.pk %}">
+                        <a href="{% url 'projects:task_detail' t.pk %}"
+                           class="text-decoration-none">
                           {{ t.name }}
                         </a>
                       </td>
-                      <td>{{ t.assigned_to|default:"Unassigned" }}</td>
+                      <td>{{ t.get_category_display }}</td>
+                      <td>
+                        {% if t.assigned_to %}
+                          {{ t.assigned_to.get_full_name|default:t.assigned_to.username }}
+                        {% else %}
+                          Unassigned
+                        {% endif %}
+                      </td>
                       <td>{{ t.get_status_display }}</td>
                       <td>{{ t.due_date|default:"—" }}</td>
+                      <td class="text-end">{{ t.total_work_hours }}h</td>
                     </tr>
                   {% endfor %}
                 </tbody>
               </table>
             </div>
           {% else %}
-            <div class="p-3 text-muted">No tasks for this project.</div>
+            <div class="p-3 text-muted">
+              No tasks for this project.
+            </div>
           {% endif %}
         </div>
       </div>
     </div>
 
-    <div class="col-md-6 mb-3">
-      <div class="card h-100">
-        <div class="card-header d-flex justify-content-between align-items-center">
+    <div class="col-lg-6">
+      <div class="card h-100 border-0 shadow-sm">
+        <div class="card-header bg-body border-bottom d-flex justify-content-between align-items-center">
           <strong>Deliverables</strong>
-          {% if can_manage %}
-            <a href="{% url 'projects:deliverable_create' %}" class="btn btn-sm btn-outline-primary">
+
+          {% if is_admin or is_project_manager %}
+            <a href="{% url 'projects:deliverable_create_for_project' project.pk %}"
+               class="btn btn-sm btn-outline-primary">
               + Add Deliverable
             </a>
           {% endif %}
         </div>
+
         <div class="card-body p-0">
           {% if deliverables %}
             <div class="table-responsive">
               <table class="table table-sm align-middle mb-0">
-                <thead>
+                <thead class="table-light">
                   <tr>
                     <th>Name</th>
-                    <th>Type</th>
+                    <th>Category</th>
+                    <th>Tasks</th>
                     <th>Status</th>
                     <th>Due</th>
+                    <th class="text-end">Hours</th>
                   </tr>
                 </thead>
+
                 <tbody>
                   {% for d in deliverables %}
                     <tr>
                       <td>
-                        <a href="{% url 'projects:deliverable_detail' d.pk %}">
+                        <a href="{% url 'projects:deliverable_detail' d.pk %}"
+                           class="text-decoration-none">
                           {{ d.name }}
                         </a>
                       </td>
-                      <td>{{ d.get_type_display }}</td>
+                      <td>{{ d.get_category_display }}</td>
+                      <td>
+                        {% if d.linked_task_count %}
+                          {{ d.completed_task_count }}/{{ d.linked_task_count }}
+                        {% else %}
+                          —
+                        {% endif %}
+                      </td>
                       <td>{{ d.get_status_display }}</td>
                       <td>{{ d.due_date|default:"—" }}</td>
+                      <td class="text-end">{{ d.total_work_hours }}h</td>
                     </tr>
                   {% endfor %}
                 </tbody>
               </table>
             </div>
           {% else %}
-            <div class="p-3 text-muted">No deliverables for this project.</div>
+            <div class="p-3 text-muted">
+              No deliverables for this project.
+            </div>
           {% endif %}
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Back link -->
-  <div class="text-center mt-3">
+  <div class="text-center mt-4">
     <a href="{% url 'projects:project_list' %}" class="btn btn-secondary">
       Back to Projects
     </a>

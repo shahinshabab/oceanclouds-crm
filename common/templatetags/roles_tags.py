@@ -11,6 +11,7 @@ from common.roles import (
     can_access_crm,
     can_access_sales,
     can_access_project,
+    can_access_project_work,
     can_access_inquiry,
     can_manage_inquiry,
     user_has_role,
@@ -51,7 +52,20 @@ def has_sales_access(user):
 
 @register.simple_tag
 def has_project_access(user):
+    """
+    Project pages:
+    Admin + Project Manager.
+    """
     return can_access_project(user)
+
+
+@register.simple_tag
+def has_project_work_access(user):
+    """
+    Task/deliverable pages:
+    Admin + Project Manager + Employee.
+    """
+    return can_access_project_work(user)
 
 
 @register.simple_tag
@@ -73,3 +87,10 @@ def is_manager(user):
         ROLE_CRM_MANAGER,
         ROLE_PROJECT_MANAGER,
     )
+
+
+@register.filter
+def get_item(dictionary, key):
+    if dictionary is None:
+        return None
+    return dictionary.get(key)
