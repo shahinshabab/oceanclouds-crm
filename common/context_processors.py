@@ -1,15 +1,21 @@
 # common/context_processors.py
-from .models import Notification
+
+from common.models import Notification
 
 
 def notifications(request):
     if not request.user.is_authenticated:
-        return {"notifications": []}
+        return {
+            "notifications": [],
+            "unread_notification_count": 0,
+        }
 
-    qs = (
-        Notification.objects
-        .filter(recipient=request.user, is_read=False)
-        .order_by("-created_at")[:10]
+    unread_qs = Notification.objects.filter(
+        recipient=request.user,
+        is_read=False,
     )
 
-    return {"notifications": qs}
+    return {
+        "notifications": unread_qs.select_related("actor", "content_type").order_by("-created_at")[:10],
+        "unread_notification_count": unread_qs.count(),
+    }

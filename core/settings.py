@@ -74,8 +74,8 @@ THIRD_PARTY_APPS = [
 
 LOCAL_APPS = [
     "common.apps.CommonConfig",
-    "crm",
-    "sales",
+    "crm.apps.CrmConfig",
+    "sales.apps.SalesConfig",
     "events",
     "services",
     "messaging",
@@ -220,10 +220,10 @@ LOGIN_URL = "ui:login"
 # This will run your `notify_overdue` management command every day at midnight.
 CRONJOBS = [
     # minute hour day month weekday
-    ("0 0 * * *", "django.core.management.call_command", ["notify_overdue"]),
+    ("0 0 * * *", "django.core.management.call_command", ["notify_due_items"]),
 ]
 """CRONJOBS = [
-    ("0 0 * * *", "django.core.management.call_command", ["notify_overdue"]),
+    ("0 0 * * *", "django.core.management.call_command", ["notify_due_items"]),
     ("0 7 * * *", "django.core.management.call_command", ["send_anniversary_wishes"]),
 ]"""
 

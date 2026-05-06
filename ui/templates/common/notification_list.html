@@ -2,8 +2,10 @@
 {% extends "ui/base.html" %}
 
 {% block title %}Notifications{% endblock %}
-
 {% block content %}
+<script>
+  document.body.dataset.page = "notification-list";
+</script>
 <div class="container py-3">
 
   <!-- Header Row -->
@@ -187,68 +189,5 @@
     </div>
   {% endif %}
 </div>
-<script>
-(function () {
-  // Helper: Read CSRF token from cookie
-  function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== "") {
-      const cookies = document.cookie.split(";");
-      for (let i = 0; i < cookies.length; i++) {
-        const cookie = cookies[i].trim();
-        if (cookie.startsWith(name + "=")) {
-          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-          break;
-        }
-      }
-    }
-    return cookieValue;
-  }
-
-  document.addEventListener("click", function (e) {
-    const button = e.target.closest(".js-mark-notification-read");
-    if (!button) return;
-
-    e.preventDefault();
-
-    const url = button.dataset.url;
-    if (!url) {
-      console.error("No data-url found on .js-mark-notification-read button");
-      return;
-    }
-
-    fetch(url, {
-      method: "POST",
-      headers: {
-        "X-CSRFToken": getCookie("csrftoken"),
-        "X-Requested-With": "XMLHttpRequest",
-        "Accept": "application/json",
-      },
-      credentials: "same-origin",  // ensure cookies are sent
-    })
-      .then((response) => {
-        if (!response.ok) {
-          console.error("HTTP error", response.status);
-          // Fallback: reload anyway so you at least see updated status
-          window.location.reload();
-          return null;
-        }
-        return response.json();
-      })
-      .then((data) => {
-        if (!data) return;
-        if (data.success) {
-          // ✅ Backend says it worked – refresh the page
-          window.location.reload();
-        } else {
-          console.error("Mark read failed:", data);
-        }
-      })
-      .catch((err) => {
-        console.error("Error in mark-notification-read fetch:", err);
-      });
-  });
-})();
-</script>
 
 {% endblock %}

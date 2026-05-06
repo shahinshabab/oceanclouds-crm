@@ -21,8 +21,6 @@ from django.views.generic import (
 )
 
 from common.mixins import ProjectAccessMixin, ProjectWorkAccessMixin
-from common.models import Notification
-from common.notifications import create_notification
 from common.roles import (
     ROLE_ADMIN,
     ROLE_PROJECT_MANAGER,
@@ -306,16 +304,6 @@ class ProjectCreateView(ProjectAccessMixin, CreateView):
 
     def form_valid(self, form):
         response = super().form_valid(form)
-        project = self.object
-
-        if project.manager:
-            create_notification(
-                recipient=project.manager,
-                actor=self.request.user,
-                notif_type=Notification.Type.PROJECT_ASSIGNED,
-                target=project,
-                message=f"You have been assigned to project: {project.name}",
-            )
 
         messages.success(self.request, "Project created successfully.")
         return response
@@ -345,20 +333,8 @@ class ProjectUpdateView(ProjectAccessMixin, UpdateView):
         return kwargs
 
     def form_valid(self, form):
-        old = self.get_object()
-        old_manager = old.manager
 
         response = super().form_valid(form)
-        project = self.object
-
-        if project.manager and project.manager != old_manager:
-            create_notification(
-                recipient=project.manager,
-                actor=self.request.user,
-                notif_type=Notification.Type.PROJECT_ASSIGNED,
-                target=project,
-                message=f"You have been assigned to project: {project.name}",
-            )
 
         messages.success(self.request, "Project updated successfully.")
         return response
@@ -519,15 +495,6 @@ class TaskCreateView(ProjectAccessMixin, CreateView):
 
         task.save()
         form.save_m2m()
-
-        if task.assigned_to:
-            create_notification(
-                recipient=task.assigned_to,
-                actor=self.request.user,
-                notif_type=Notification.Type.TASK_ASSIGNED,
-                target=task,
-                message=f"You have been assigned a task: {task.name}",
-            )
 
         messages.success(self.request, "Task created successfully.")
         return redirect("projects:task_detail", pk=task.pk)

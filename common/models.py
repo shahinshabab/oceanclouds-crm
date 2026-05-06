@@ -1,5 +1,4 @@
 # common/models.py
-
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
@@ -305,38 +304,53 @@ class SystemSetting(TimeStamped):
 
 
 class Notification(models.Model):
-    """
-    Simple in-app notification model.
-    Can point to Project, Task, Deliverable, etc. via GenericForeignKey.
-    """
-
     class Type(models.TextChoices):
+        # CRM
+        INQUIRY_ASSIGNED = "inquiry_assigned", "Inquiry assigned"
+        LEAD_FOLLOW_UP = "lead_follow_up", "Lead follow-up"
+
+        # Sales
+        DEAL_EXPECTED_CLOSE = "deal_expected_close", "Deal expected close"
+        PROPOSAL_DUE = "proposal_due", "Proposal due"
+        CONTRACT_ENDING = "contract_ending", "Contract ending"
+        INVOICE_DUE = "invoice_due", "Invoice due"
+
+        # Projects
         PROJECT_ASSIGNED = "project_assigned", "Project assigned"
+        PROJECT_DUE = "project_due", "Project due"
+        PROJECT_COMPLETED_REVIEW_PENDING = (
+            "project_completed_review_pending",
+            "Project completed - review pending",
+        )
+
         TASK_ASSIGNED = "task_assigned", "Task assigned"
-        OVERDUE = "overdue", "Overdue"
-        DELIVERABLE_OVERDUE = "deliverable_overdue", "Deliverable overdue"
+        TASK_DUE = "task_due", "Task due"
+
+        DELIVERABLE_ASSIGNED = "deliverable_assigned", "Deliverable assigned"
+        DELIVERABLE_DUE = "deliverable_due", "Deliverable due"
+
+        # Future
+        EVENT_REMINDER = "event_reminder", "Event reminder"
 
     recipient = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="notifications",
-        help_text="User who will see this notification.",
     )
+
     actor = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name="notifications_sent",
-        help_text="User who triggered this notification, if any.",
-    )
-    notif_type = models.CharField(
-        max_length=32,
-        choices=Type.choices,
-        help_text="Type/category of this notification.",
     )
 
-    # Generic relation to any target object (Project, Task, etc.)
+    notif_type = models.CharField(
+        max_length=64,
+        choices=Type.choices,
+    )
+
     content_type = models.ForeignKey(
         ContentType,
         on_delete=models.CASCADE,
@@ -346,29 +360,41 @@ class Notification(models.Model):
     object_id = models.PositiveIntegerField(null=True, blank=True)
     target = GenericForeignKey("content_type", "object_id")
 
-    message = models.CharField(
-        max_length=255,
+    message = models.CharField(max_length=255, blank=True)
+    is_read = models.BooleanField(default=False)
+
+    # Important for duplicate prevention
+    dedupe_key = models.CharField(
+        max_length=180,
         blank=True,
-        help_text="Human-readable notification text.",
+        null=True,
+        db_index=True,
+        help_text="Prevents the same notification being created repeatedly.",
     )
-    is_read = models.BooleanField(
-        default=False,
-        help_text="Marked as read once user sees/acknowledges it.",
-    )
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ["-created_at"]
-        verbose_name = "Notification"
-        verbose_name_plural = "Notifications"
-
+        indexes = [
+            models.Index(fields=["recipient", "is_read", "-created_at"]),
+            models.Index(fields=["notif_type", "created_at"]),
+            models.Index(fields=["dedupe_key"]),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["recipient", "dedupe_key"],
+                condition=(
+                    models.Q(dedupe_key__isnull=False)
+                    & ~models.Q(dedupe_key="")
+                ),
+                name="unique_notification_per_recipient_dedupe_key",
+            )
+        ]
     def __str__(self):
-        return self.message or f"{self.get_notif_type_display()}"
+        return self.message or self.get_notif_type_display()
 
     def get_target_url(self):
-        """
-        Optional helper: assumes your target models implement get_absolute_url().
-        """
         if self.target and hasattr(self.target, "get_absolute_url"):
             return self.target.get_absolute_url()
         return "#"

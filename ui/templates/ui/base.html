@@ -543,147 +543,170 @@
             {% block content %}{% endblock %}
         </div>
     </main>
-
     <!-- JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
-        document.addEventListener("DOMContentLoaded", function () {
-            const bellBtn = document.getElementById("notificationToggle");
-            const bellDropdown = document.getElementById("notificationDropdown");
-            const profileBtn = document.getElementById("profileToggle");
-            const profileDropdown = document.getElementById("profileDropdown");
-            const sidebar = document.getElementById("sidebar");
+    document.addEventListener("DOMContentLoaded", function () {
+        const bellBtn = document.getElementById("notificationToggle");
+        const bellDropdown = document.getElementById("notificationDropdown");
+        const profileBtn = document.getElementById("profileToggle");
+        const profileDropdown = document.getElementById("profileDropdown");
+        const sidebar = document.getElementById("sidebar");
 
-            function closeAll() {
-                if (bellDropdown) bellDropdown.classList.add("d-none");
-                if (profileDropdown) profileDropdown.classList.add("d-none");
+        function closeDropdown(dropdown, button) {
+            if (dropdown) {
+                dropdown.classList.add("d-none");
             }
 
-            // Notification dropdown
-            if (bellBtn && bellDropdown) {
-                bellBtn.addEventListener("click", function (e) {
-                    e.stopPropagation();
-                    const isHidden = bellDropdown.classList.contains("d-none");
-                    closeAll();
-
-                    if (isHidden) {
-                        bellDropdown.classList.remove("d-none");
-                    }
-                });
+            if (button) {
+                button.setAttribute("aria-expanded", "false");
             }
+        }
 
-            // Profile dropdown
-            if (profileBtn && profileDropdown) {
-                profileBtn.addEventListener("click", function (e) {
-                    e.stopPropagation();
-                    const isHidden = profileDropdown.classList.contains("d-none");
-                    closeAll();
+        function closeAllDropdowns() {
+            closeDropdown(bellDropdown, bellBtn);
+            closeDropdown(profileDropdown, profileBtn);
+        }
 
-                    if (isHidden) {
-                        profileDropdown.classList.remove("d-none");
-                    }
-                });
+        function toggleDropdown(dropdown, button) {
+            if (!dropdown || !button) return;
+
+            const isHidden = dropdown.classList.contains("d-none");
+
+            closeAllDropdowns();
+
+            if (isHidden) {
+                dropdown.classList.remove("d-none");
+                button.setAttribute("aria-expanded", "true");
             }
+        }
 
-            document.addEventListener("click", function () {
-                closeAll();
+        // Notification dropdown
+        if (bellBtn && bellDropdown) {
+            bellBtn.addEventListener("click", function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                toggleDropdown(bellDropdown, bellBtn);
             });
 
-            // Sidebar scroll persistence
-            if (sidebar) {
-                const savedScroll = localStorage.getItem("sidebarScrollTop");
+            bellDropdown.addEventListener("click", function (e) {
+                e.stopPropagation();
+            });
+        }
 
-                if (savedScroll !== null) {
-                    sidebar.scrollTop = parseInt(savedScroll, 10) || 0;
-                }
-
-                sidebar.addEventListener("scroll", function () {
-                    localStorage.setItem("sidebarScrollTop", sidebar.scrollTop);
-                });
-            }
-
-            // Active link highlight
-            const currentUrl = window.location.pathname;
-
-            document.querySelectorAll(".sidebar .nav-link").forEach(link => {
-                const href = link.getAttribute("href");
-
-                if (href === currentUrl) {
-                    link.classList.add("active");
-                }
+        // Profile dropdown
+        if (profileBtn && profileDropdown) {
+            profileBtn.addEventListener("click", function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                toggleDropdown(profileDropdown, profileBtn);
             });
 
-            // CSRF helper
-            function getCookie(name) {
-                let cookieValue = null;
+            profileDropdown.addEventListener("click", function (e) {
+                e.stopPropagation();
+            });
+        }
 
-                if (document.cookie && document.cookie !== "") {
-                    const cookies = document.cookie.split(";");
-
-                    for (let i = 0; i < cookies.length; i++) {
-                        const cookie = cookies[i].trim();
-
-                        if (cookie.substring(0, name.length + 1) === (name + "=")) {
-                            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                            break;
-                        }
-                    }
-                }
-
-                return cookieValue;
-            }
-
-            const csrftoken = getCookie("csrftoken");
-
-            // Mark notification as read
-            function attachMarkReadHandlers() {
-                document.querySelectorAll(".js-mark-notification-read").forEach(btn => {
-                    btn.addEventListener("click", function (e) {
-                        e.preventDefault();
-                        e.stopPropagation();
-
-                        const url = this.dataset.url;
-                        const notifId = this.dataset.id;
-
-                        if (!url) return;
-
-                        fetch(url, {
-                            method: "POST",
-                            headers: {
-                                "X-CSRFToken": csrftoken,
-                                "X-Requested-With": "XMLHttpRequest",
-                            },
-                        })
-                            .then(response => response.json())
-                            .then(data => {
-                                if (data.success) {
-                                    const wrapper = document.querySelector(
-                                        `[data-notif-id="${notifId}"]`
-                                    );
-
-                                    if (wrapper) {
-                                        wrapper.classList.remove("bg-light-subtle");
-
-                                        const btnContainer = wrapper.querySelector(".js-mark-notification-read").parentElement;
-
-                                        btnContainer.innerHTML = `
-                                            <span class="badge rounded-pill text-bg-light small">
-                                                Read
-                                            </span>
-                                        `;
-                                    }
-                                }
-                            })
-                            .catch(err => {
-                                console.error("Error marking notification as read:", err);
-                            });
-                    });
-                });
-            }
-
-            attachMarkReadHandlers();
+        // Close dropdowns when clicking outside
+        document.addEventListener("click", function () {
+            closeAllDropdowns();
         });
+
+        // Sidebar scroll persistence
+        if (sidebar) {
+            const savedScroll = localStorage.getItem("sidebarScrollTop");
+
+            if (savedScroll !== null) {
+                sidebar.scrollTop = parseInt(savedScroll, 10) || 0;
+            }
+
+            sidebar.addEventListener("scroll", function () {
+                localStorage.setItem("sidebarScrollTop", sidebar.scrollTop);
+            });
+        }
+
+        // Active sidebar link
+        const currentUrl = window.location.pathname;
+
+        document.querySelectorAll(".sidebar .nav-link").forEach(function (link) {
+            const href = link.getAttribute("href");
+
+            if (href === currentUrl) {
+                link.classList.add("active");
+            }
+        });
+
+        // CSRF helper
+        function getCookie(name) {
+            let cookieValue = null;
+
+            if (document.cookie && document.cookie !== "") {
+                const cookies = document.cookie.split(";");
+
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+
+                    if (cookie.startsWith(name + "=")) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+
+            return cookieValue;
+        }
+
+        // Mark notification as read
+        document.addEventListener("click", function (e) {
+            const button = e.target.closest(".js-mark-notification-read");
+            if (!button) return;
+
+            e.preventDefault();
+            e.stopPropagation();
+
+            const url = button.dataset.url;
+
+            if (!url) {
+                console.error("Notification mark-read URL missing.");
+                return;
+            }
+
+            button.disabled = true;
+            button.textContent = "Saving...";
+
+            fetch(url, {
+                method: "POST",
+                headers: {
+                    "X-CSRFToken": getCookie("csrftoken"),
+                    "X-Requested-With": "XMLHttpRequest",
+                    "Accept": "application/json"
+                },
+                credentials: "same-origin"
+            })
+            .then(function (response) {
+                if (!response.ok) {
+                    throw new Error("HTTP " + response.status);
+                }
+
+                return response.json();
+            })
+            .then(function (data) {
+                if (!data.success) {
+                    throw new Error("Mark read failed");
+                }
+
+                // Auto-refresh after mark as read
+                window.location.reload();
+            })
+            .catch(function (err) {
+                console.error("Notification error:", err);
+
+                button.disabled = false;
+                button.textContent = "Mark as read";
+            });
+        });
+    });
     </script>
 
     {% block extra_js %}{% endblock %}

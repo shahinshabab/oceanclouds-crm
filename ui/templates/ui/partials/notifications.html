@@ -1,73 +1,127 @@
 {# ui/partials/notifications.html #}
-<div class="position-relative">
-  <!-- Bell icon -->
-  <button id="notificationToggle" class="icon-btn position-relative" type="button">
+
+<div class="position-relative notification-wrapper">
+
+  <!-- Bell button -->
+  <button id="notificationToggle"
+          class="icon-btn position-relative"
+          type="button"
+          aria-label="Notifications"
+          aria-expanded="false">
+
     <i class="bi bi-bell"></i>
 
-    {% if notifications %}
-      <span
-        class="position-absolute top-0 start-100 translate-middle p-1 bg-danger border border-light rounded-circle"
-        style="font-size: 0.5rem;"
-      ></span>
+    {% if unread_notification_count %}
+      <span id="notificationBadge"
+            class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+            style="font-size: 0.6rem; min-width: 1.1rem;">
+        {{ unread_notification_count }}
+      </span>
     {% endif %}
   </button>
 
-  <div id="notificationDropdown" class="dropdown-panel d-none" style="min-width: 320px;">
-    <div class="dropdown-header d-flex justify-content-between align-items-center mb-1">
-      <span>Notifications</span>
-      {% if notifications %}
-        <span class="badge bg-dark-subtle text-dark-emphasis">
-          {{ notifications|length }}
+  <!-- Dropdown -->
+  <div id="notificationDropdown"
+       class="dropdown-panel d-none shadow-sm border rounded-3 bg-body"
+       style="min-width: 340px; max-width: 380px; right: 0;">
+
+    <!-- Header -->
+    <div class="dropdown-header d-flex justify-content-between align-items-center px-3 py-2 border-bottom">
+      <div class="fw-semibold">
+        Notifications
+      </div>
+
+      {% if unread_notification_count %}
+        <span class="badge bg-primary-subtle text-primary-emphasis">
+          {{ unread_notification_count }} unread
+        </span>
+      {% else %}
+        <span class="badge bg-light text-muted border">
+          0 unread
         </span>
       {% endif %}
     </div>
 
+    <!-- Body -->
     {% if notifications %}
-      <div class="small" style="max-height: 360px; overflow-y: auto;">
+      <div class="notification-list small" style="max-height: 360px; overflow-y: auto;">
+
         {% for note in notifications %}
-          {% if not note.is_read %}
-            <div class="border rounded-3 px-2 py-2 mb-1 bg-light-subtle"
-                 data-notif-id="{{ note.id }}"
-                 style="position: relative;">
+          <div class="notification-item border-bottom px-3 py-2 {% if not note.is_read %}bg-light-subtle{% endif %}"
+               data-notif-id="{{ note.id }}">
 
-              <a href="{{ note.get_target_url }}"
-                 class="stretched-link text-decoration-none text-reset">
-                <div class="fw-semibold small">
-                  {{ note.message|default:note.get_notif_type_display }}
-                </div>
+            <!-- Type + time -->
+            <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
+              <div class="text-uppercase text-muted small fw-semibold">
+                {{ note.get_notif_type_display }}
+              </div>
 
-                <div class="text-muted small mt-1">
-                  {% if note.actor %}
-                    {{ note.actor.get_full_name|default:note.actor.username }} &middot;
-                  {% endif %}
-                  {{ note.created_at|date:"M j, H:i" }}
-                </div>
-              </a>
+              <div class="text-muted small text-nowrap">
+                {{ note.created_at|date:"M j, H:i" }}
+              </div>
+            </div>
 
-              <div class="d-flex align-items-center mt-2" style="position: relative; z-index: 5;">
+            <!-- Message -->
+            <a href="{{ note.get_target_url }}"
+               class="text-decoration-none text-reset d-block">
+
+              <div class="fw-semibold small">
+                {{ note.message|default:note.get_notif_type_display }}
+              </div>
+
+              <div class="text-muted small mt-1">
+                {% if note.actor %}
+                  {{ note.actor.get_full_name|default:note.actor.username }}
+                {% else %}
+                  System notification
+                {% endif %}
+              </div>
+            </a>
+
+            <!-- Action -->
+            <div class="d-flex justify-content-between align-items-center mt-2">
+
+              {% if note.target %}
+                <a href="{{ note.get_target_url }}"
+                   class="btn btn-sm btn-link p-0 text-decoration-none">
+                  Open
+                </a>
+              {% else %}
+                <span></span>
+              {% endif %}
+
+              {% if not note.is_read %}
                 <button type="button"
                         class="btn btn-sm btn-outline-secondary py-0 px-2 js-mark-notification-read"
                         data-id="{{ note.id }}"
                         data-url="{% url 'common:notification_mark_read' note.id %}">
                   Mark as read
                 </button>
-              </div>
+              {% endif %}
             </div>
-          {% endif %}
+
+          </div>
         {% endfor %}
+
       </div>
     {% else %}
-      <div class="small text-muted mt-1">
-        You're all caught up. No unread notifications.
+      <div class="px-3 py-4 text-center">
+        <div class="text-muted small">
+          You're all caught up.
+        </div>
+        <div class="text-muted small">
+          No unread notifications.
+        </div>
       </div>
     {% endif %}
 
-    <!-- Always-visible footer -->
-    <div class="border-top mt-2 pt-2 text-center">
+    <!-- Footer -->
+    <div class="border-top px-3 py-2 text-center">
       <a href="{% url 'common:notification_list' %}"
          class="btn btn-link btn-sm text-decoration-none">
         View all notifications
       </a>
     </div>
+
   </div>
 </div>

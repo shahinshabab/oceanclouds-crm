@@ -1,4 +1,5 @@
 # projects/apps.py
+
 from django.apps import AppConfig
 
 
@@ -7,6 +8,4 @@ class ProjectsConfig(AppConfig):
     name = "projects"
 
     def ready(self):
-        # noqa: F401
-        from . import signals  # import to connect signals
-
+        import projects.signals  # noqa
