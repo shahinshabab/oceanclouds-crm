@@ -109,6 +109,7 @@ LOCAL_APPS = [
     "services",
     "messaging",
     "projects.apps.ProjectsConfig",
+    "reports",
     "ui",
 ]
 
@@ -124,6 +125,7 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "common.middleware.CloseExpiredLoginSessionsMiddleware",
+    "common.middleware.ClearFrontendMessagesBeforeAdminMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]

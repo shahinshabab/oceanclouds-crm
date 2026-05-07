@@ -28,7 +28,6 @@ from django.views.generic import (
 from common.mixins import AdminManagerMixin
 from crm.models import Client, Contact, Lead
 from messaging.models import EmailTemplate
-from messaging.utils import send_templated_email
 from services.models import Service, Package
 
 from .forms import (
@@ -59,6 +58,9 @@ except ImportError:
     HTML = None
 
 
+
+from django.conf import settings
+from messaging.utils import send_templated_email, EmailSendError
 # ============================================================
 # Shared helpers
 # ============================================================
@@ -1534,9 +1536,7 @@ class PaymentDeleteView(AdminManagerMixin, DeleteView):
 # Send Email Actions
 # ============================================================
 
-from django.conf import settings
-from messaging.models import EmailTemplate
-from messaging.utils import send_templated_email, EmailSendError
+
 
 
 def _email_enabled():
