@@ -7,75 +7,107 @@
 <div class="container py-3">
 
   <!-- Header -->
-  <div class="d-flex justify-content-between align-items-center mb-3">
-    <h2 class="fw-semibold mb-0">Campaign: {{ campaign.name }}</h2>
-
+  <div class="d-flex justify-content-between align-items-start mb-3">
     <div>
+      <h2 class="fw-semibold mb-0">Campaign: {{ campaign.name }}</h2>
+      <div class="text-muted small">
+        {{ campaign.get_target_type_display }}
+      </div>
+    </div>
+
+    <div class="d-flex gap-2">
+
       {% if perms.messaging.change_campaign %}
-        <form action="{% url 'messaging:campaign_pause' campaign.pk %}"
-              method="post"
-              class="d-inline">
-          {% csrf_token %}
-          {% if campaign.status == 'running' or campaign.status == 'scheduled' %}
-            <button type="submit" class="btn btn-sm btn-outline-warning me-2">
+        {% if campaign.status == 'running' or campaign.status == 'scheduled' %}
+          <form action="{% url 'messaging:campaign_pause' campaign.pk %}"
+                method="post"
+                class="d-inline">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-sm btn-outline-warning">
               Pause
             </button>
-          {% endif %}
-        </form>
+          </form>
+        {% endif %}
 
-        <form action="{% url 'messaging:campaign_resume' campaign.pk %}"
-              method="post"
-              class="d-inline">
-          {% csrf_token %}
-          {% if campaign.status == 'paused' %}
-            <button type="submit" class="btn btn-sm btn-outline-success me-2">
+        {% if campaign.status == 'paused' %}
+          <form action="{% url 'messaging:campaign_resume' campaign.pk %}"
+                method="post"
+                class="d-inline">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-sm btn-outline-success">
               Resume
             </button>
-          {% endif %}
-        </form>
+          </form>
+        {% endif %}
 
         <a href="{% url 'messaging:campaign_update' campaign.pk %}"
-           class="btn btn-sm btn-outline-primary me-2">
+           class="btn btn-sm btn-outline-primary">
           Edit
         </a>
       {% endif %}
-      <a href="{% url 'messaging:campaign_list' %}" class="btn btn-sm btn-outline-secondary">
-        Back to list
+
+      <a href="{% url 'messaging:campaign_list' %}"
+         class="btn btn-sm btn-outline-secondary">
+        Back
       </a>
     </div>
   </div>
 
+  <!-- Status alert -->
+  {% if campaign.status == 'draft' %}
+    <div class="alert alert-secondary small">
+      This campaign is still a draft. It will not send until it is scheduled or running.
+    </div>
+  {% elif campaign.status == 'paused' %}
+    <div class="alert alert-warning small">
+      This campaign is paused.
+    </div>
+  {% elif campaign.status == 'scheduled' %}
+    <div class="alert alert-primary small">
+      This campaign is scheduled.
+    </div>
+  {% elif campaign.status == 'running' %}
+    <div class="alert alert-success small">
+      This campaign is running.
+    </div>
+  {% endif %}
+
   <!-- Main details -->
   <div class="card shadow-sm mb-3">
+    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+      <strong>Campaign Details</strong>
+
+      <span class="badge
+        {% if campaign.status == 'running' %} bg-success
+        {% elif campaign.status == 'scheduled' %} bg-primary
+        {% elif campaign.status == 'paused' %} bg-warning text-dark
+        {% elif campaign.status == 'completed' %} bg-secondary
+        {% else %} bg-light text-dark
+        {% endif %}
+      ">
+        {{ campaign.get_status_display }}
+      </span>
+    </div>
+
     <div class="card-body">
       <div class="row g-3">
+
         <div class="col-md-4">
           <div class="small text-uppercase text-muted mb-1">Name</div>
           <div class="fw-semibold">{{ campaign.name }}</div>
         </div>
+
         <div class="col-md-4">
           <div class="small text-uppercase text-muted mb-1">Template</div>
           <div class="fw-semibold">
             {% if campaign.template %}
-              {{ campaign.template.name }}
+              <a href="{% url 'messaging:template_detail' campaign.template.pk %}"
+                 class="text-decoration-none">
+                {{ campaign.template.name }}
+              </a>
             {% else %}
               <span class="text-muted">—</span>
             {% endif %}
-          </div>
-        </div>
-        <div class="col-md-4">
-          <div class="small text-uppercase text-muted mb-1">Status</div>
-          <div>
-            <span class="badge
-              {% if campaign.status == 'running' %} bg-success
-              {% elif campaign.status == 'scheduled' %} bg-primary
-              {% elif campaign.status == 'paused' %} bg-warning text-dark
-              {% elif campaign.status == 'completed' %} bg-secondary
-              {% else %} bg-light text-dark
-              {% endif %}
-            ">
-              {{ campaign.get_status_display }}
-            </span>
           </div>
         </div>
 
@@ -83,16 +115,25 @@
           <div class="small text-uppercase text-muted mb-1">Target Type</div>
           <div class="fw-semibold">{{ campaign.get_target_type_display }}</div>
         </div>
+
         <div class="col-md-4">
           <div class="small text-uppercase text-muted mb-1">From Email</div>
           <div class="fw-semibold">
             {{ campaign.effective_from_email|default:"—" }}
           </div>
         </div>
+
         <div class="col-md-4">
           <div class="small text-uppercase text-muted mb-1">Reply-To</div>
           <div class="fw-semibold">
-            {{ campaign.reply_to|default:"—" }}
+            {{ campaign.effective_reply_to|default:campaign.reply_to|default:"—" }}
+          </div>
+        </div>
+
+        <div class="col-md-4">
+          <div class="small text-uppercase text-muted mb-1">Created By</div>
+          <div class="fw-semibold">
+            {{ campaign.owner|default:"—" }}
           </div>
         </div>
 
@@ -102,17 +143,19 @@
             {{ campaign.start_date|date:"Y-m-d"|default:"—" }}
           </div>
         </div>
+
         <div class="col-md-4">
           <div class="small text-uppercase text-muted mb-1">Start Time</div>
           <div class="fw-semibold">
             {{ campaign.start_time|time:"H:i"|default:"—" }}
           </div>
         </div>
+
         <div class="col-md-4">
           <div class="small text-uppercase text-muted mb-1">Weekdays Only</div>
           <div class="fw-semibold">
             {% if campaign.weekdays_only %}
-              Yes (Mon–Fri)
+              Yes, Monday to Friday
             {% else %}
               No
             {% endif %}
@@ -123,10 +166,12 @@
           <div class="small text-uppercase text-muted mb-1">Daily Limit</div>
           <div class="fw-semibold">{{ campaign.daily_limit }}</div>
         </div>
+
         <div class="col-md-4">
-          <div class="small text-uppercase text-muted mb-1">Delay (seconds)</div>
-          <div class="fw-semibold">{{ campaign.delay_seconds }}</div>
+          <div class="small text-uppercase text-muted mb-1">Delay Between Emails</div>
+          <div class="fw-semibold">{{ campaign.delay_seconds }} seconds</div>
         </div>
+
         <div class="col-md-4">
           <div class="small text-uppercase text-muted mb-1">Last Run</div>
           <div class="fw-semibold">
@@ -134,20 +179,6 @@
           </div>
         </div>
 
-        <div class="col-md-4">
-          <div class="small text-uppercase text-muted mb-1">Total Sent</div>
-          <div class="fw-semibold">{{ campaign.total_sent }}</div>
-        </div>
-        <div class="col-md-4">
-          <div class="small text-uppercase text-muted mb-1">Created By</div>
-          <div class="fw-semibold">{{ campaign.created_by|default:"—" }}</div>
-        </div>
-        <div class="col-md-4">
-          <div class="small text-uppercase text-muted mb-1">Created At</div>
-          <div class="fw-semibold">
-            {{ campaign.created_at|date:"Y-m-d H:i" }}
-          </div>
-        </div>
       </div>
     </div>
   </div>
@@ -157,6 +188,7 @@
     <div class="card-header bg-light">
       <strong>Description</strong>
     </div>
+
     <div class="card-body">
       {% if campaign.description %}
         <p class="mb-0">{{ campaign.description }}</p>
@@ -166,30 +198,66 @@
     </div>
   </div>
 
+  <!-- Recipient rule -->
+  <div class="card shadow-sm mb-3">
+    <div class="card-header bg-light">
+      <strong>Recipient Rule</strong>
+    </div>
+
+    <div class="card-body small">
+      {% if campaign.target_type == "anniversary" %}
+        <p class="mb-0">
+          This campaign sends to client contacts where:
+          <code>email is not empty</code>,
+          <code>allow_marketing=True</code>,
+          and <code>role is bride or groom</code>.
+        </p>
+      {% else %}
+        <p class="mb-0">
+          This campaign sends to client contacts where:
+          <code>email is not empty</code>
+          and <code>allow_marketing=True</code>.
+        </p>
+      {% endif %}
+    </div>
+  </div>
+
   <!-- Stats -->
   <div class="card shadow-sm mb-3">
     <div class="card-header bg-light">
       <strong>Recipient Stats</strong>
     </div>
+
     <div class="card-body">
       <div class="row g-3 text-center">
         <div class="col-md-3">
           <div class="small text-uppercase text-muted mb-1">Total</div>
           <div class="fw-bold fs-5">{{ total_recipients }}</div>
         </div>
+
         <div class="col-md-3">
           <div class="small text-uppercase text-muted mb-1">Sent</div>
           <div class="fw-bold fs-5 text-success">{{ sent_count }}</div>
         </div>
+
         <div class="col-md-3">
           <div class="small text-uppercase text-muted mb-1">Pending</div>
           <div class="fw-bold fs-5 text-primary">{{ pending_count }}</div>
         </div>
+
         <div class="col-md-3">
           <div class="small text-uppercase text-muted mb-1">Failed</div>
           <div class="fw-bold fs-5 text-danger">{{ failed_count }}</div>
         </div>
       </div>
+
+      {% if skipped_count %}
+      <div class="text-center mt-3">
+        <span class="badge bg-secondary">
+          {{ skipped_count }} skipped
+        </span>
+      </div>
+      {% endif %}
     </div>
   </div>
 
@@ -197,59 +265,87 @@
   <div class="card shadow-sm mb-4">
     <div class="card-header bg-light d-flex justify-content-between align-items-center">
       <strong>Recipients</strong>
-      <span class="small text-muted">{{ total_recipients }} total</span>
+      <span class="small text-muted">
+        Showing latest {{ recipients|length }} of {{ total_recipients }}
+      </span>
     </div>
+
     <div class="card-body p-0">
-      <table class="table table-hover mb-0 align-middle">
-        <thead class="table-light">
-          <tr>
-            <th>Email</th>
-            <th>Name</th>
-            <th>Company</th>
-            <th>Status</th>
-            <th>Sent At</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for r in recipients %}
-          <tr>
-            <td>{{ r.email }}</td>
-            <td>
-              {{ r.first_name }} {{ r.last_name }}
-            </td>
-            <td>{{ r.company|default:"—" }}</td>
-            <td>
-              <span class="badge
-                {% if r.status == 'sent' %} bg-success
-                {% elif r.status == 'pending' %} bg-primary
-                {% elif r.status == 'failed' %} bg-danger
-                {% else %} bg-light text-dark
+      <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>Email</th>
+              <th>Name</th>
+              <th>Client</th>
+              <th>Status</th>
+              <th>Sent At</th>
+              <th>Error</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {% for r in recipients %}
+            <tr>
+              <td>{{ r.email }}</td>
+
+              <td>
+                {% if r.first_name or r.last_name %}
+                  {{ r.first_name }} {{ r.last_name }}
+                {% else %}
+                  <span class="text-muted">—</span>
                 {% endif %}
-              ">
-                {{ r.get_status_display }}
-              </span>
-            </td>
-            <td>
-              {% if r.sent_at %}
-                {{ r.sent_at|date:"Y-m-d H:i" }}
-              {% else %}
-                <span class="text-muted">—</span>
-              {% endif %}
-            </td>
-          </tr>
-          {% empty %}
-          <tr>
-            <td colspan="5" class="text-center text-muted py-3">
-              No recipients added yet.
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+              </td>
+
+              <td>{{ r.company|default:"—" }}</td>
+
+              <td>
+                <span class="badge
+                  {% if r.status == 'sent' %} bg-success
+                  {% elif r.status == 'pending' %} bg-primary
+                  {% elif r.status == 'failed' %} bg-danger
+                  {% elif r.status == 'skipped' %} bg-secondary
+                  {% else %} bg-light text-dark
+                  {% endif %}
+                ">
+                  {{ r.get_status_display }}
+                </span>
+              </td>
+
+              <td>
+                {% if r.sent_at %}
+                  {{ r.sent_at|date:"Y-m-d H:i" }}
+                {% else %}
+                  <span class="text-muted">—</span>
+                {% endif %}
+              </td>
+
+              <td style="max-width: 280px;">
+                {% if r.last_error %}
+                  <span class="text-danger small">
+                    {{ r.last_error|truncatechars:80 }}
+                  </span>
+                {% else %}
+                  <span class="text-muted">—</span>
+                {% endif %}
+              </td>
+            </tr>
+
+            {% empty %}
+            <tr>
+              <td colspan="6" class="text-center text-muted py-4">
+                No recipients synced yet.
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+
+        </table>
+      </div>
     </div>
   </div>
 
-  <!-- Action row -->
+  <!-- Actions -->
   <div class="text-center mb-3">
     {% if perms.messaging.change_campaign %}
       <a href="{% url 'messaging:campaign_update' campaign.pk %}"
@@ -257,7 +353,9 @@
         Edit Campaign
       </a>
     {% endif %}
-    <a href="{% url 'messaging:campaign_list' %}" class="btn btn-outline-secondary">
+
+    <a href="{% url 'messaging:campaign_list' %}"
+       class="btn btn-outline-secondary">
       Back to list
     </a>
   </div>

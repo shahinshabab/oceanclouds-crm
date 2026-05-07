@@ -1,36 +1,125 @@
+{# messaging/templates/messaging/emailtemplate_preview.html #}
 {% extends "ui/base.html" %}
+
 {% block title %}Preview: {{ template.name }}{% endblock %}
 
 {% block content %}
 <div class="container py-3">
 
-  <div class="d-flex justify-content-between align-items-center mb-3">
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-start mb-3">
     <div>
       <h2 class="fw-semibold mb-0">Preview: {{ template.name }}</h2>
-      <div class="text-muted small">Subject: {{ template.subject|default:"—" }}</div>
+      <div class="text-muted small">
+        Rendered using sample client, proposal, invoice, and payment data.
+      </div>
     </div>
 
-    <a href="{{ back_url }}" class="btn btn-outline-secondary btn-sm">
-      Back to details
-    </a>
+    <div class="d-flex gap-2">
+      {% if perms.messaging.change_emailtemplate %}
+        <a href="{% url 'messaging:template_update' template.pk %}"
+           class="btn btn-sm btn-outline-primary">
+          Edit
+        </a>
+      {% endif %}
+
+      <a href="{{ back_url }}" class="btn btn-sm btn-outline-secondary">
+        Back to details
+      </a>
+    </div>
   </div>
 
-  <div class="card shadow-sm">
-    <div class="card-body p-0">
-      {% if template.body_html %}
-        <!-- Render the HTML as-is -->
-        <div class="p-3">
+  <!-- Subject -->
+  <div class="card shadow-sm mb-3">
+    <div class="card-header bg-light">
+      <strong>Rendered Subject</strong>
+    </div>
+    <div class="card-body">
+      <div class="fw-semibold">
+        {{ preview_subject|default:template.subject|default:"—" }}
+      </div>
+    </div>
+  </div>
+
+  <!-- Rendered HTML -->
+  <div class="card shadow-sm mb-3">
+    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+      <strong>Rendered HTML Preview</strong>
+      <span class="badge bg-light text-dark">{{ template.get_type_display }}</span>
+    </div>
+
+    <div class="card-body bg-white">
+      {% if preview_html %}
+        <div class="border rounded p-3">
+          {{ preview_html|safe }}
+        </div>
+      {% elif template.body_html %}
+        <div class="border rounded p-3">
           {{ template.body_html|safe }}
         </div>
       {% else %}
-        <div class="p-3 text-muted">
+        <p class="text-muted mb-0">
           No HTML body defined for this template.
-        </div>
+        </p>
       {% endif %}
     </div>
   </div>
 
-  <div class="text-center mt-3">
+  <!-- Text preview -->
+  <div class="card shadow-sm mb-3">
+    <div class="card-header bg-light">
+      <strong>Rendered Plain Text</strong>
+    </div>
+
+    <div class="card-body">
+      {% if preview_text %}
+        <pre class="mb-0 border rounded bg-body-tertiary p-3"
+             style="white-space: pre-wrap; word-wrap: break-word;">{{ preview_text }}</pre>
+      {% else %}
+        <p class="text-muted mb-0">
+          No plain text body defined.
+        </p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Sample context -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-header bg-light">
+      <strong>Sample Data Used for Preview</strong>
+    </div>
+
+    <div class="card-body">
+      <div class="row g-3 small">
+        <div class="col-md-3">
+          <h6 class="fw-semibold">Client</h6>
+          <div>Name: Sample Client</div>
+          <div>Email: client@example.com</div>
+        </div>
+
+        <div class="col-md-3">
+          <h6 class="fw-semibold">Proposal</h6>
+          <div>Title: Wedding Photography Proposal</div>
+          <div>Total: 45000</div>
+        </div>
+
+        <div class="col-md-3">
+          <h6 class="fw-semibold">Invoice</h6>
+          <div>Number: INV001</div>
+          <div>Total: 45000</div>
+        </div>
+
+        <div class="col-md-3">
+          <h6 class="fw-semibold">Payment</h6>
+          <div>Amount: 10000</div>
+          <div>Date: 2026-05-07</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Actions -->
+  <div class="text-center mb-3">
     <a href="{{ back_url }}" class="btn btn-outline-secondary">
       Back to details
     </a>

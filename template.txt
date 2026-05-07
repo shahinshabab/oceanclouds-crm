@@ -1,0 +1,432 @@
+{{ client.name }}
+{{ client.display_name }}
+{{ client.email }}
+{{ client.phone }}
+{{ client.billing_address }}
+
+{{ contact.first_name }}
+{{ contact.last_name }}
+{{ contact.role }}
+{{ contact.email }}
+
+{{ deal.name }}
+{{ deal.amount }}
+{{ deal.expected_close_date }}
+
+{{ proposal.title }}
+{{ proposal.version }}
+{{ proposal.subtotal }}
+{{ proposal.discount }}
+{{ proposal.tax }}
+{{ proposal.total }}
+{{ proposal.valid_until }}
+{{ proposal.notes }}
+
+{{ contract.number }}
+{{ contract.status }}
+{{ contract.start_date }}
+{{ contract.end_date }}
+{{ contract.terms }}
+
+{{ invoice.number }}
+{{ invoice.issue_date }}
+{{ invoice.due_date }}
+{{ invoice.subtotal }}
+{{ invoice.tax }}
+{{ invoice.total }}
+{{ invoice.amount_paid }}
+{{ invoice.balance }}
+
+{{ payment.date }}
+{{ payment.amount }}
+{{ payment.payment_type }}
+{{ payment.method }}
+{{ payment.reference }}
+
+
+For anniversary
+
+{{ contact.first_name }}
+{{ contact.last_name }}
+{{ contact.role }}
+{{ client.name }}
+
+
+1. Proposal Template
+Name
+Default Proposal Email
+Slug
+proposal-default
+Type
+Proposal
+Subject
+Proposal from {{ company_name }} - {{ proposal.title }}
+HTML Body
+<p>Dear {{ client.display_name|default:client.name }},</p>
+
+<p>
+  Thank you for your interest in our services.
+  Please find the proposal details below.
+</p>
+
+<table style="width:100%; border-collapse:collapse; margin-top:15px; margin-bottom:15px;">
+  <tr>
+    <td style="padding:8px; border:1px solid #ddd;"><strong>Proposal Title</strong></td>
+    <td style="padding:8px; border:1px solid #ddd;">{{ proposal.title }}</td>
+  </tr>
+  <tr>
+    <td style="padding:8px; border:1px solid #ddd;"><strong>Version</strong></td>
+    <td style="padding:8px; border:1px solid #ddd;">{{ proposal.version }}</td>
+  </tr>
+  <tr>
+    <td style="padding:8px; border:1px solid #ddd;"><strong>Subtotal</strong></td>
+    <td style="padding:8px; border:1px solid #ddd;">₹{{ proposal.subtotal }}</td>
+  </tr>
+  <tr>
+    <td style="padding:8px; border:1px solid #ddd;"><strong>Discount</strong></td>
+    <td style="padding:8px; border:1px solid #ddd;">₹{{ proposal.discount }}</td>
+  </tr>
+  <tr>
+    <td style="padding:8px; border:1px solid #ddd;"><strong>Tax</strong></td>
+    <td style="padding:8px; border:1px solid #ddd;">{{ proposal.tax }}%</td>
+  </tr>
+  <tr>
+    <td style="padding:8px; border:1px solid #ddd;"><strong>Total</strong></td>
+    <td style="padding:8px; border:1px solid #ddd;"><strong>₹{{ proposal.total }}</strong></td>
+  </tr>
+  <tr>
+    <td style="padding:8px; border:1px solid #ddd;"><strong>Valid Until</strong></td>
+    <td style="padding:8px; border:1px solid #ddd;">{{ proposal.valid_until|default:"-" }}</td>
+  </tr>
+</table>
+
+{% if proposal.notes %}
+<p>
+  <strong>Notes:</strong><br>
+  {{ proposal.notes|linebreaksbr }}
+</p>
+{% endif %}
+
+<p>
+  Please review the proposal and contact us if you have any questions.
+</p>
+
+<p>
+  Regards,<br>
+  <strong>{{ company_name }}</strong>
+</p>
+Plain Text Body
+Dear {{ client.display_name|default:client.name }},
+
+Thank you for your interest in our services.
+
+Proposal Details:
+Proposal Title: {{ proposal.title }}
+Version: {{ proposal.version }}
+Subtotal: ₹{{ proposal.subtotal }}
+Discount: ₹{{ proposal.discount }}
+Tax: {{ proposal.tax }}%
+Total: ₹{{ proposal.total }}
+Valid Until: {{ proposal.valid_until|default:"-" }}
+
+{% if proposal.notes %}
+Notes:
+{{ proposal.notes }}
+{% endif %}
+
+Please review the proposal and contact us if you have any questions.
+
+Regards,
+{{ company_name }}
+2. Contract Template
+Name
+Default Contract Email
+Slug
+contract-default
+Type
+Contract
+Subject
+Contract {{ contract.number }} from {{ company_name }}
+HTML Body
+<p>Dear {{ client.display_name|default:client.name }},</p>
+
+<p>
+  We are pleased to share the contract details for your confirmed service.
+</p>
+
+<table style="width:100%; border-collapse:collapse; margin-top:15px; margin-bottom:15px;">
+  <tr>
+    <td style="padding:8px; border:1px solid #ddd;"><strong>Contract Number</strong></td>
+    <td style="padding:8px; border:1px solid #ddd;">{{ contract.number }}</td>
+  </tr>
+  <tr>
+    <td style="padding:8px; border:1px solid #ddd;"><strong>Status</strong></td>
+    <td style="padding:8px; border:1px solid #ddd;">{{ contract.get_status_display }}</td>
+  </tr>
+  <tr>
+    <td style="padding:8px; border:1px solid #ddd;"><strong>Start Date</strong></td>
+    <td style="padding:8px; border:1px solid #ddd;">{{ contract.start_date|default:"-" }}</td>
+  </tr>
+  <tr>
+    <td style="padding:8px; border:1px solid #ddd;"><strong>End Date</strong></td>
+    <td style="padding:8px; border:1px solid #ddd;">{{ contract.end_date|default:"-" }}</td>
+  </tr>
+</table>
+
+{% if proposal %}
+<p>
+  <strong>Related Proposal:</strong> {{ proposal.title }}
+</p>
+{% endif %}
+
+{% if contract.terms %}
+<p>
+  <strong>Terms:</strong><br>
+  {{ contract.terms|linebreaksbr }}
+</p>
+{% endif %}
+
+<p>
+  Please review the contract carefully. If everything is correct, kindly proceed with the required confirmation/signature.
+</p>
+
+<p>
+  Regards,<br>
+  <strong>{{ company_name }}</strong>
+</p>
+Plain Text Body
+Dear {{ client.display_name|default:client.name }},
+
+We are pleased to share the contract details for your confirmed service.
+
+Contract Number: {{ contract.number }}
+Status: {{ contract.get_status_display }}
+Start Date: {{ contract.start_date|default:"-" }}
+End Date: {{ contract.end_date|default:"-" }}
+
+{% if proposal %}
+Related Proposal: {{ proposal.title }}
+{% endif %}
+
+{% if contract.terms %}
+Terms:
+{{ contract.terms }}
+{% endif %}
+
+Please review the contract carefully. If everything is correct, kindly proceed with the required confirmation/signature.
+
+Regards,
+{{ company_name }}
+3. Invoice Template
+Name
+Default Invoice Email
+Slug
+invoice-default
+Type
+Invoice
+Subject
+Invoice {{ invoice.number }} from {{ company_name }}
+HTML Body
+<p>Dear {{ client.display_name|default:client.name }},</p>
+
+<p>
+  Please find your invoice details below.
+</p>
+
+<table style="width:100%; border-collapse:collapse; margin-top:15px; margin-bottom:15px;">
+  <tr>
+    <td style="padding:8px; border:1px solid #ddd;"><strong>Invoice Number</strong></td>
+    <td style="padding:8px; border:1px solid #ddd;">{{ invoice.number }}</td>
+  </tr>
+  <tr>
+    <td style="padding:8px; border:1px solid #ddd;"><strong>Issue Date</strong></td>
+    <td style="padding:8px; border:1px solid #ddd;">{{ invoice.issue_date }}</td>
+  </tr>
+  <tr>
+    <td style="padding:8px; border:1px solid #ddd;"><strong>Due Date</strong></td>
+    <td style="padding:8px; border:1px solid #ddd;">{{ invoice.due_date|default:"-" }}</td>
+  </tr>
+  <tr>
+    <td style="padding:8px; border:1px solid #ddd;"><strong>Subtotal</strong></td>
+    <td style="padding:8px; border:1px solid #ddd;">₹{{ invoice.subtotal }}</td>
+  </tr>
+  <tr>
+    <td style="padding:8px; border:1px solid #ddd;"><strong>Tax</strong></td>
+    <td style="padding:8px; border:1px solid #ddd;">₹{{ invoice.tax }}</td>
+  </tr>
+  <tr>
+    <td style="padding:8px; border:1px solid #ddd;"><strong>Total</strong></td>
+    <td style="padding:8px; border:1px solid #ddd;"><strong>₹{{ invoice.total }}</strong></td>
+  </tr>
+  <tr>
+    <td style="padding:8px; border:1px solid #ddd;"><strong>Amount Paid</strong></td>
+    <td style="padding:8px; border:1px solid #ddd;">₹{{ invoice.amount_paid }}</td>
+  </tr>
+  <tr>
+    <td style="padding:8px; border:1px solid #ddd;"><strong>Balance</strong></td>
+    <td style="padding:8px; border:1px solid #ddd;"><strong>₹{{ invoice.balance }}</strong></td>
+  </tr>
+</table>
+
+{% if invoice.notes %}
+<p>
+  <strong>Notes:</strong><br>
+  {{ invoice.notes|linebreaksbr }}
+</p>
+{% endif %}
+
+<p>
+  Kindly complete the payment on or before the due date.
+</p>
+
+<p>
+  Regards,<br>
+  <strong>{{ company_name }}</strong>
+</p>
+Plain Text Body
+Dear {{ client.display_name|default:client.name }},
+
+Please find your invoice details below.
+
+Invoice Number: {{ invoice.number }}
+Issue Date: {{ invoice.issue_date }}
+Due Date: {{ invoice.due_date|default:"-" }}
+Subtotal: ₹{{ invoice.subtotal }}
+Tax: ₹{{ invoice.tax }}
+Total: ₹{{ invoice.total }}
+Amount Paid: ₹{{ invoice.amount_paid }}
+Balance: ₹{{ invoice.balance }}
+
+{% if invoice.notes %}
+Notes:
+{{ invoice.notes }}
+{% endif %}
+
+Kindly complete the payment on or before the due date.
+
+Regards,
+{{ company_name }}
+4. Payment Template
+Name
+Default Payment Receipt Email
+Slug
+payment-default
+Type
+Payment
+Subject
+Payment Received - Invoice {{ invoice.number }}
+HTML Body
+<p>Dear {{ client.display_name|default:client.name }},</p>
+
+<p>
+  Thank you. We have received your payment successfully.
+</p>
+
+<table style="width:100%; border-collapse:collapse; margin-top:15px; margin-bottom:15px;">
+  <tr>
+    <td style="padding:8px; border:1px solid #ddd;"><strong>Invoice Number</strong></td>
+    <td style="padding:8px; border:1px solid #ddd;">{{ invoice.number }}</td>
+  </tr>
+  <tr>
+    <td style="padding:8px; border:1px solid #ddd;"><strong>Payment Date</strong></td>
+    <td style="padding:8px; border:1px solid #ddd;">{{ payment.date }}</td>
+  </tr>
+  <tr>
+    <td style="padding:8px; border:1px solid #ddd;"><strong>Amount Received</strong></td>
+    <td style="padding:8px; border:1px solid #ddd;"><strong>₹{{ payment.amount }}</strong></td>
+  </tr>
+  <tr>
+    <td style="padding:8px; border:1px solid #ddd;"><strong>Payment Type</strong></td>
+    <td style="padding:8px; border:1px solid #ddd;">{{ payment.get_payment_type_display }}</td>
+  </tr>
+  <tr>
+    <td style="padding:8px; border:1px solid #ddd;"><strong>Payment Method</strong></td>
+    <td style="padding:8px; border:1px solid #ddd;">{{ payment.get_method_display }}</td>
+  </tr>
+  <tr>
+    <td style="padding:8px; border:1px solid #ddd;"><strong>Reference</strong></td>
+    <td style="padding:8px; border:1px solid #ddd;">{{ payment.reference|default:"-" }}</td>
+  </tr>
+</table>
+
+<p>
+  <strong>Invoice Summary:</strong><br>
+  Invoice Total: ₹{{ invoice.total }}<br>
+  Amount Paid: ₹{{ invoice.amount_paid }}<br>
+  Balance: ₹{{ invoice.balance }}
+</p>
+
+{% if payment.notes %}
+<p>
+  <strong>Notes:</strong><br>
+  {{ payment.notes|linebreaksbr }}
+</p>
+{% endif %}
+
+<p>
+  Thank you for your payment.
+</p>
+
+<p>
+  Regards,<br>
+  <strong>{{ company_name }}</strong>
+</p>
+Plain Text Body
+Dear {{ client.display_name|default:client.name }},
+
+Thank you. We have received your payment successfully.
+
+Invoice Number: {{ invoice.number }}
+Payment Date: {{ payment.date }}
+Amount Received: ₹{{ payment.amount }}
+Payment Type: {{ payment.get_payment_type_display }}
+Payment Method: {{ payment.get_method_display }}
+Reference: {{ payment.reference|default:"-" }}
+
+Invoice Summary:
+Invoice Total: ₹{{ invoice.total }}
+Amount Paid: ₹{{ invoice.amount_paid }}
+Balance: ₹{{ invoice.balance }}
+
+{% if payment.notes %}
+Notes:
+{{ payment.notes }}
+{% endif %}
+
+Thank you for your payment.
+
+Regards,
+{{ company_name }}
+Optional: Anniversary Template
+Name
+Default Anniversary Wish Email
+Slug
+anniversary-default
+Type
+Anniversary
+Subject
+Happy Anniversary from {{ company_name }}
+HTML Body
+<p>Dear {{ contact.first_name }},</p>
+
+<p>
+  Wishing you a very happy anniversary from all of us at {{ company_name }}.
+</p>
+
+<p>
+  We hope your special day is filled with happiness, love, and beautiful memories.
+</p>
+
+<p>
+  Warm wishes,<br>
+  <strong>{{ company_name }}</strong>
+</p>
+Plain Text Body
+Dear {{ contact.first_name }},
+
+Wishing you a very happy anniversary from all of us at {{ company_name }}.
+
+We hope your special day is filled with happiness, love, and beautiful memories.
+
+Warm wishes,
+{{ company_name }}

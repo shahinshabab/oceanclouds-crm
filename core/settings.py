@@ -39,6 +39,9 @@ env = environ.Env(
     AWS_S3_ENABLED=(bool, False),
     AWS_STORAGE_BUCKET_NAME=(str, ""),
     AWS_S3_REGION_NAME=(str, "ap-south-1"),
+    EMAIL_SENDING_ENABLED=(bool, False),
+    EMAIL_DEFAULT_FROM=(str, ""),
+    EMAIL_DEFAULT_REPLY_TO=(str, ""),
 )
 environ.Env.read_env(BASE_DIR / ".env")
 
@@ -53,6 +56,9 @@ AWS_SECRET_ACCESS_KEY = env("AWS_SECRET_ACCESS_KEY")
 AWS_S3_ENABLED = env.bool("AWS_S3_ENABLED")
 AWS_STORAGE_BUCKET_NAME = env("AWS_STORAGE_BUCKET_NAME")
 AWS_S3_REGION_NAME = env("AWS_S3_REGION_NAME")
+EMAIL_SENDING_ENABLED = env.bool("EMAIL_SENDING_ENABLED")
+EMAIL_DEFAULT_FROM = env("EMAIL_DEFAULT_FROM") or AWS_SES_SENDER
+EMAIL_DEFAULT_REPLY_TO = env("EMAIL_DEFAULT_REPLY_TO") or AWS_SES_SENDER
 
 # ------------------------------------------------------------------------------
 # Apps

@@ -9,10 +9,15 @@
 <div class="container-fluid py-3">
 
   <!-- Header -->
-  <div class="d-flex justify-content-between align-items-center mb-3">
-    <h2 class="fw-semibold mb-0">
-      {% if form.instance.pk %}Edit Email Template{% else %}New Email Template{% endif %}
-    </h2>
+  <div class="d-flex justify-content-between align-items-start mb-3">
+    <div>
+      <h2 class="fw-semibold mb-0">
+        {% if form.instance.pk %}Edit Email Template{% else %}New Email Template{% endif %}
+      </h2>
+      <div class="text-muted small">
+        Create reusable templates for proposals, contracts, invoices, payments, campaigns, and anniversary wishes.
+      </div>
+    </div>
 
     <a href="{% url 'messaging:template_list' %}" class="btn btn-outline-secondary btn-sm">
       Back to list
@@ -25,83 +30,245 @@
     </div>
   {% endif %}
 
-  <!-- Full width card -->
-  <div class="card shadow-sm">
-    <div class="card-body">
-      <form method="post" novalidate>
-        {% csrf_token %}
+  <form method="post" enctype="multipart/form-data" novalidate>
+    {% csrf_token %}
 
-        <div class="row g-3">
+    <div class="row g-3">
 
-          <div class="col-md-4">
-            <label class="form-label">Name <span class="text-danger">*</span></label>
-            {{ form.name }}
-            {% if form.name.help_text %}<div class="form-text">{{ form.name.help_text }}</div>{% endif %}
-            {% for error in form.name.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+      <!-- Left: form -->
+      <div class="col-lg-8">
+
+        <div class="card shadow-sm mb-3">
+          <div class="card-header bg-light">
+            <strong>Template Information</strong>
           </div>
 
-          <div class="col-md-4">
-            <label class="form-label">Slug <span class="text-danger">*</span></label>
-            {{ form.slug }}
-            {% if form.slug.help_text %}<div class="form-text">{{ form.slug.help_text }}</div>{% endif %}
-            {% for error in form.slug.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-          </div>
+          <div class="card-body">
+            <div class="row g-3">
 
-          <div class="col-md-4">
-            <label class="form-label">Type <span class="text-danger">*</span></label>
-            {{ form.type }}
-            {% if form.type.help_text %}<div class="form-text">{{ form.type.help_text }}</div>{% endif %}
-            {% for error in form.type.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-          </div>
+              <div class="col-md-4">
+                <label class="form-label">
+                  Name <span class="text-danger">*</span>
+                </label>
+                {{ form.name }}
+                {% if form.name.help_text %}
+                  <div class="form-text">{{ form.name.help_text }}</div>
+                {% endif %}
+                {% for error in form.name.errors %}
+                  <div class="text-danger small">{{ error }}</div>
+                {% endfor %}
+              </div>
 
-          <div class="col-md-8">
-            <label class="form-label">Subject <span class="text-danger">*</span></label>
-            {{ form.subject }}
-            {% if form.subject.help_text %}<div class="form-text">{{ form.subject.help_text }}</div>{% endif %}
-            {% for error in form.subject.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-          </div>
+              <div class="col-md-4">
+                <label class="form-label">
+                  Slug <span class="text-danger">*</span>
+                </label>
+                {{ form.slug }}
+                {% if form.slug.help_text %}
+                  <div class="form-text">{{ form.slug.help_text }}</div>
+                {% endif %}
+                {% for error in form.slug.errors %}
+                  <div class="text-danger small">{{ error }}</div>
+                {% endfor %}
+              </div>
 
-          <div class="col-md-2 d-flex align-items-center">
-            <div class="form-check mt-3">
-              {{ form.is_active }}
-              <label class="form-check-label ms-1">Active</label>
+              <div class="col-md-4">
+                <label class="form-label">
+                  Type <span class="text-danger">*</span>
+                </label>
+                {{ form.type }}
+                {% if form.type.help_text %}
+                  <div class="form-text">{{ form.type.help_text }}</div>
+                {% endif %}
+                {% for error in form.type.errors %}
+                  <div class="text-danger small">{{ error }}</div>
+                {% endfor %}
+              </div>
+
+              <div class="col-12">
+                <label class="form-label">
+                  Subject <span class="text-danger">*</span>
+                </label>
+                {{ form.subject }}
+                {% if form.subject.help_text %}
+                  <div class="form-text">{{ form.subject.help_text }}</div>
+                {% endif %}
+                {% for error in form.subject.errors %}
+                  <div class="text-danger small">{{ error }}</div>
+                {% endfor %}
+              </div>
+
+              <div class="col-md-4">
+                <div class="form-check mt-2">
+                  {{ form.is_active }}
+                  <label class="form-check-label ms-1">
+                    Active
+                  </label>
+                </div>
+                <div class="form-text">
+                  Active template will be used for sending emails.
+                </div>
+                {% for error in form.is_active.errors %}
+                  <div class="text-danger small">{{ error }}</div>
+                {% endfor %}
+              </div>
+
+              {% if form.is_default_for_type %}
+              <div class="col-md-4">
+                <div class="form-check mt-2">
+                  {{ form.is_default_for_type }}
+                  <label class="form-check-label ms-1">
+                    Default for type
+                  </label>
+                </div>
+                <div class="form-text">
+                  Usually same as active template.
+                </div>
+                {% for error in form.is_default_for_type.errors %}
+                  <div class="text-danger small">{{ error }}</div>
+                {% endfor %}
+              </div>
+              {% endif %}
+
+              {% if form.attach_generated_pdf %}
+              <div class="col-md-4">
+                <div class="form-check mt-2">
+                  {{ form.attach_generated_pdf }}
+                  <label class="form-check-label ms-1">
+                    Attach generated PDF
+                  </label>
+                </div>
+                <div class="form-text">
+                  Useful for proposal, contract, invoice, and payment emails.
+                </div>
+                {% for error in form.attach_generated_pdf.errors %}
+                  <div class="text-danger small">{{ error }}</div>
+                {% endfor %}
+              </div>
+              {% endif %}
+
+              {% if form.pdf_attachment_mode %}
+              <div class="col-md-6">
+                <label class="form-label">PDF Attachment Mode</label>
+                {{ form.pdf_attachment_mode }}
+                {% if form.pdf_attachment_mode.help_text %}
+                  <div class="form-text">{{ form.pdf_attachment_mode.help_text }}</div>
+                {% endif %}
+                {% for error in form.pdf_attachment_mode.errors %}
+                  <div class="text-danger small">{{ error }}</div>
+                {% endfor %}
+              </div>
+              {% endif %}
+
             </div>
-            {% for error in form.is_active.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
           </div>
-
-          <div class="col-md-2 d-flex align-items-center">
-            <div class="form-check mt-3">
-              {{ form.is_default_for_type }}
-              <label class="form-check-label ms-1">Default for type</label>
-            </div>
-            {% for error in form.is_default_for_type.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-          </div>
-
-          <div class="col-12">
-            <label class="form-label">HTML Body <span class="text-danger">*</span></label>
-            {{ form.body_html }}
-            {% if form.body_html.help_text %}<div class="form-text">{{ form.body_html.help_text }}</div>{% endif %}
-            {% for error in form.body_html.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-          </div>
-
-          <div class="col-12">
-            <label class="form-label">Plain Text Body</label>
-            {{ form.body_text }}
-            {% if form.body_text.help_text %}<div class="form-text">{{ form.body_text.help_text }}</div>{% endif %}
-            {% for error in form.body_text.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-          </div>
-
         </div>
 
-        <!-- Buttons -->
-        <div class="d-flex justify-content-center gap-2 mt-4">
-          <button type="submit" class="btn btn-primary px-4">Save</button>
-          <a href="{% url 'messaging:template_list' %}" class="btn btn-secondary">Cancel</a>
+        <!-- Body -->
+        <div class="card shadow-sm mb-3">
+          <div class="card-header bg-light">
+            <strong>Email Body</strong>
+          </div>
+
+          <div class="card-body">
+            <div class="mb-3">
+              <label class="form-label">
+                HTML Body <span class="text-danger">*</span>
+              </label>
+              {{ form.body_html }}
+              {% if form.body_html.help_text %}
+                <div class="form-text">{{ form.body_html.help_text }}</div>
+              {% endif %}
+              {% for error in form.body_html.errors %}
+                <div class="text-danger small">{{ error }}</div>
+              {% endfor %}
+            </div>
+
+            <div>
+              <label class="form-label">Plain Text Body</label>
+              {{ form.body_text }}
+              {% if form.body_text.help_text %}
+                <div class="form-text">{{ form.body_text.help_text }}</div>
+              {% endif %}
+              {% for error in form.body_text.errors %}
+                <div class="text-danger small">{{ error }}</div>
+              {% endfor %}
+            </div>
+          </div>
         </div>
 
-      </form>
+      </div>
+
+      <!-- Right: variable guide -->
+      <div class="col-lg-4">
+
+        <div class="card shadow-sm mb-3">
+          <div class="card-header bg-light">
+            <strong>Variable Guide</strong>
+          </div>
+
+          <div class="card-body small">
+            <p class="text-muted">
+              Copy these tags into subject or body.
+            </p>
+
+            <h6 class="fw-semibold">Client</h6>
+            <code>{% templatetag openvariable %} client.name {% templatetag closevariable %}</code><br>
+            <code>{% templatetag openvariable %} client.display_name {% templatetag closevariable %}</code><br>
+            <code>{% templatetag openvariable %} client.email {% templatetag closevariable %}</code><br>
+            <code>{% templatetag openvariable %} client.phone {% templatetag closevariable %}</code>
+
+            <hr>
+
+            <h6 class="fw-semibold">Contact</h6>
+            <code>{% templatetag openvariable %} contact.first_name {% templatetag closevariable %}</code><br>
+            <code>{% templatetag openvariable %} contact.last_name {% templatetag closevariable %}</code><br>
+            <code>{% templatetag openvariable %} contact.role {% templatetag closevariable %}</code><br>
+            <code>{% templatetag openvariable %} contact.email {% templatetag closevariable %}</code>
+
+            <hr>
+
+            <h6 class="fw-semibold">Proposal</h6>
+            <code>{% templatetag openvariable %} proposal.title {% templatetag closevariable %}</code><br>
+            <code>{% templatetag openvariable %} proposal.version {% templatetag closevariable %}</code><br>
+            <code>{% templatetag openvariable %} proposal.total {% templatetag closevariable %}</code><br>
+            <code>{% templatetag openvariable %} proposal.valid_until {% templatetag closevariable %}</code>
+
+            <hr>
+
+            <h6 class="fw-semibold">Contract / Invoice / Payment</h6>
+            <code>{% templatetag openvariable %} contract.number {% templatetag closevariable %}</code><br>
+            <code>{% templatetag openvariable %} invoice.number {% templatetag closevariable %}</code><br>
+            <code>{% templatetag openvariable %} invoice.total {% templatetag closevariable %}</code><br>
+            <code>{% templatetag openvariable %} invoice.balance {% templatetag closevariable %}</code><br>
+            <code>{% templatetag openvariable %} payment.amount {% templatetag closevariable %}</code><br>
+            <code>{% templatetag openvariable %} payment.date {% templatetag closevariable %}</code>
+          </div>
+        </div>
+
+      </div>
+
     </div>
-  </div>
+
+    <!-- Buttons -->
+    <div class="d-flex justify-content-center gap-2 mt-4">
+      <button type="submit" class="btn btn-primary px-4">
+        Save Template
+      </button>
+
+      {% if form.instance.pk %}
+        <a href="{% url 'messaging:template_preview' form.instance.pk %}"
+           class="btn btn-outline-dark">
+          Preview
+        </a>
+      {% endif %}
+
+      <a href="{% url 'messaging:template_list' %}" class="btn btn-secondary">
+        Cancel
+      </a>
+    </div>
+
+  </form>
 
 </div>
 {% endblock %}

@@ -53,4 +53,6 @@ urlpatterns = [
     path("contracts/<int:pk>/send-email/", views.ContractSendEmailView.as_view(), name="contract_send_email"),
     path("invoices/<int:pk>/send-email/", views.InvoiceSendEmailView.as_view(), name="invoice_send_email"),
     path("payments/<int:pk>/send-email/", views.PaymentSendEmailView.as_view(), name="payment_send_email"),
+
+    
 ]

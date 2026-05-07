@@ -7,137 +7,322 @@
 <div class="container py-3">
 
   <!-- Header -->
-  <div class="d-flex justify-content-between align-items-center mb-3">
-    <h2 class="fw-semibold mb-0">Template: {{ template.name }}</h2>
-
+  <div class="d-flex justify-content-between align-items-start mb-3">
     <div>
+      <h2 class="fw-semibold mb-0">Template: {{ template.name }}</h2>
+      <div class="text-muted small">
+        {{ template.get_type_display }} email template
+      </div>
+    </div>
+
+    <div class="d-flex gap-2">
+      <a href="{% url 'messaging:template_preview' template.pk %}"
+         class="btn btn-sm btn-outline-dark">
+        Preview
+      </a>
+
       {% if perms.messaging.change_emailtemplate %}
         <a href="{% url 'messaging:template_update' template.pk %}"
-           class="btn btn-sm btn-outline-primary me-2">
+           class="btn btn-sm btn-outline-primary">
           Edit
         </a>
       {% endif %}
-      <a href="{% url 'messaging:template_list' %}" class="btn btn-sm btn-outline-secondary">
-        Back to list
+
+      <a href="{% url 'messaging:template_list' %}"
+         class="btn btn-sm btn-outline-secondary">
+        Back
       </a>
     </div>
   </div>
 
-  <!-- Main details card -->
+  <!-- Status warning -->
+  {% if not template.is_active %}
+    <div class="alert alert-warning small">
+      This template is inactive. It will not be used when sending emails.
+    </div>
+  {% endif %}
+
+  <!-- Main details -->
   <div class="card shadow-sm mb-3">
+    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+      <strong>Template Details</strong>
+
+      <div>
+        {% if template.is_active %}
+          <span class="badge bg-success">Active</span>
+        {% else %}
+          <span class="badge bg-secondary">Inactive</span>
+        {% endif %}
+
+        {% if template.is_default_for_type %}
+          <span class="badge bg-primary">Default</span>
+        {% endif %}
+      </div>
+    </div>
+
     <div class="card-body">
       <div class="row g-3">
+
         <div class="col-md-4">
           <div class="small text-uppercase text-muted mb-1">Name</div>
           <div class="fw-semibold">{{ template.name }}</div>
         </div>
+
         <div class="col-md-4">
           <div class="small text-uppercase text-muted mb-1">Type</div>
           <div class="fw-semibold">{{ template.get_type_display }}</div>
         </div>
+
         <div class="col-md-4">
           <div class="small text-uppercase text-muted mb-1">Slug</div>
           <div class="fw-semibold">{{ template.slug }}</div>
         </div>
 
-        <div class="col-md-4">
-          <div class="small text-uppercase text-muted mb-1">Active</div>
-          <div>
-            {% if template.is_active %}
-              <span class="badge bg-success">Active</span>
-            {% else %}
-              <span class="badge bg-secondary">Inactive</span>
-            {% endif %}
-          </div>
-        </div>
-        <div class="col-md-4">
-          <div class="small text-uppercase text-muted mb-1">Default for type</div>
-          <div>
-            {% if template.is_default_for_type %}
-              <span class="badge bg-primary">Default</span>
-            {% else %}
-              <span class="text-muted">No</span>
-            {% endif %}
-          </div>
-        </div>
-        <div class="col-md-4">
+        <div class="col-md-8">
           <div class="small text-uppercase text-muted mb-1">Subject</div>
           <div class="fw-semibold">{{ template.subject|default:"—" }}</div>
         </div>
 
         <div class="col-md-4">
-          <div class="small text-uppercase text-muted mb-1">Created by</div>
-          <div class="fw-semibold">
-            {{ template.created_by|default:"—" }}
+          <div class="small text-uppercase text-muted mb-1">Generated PDF</div>
+          <div>
+            {% if template.attach_generated_pdf %}
+              <span class="badge bg-info text-dark">Attach generated PDF</span>
+            {% else %}
+              <span class="text-muted">No generated PDF</span>
+            {% endif %}
           </div>
         </div>
+
+        {% if template.pdf_attachment_mode %}
+        <div class="col-md-4">
+          <div class="small text-uppercase text-muted mb-1">PDF Mode</div>
+          <div class="fw-semibold">
+            {{ template.get_pdf_attachment_mode_display|default:"—" }}
+          </div>
+        </div>
+        {% endif %}
+
+        <div class="col-md-4">
+          <div class="small text-uppercase text-muted mb-1">Created by</div>
+          <div class="fw-semibold">
+            {{ template.owner|default:"—" }}
+          </div>
+        </div>
+
         <div class="col-md-4">
           <div class="small text-uppercase text-muted mb-1">Created at</div>
           <div class="fw-semibold">
             {{ template.created_at|date:"Y-m-d H:i" }}
           </div>
         </div>
+
         <div class="col-md-4">
           <div class="small text-uppercase text-muted mb-1">Last updated</div>
           <div class="fw-semibold">
             {{ template.updated_at|date:"Y-m-d H:i" }}
           </div>
         </div>
+
       </div>
     </div>
   </div>
 
-  <!-- HTML Body -->
+  <!-- Available variables -->
   <div class="card shadow-sm mb-3">
     <div class="card-header bg-light">
-      <strong>HTML Body</strong>
+      <strong>Available Template Variables</strong>
     </div>
+
+    <div class="card-body">
+      <p class="text-muted small mb-3">
+        You can use these variables in the subject, HTML body, and plain text body.
+      </p>
+
+      <div class="row g-3">
+        <div class="col-md-3">
+          <h6 class="fw-semibold">Client</h6>
+          <code>{% templatetag openvariable %} client.name {% templatetag closevariable %}</code><br>
+          <code>{% templatetag openvariable %} client.display_name {% templatetag closevariable %}</code><br>
+          <code>{% templatetag openvariable %} client.email {% templatetag closevariable %}</code><br>
+          <code>{% templatetag openvariable %} client.phone {% templatetag closevariable %}</code><br>
+          <code>{% templatetag openvariable %} client.billing_address {% templatetag closevariable %}</code>
+        </div>
+
+        <div class="col-md-3">
+          <h6 class="fw-semibold">Contact</h6>
+          <code>{% templatetag openvariable %} contact.first_name {% templatetag closevariable %}</code><br>
+          <code>{% templatetag openvariable %} contact.last_name {% templatetag closevariable %}</code><br>
+          <code>{% templatetag openvariable %} contact.role {% templatetag closevariable %}</code><br>
+          <code>{% templatetag openvariable %} contact.email {% templatetag closevariable %}</code>
+        </div>
+
+        <div class="col-md-3">
+          <h6 class="fw-semibold">Sales</h6>
+          <code>{% templatetag openvariable %} deal.name {% templatetag closevariable %}</code><br>
+          <code>{% templatetag openvariable %} proposal.title {% templatetag closevariable %}</code><br>
+          <code>{% templatetag openvariable %} proposal.total {% templatetag closevariable %}</code><br>
+          <code>{% templatetag openvariable %} contract.number {% templatetag closevariable %}</code><br>
+          <code>{% templatetag openvariable %} invoice.number {% templatetag closevariable %}</code>
+        </div>
+
+        <div class="col-md-3">
+          <h6 class="fw-semibold">Payment / Common</h6>
+          <code>{% templatetag openvariable %} invoice.total {% templatetag closevariable %}</code><br>
+          <code>{% templatetag openvariable %} invoice.balance {% templatetag closevariable %}</code><br>
+          <code>{% templatetag openvariable %} payment.amount {% templatetag closevariable %}</code><br>
+          <code>{% templatetag openvariable %} payment.date {% templatetag closevariable %}</code><br>
+          <code>{% templatetag openvariable %} today {% templatetag closevariable %}</code>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Attachments -->
+  <div class="card shadow-sm mb-3">
+    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+      <strong>Template Attachments</strong>
+      <span class="small text-muted">
+        Optional fixed files/images attached with this template
+      </span>
+    </div>
+
+    <div class="card-body">
+      {% if attachments %}
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0">
+            <thead>
+              <tr>
+                <th>File</th>
+                <th>Display Name</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in attachments %}
+              <tr>
+                <td>
+                  {% if item.file %}
+                    <a href="{{ item.file.url }}" target="_blank" class="text-decoration-none">
+                      {{ item.file.name }}
+                    </a>
+                  {% else %}
+                    <span class="text-muted">—</span>
+                  {% endif %}
+                </td>
+                <td>{{ item.display_name|default:"—" }}</td>
+                <td>
+                  {% if item.is_active %}
+                    <span class="badge bg-success">Active</span>
+                  {% else %}
+                    <span class="badge bg-secondary">Inactive</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <p class="text-muted mb-0">No fixed attachments added.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- HTML body -->
+  <div class="card shadow-sm mb-3">
+    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+      <strong>HTML Body</strong>
+      <a href="{% url 'messaging:template_preview' template.pk %}"
+         class="btn btn-sm btn-outline-dark">
+        Preview Rendered HTML
+      </a>
+    </div>
+
     <div class="card-body">
       {% if template.body_html %}
-        <pre class="mb-0" style="white-space: pre-wrap; word-wrap: break-word;">
-{{ template.body_html|escape }}
-        </pre>
+        <pre class="mb-0 border rounded bg-body-tertiary p-3"
+             style="white-space: pre-wrap; word-wrap: break-word;">{{ template.body_html|escape }}</pre>
       {% else %}
         <p class="text-muted mb-0">No HTML body defined.</p>
       {% endif %}
     </div>
   </div>
 
-  <!-- Text Body -->
+  <!-- Text body -->
   <div class="card shadow-sm mb-4">
     <div class="card-header bg-light">
       <strong>Plain Text Body</strong>
     </div>
+
     <div class="card-body">
       {% if template.body_text %}
-        <pre class="mb-0" style="white-space: pre-wrap; word-wrap: break-word;">
-{{ template.body_text|escape }}
-        </pre>
+        <pre class="mb-0 border rounded bg-body-tertiary p-3"
+             style="white-space: pre-wrap; word-wrap: break-word;">{{ template.body_text|escape }}</pre>
       {% else %}
         <p class="text-muted mb-0">No plain text body defined.</p>
       {% endif %}
     </div>
   </div>
 
-  <!-- Action row -->
-  <div class="text-center">
-    <div>
-      <a href="{% url 'messaging:template_preview' template.pk %}"
-        class="btn btn-sm btn-outline-dark me-2">
-        Show Template
-      </a>
-
-      {% if perms.messaging.change_emailtemplate %}
-        <a href="{% url 'messaging:template_update' template.pk %}"
-          class="btn btn-sm btn-outline-primary me-2">
-          Edit
-        </a>
-      {% endif %}
-
-      <a href="{% url 'messaging:template_list' %}" class="btn btn-sm btn-outline-secondary">
-        Back to list
-      </a>
+  <!-- Recent send logs -->
+  {% if logs %}
+  <div class="card shadow-sm mb-4">
+    <div class="card-header bg-light">
+      <strong>Recent Email Logs</strong>
     </div>
+
+    <div class="card-body p-0">
+      <table class="table table-hover mb-0 align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>To</th>
+            <th>Status</th>
+            <th>Subject</th>
+            <th>Sent At</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for log in logs %}
+          <tr>
+            <td>{{ log.to_email }}</td>
+            <td>
+              {% if log.status == "sent" %}
+                <span class="badge bg-success">Sent</span>
+              {% elif log.status == "failed" %}
+                <span class="badge bg-danger">Failed</span>
+              {% else %}
+                <span class="badge bg-secondary">{{ log.get_status_display }}</span>
+              {% endif %}
+            </td>
+            <td>{{ log.subject|default:"—" }}</td>
+            <td>{{ log.sent_at|date:"Y-m-d H:i"|default:"—" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Actions -->
+  <div class="text-center mb-3">
+    <a href="{% url 'messaging:template_preview' template.pk %}"
+       class="btn btn-outline-dark me-2">
+      Preview
+    </a>
+
+    {% if perms.messaging.change_emailtemplate %}
+      <a href="{% url 'messaging:template_update' template.pk %}"
+         class="btn btn-primary me-2">
+        Edit Template
+      </a>
+    {% endif %}
+
+    <a href="{% url 'messaging:template_list' %}"
+       class="btn btn-outline-secondary">
+      Back to list
+    </a>
   </div>
 
 </div>

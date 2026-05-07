@@ -1534,7 +1534,39 @@ class PaymentDeleteView(AdminManagerMixin, DeleteView):
 # Send Email Actions
 # ============================================================
 
+from django.conf import settings
+from messaging.models import EmailTemplate
+from messaging.utils import send_templated_email, EmailSendError
+
+
+def _email_enabled():
+    """
+    Global ON/OFF switch.
+    Add EMAIL_SENDING_ENABLED=True/False in settings.py or .env.
+    """
+    return bool(getattr(settings, "EMAIL_SENDING_ENABLED", False))
+
+
+def _get_active_email_template(template_type):
+    """
+    Check active template before trying to send.
+    This gives a clean message instead of a server error.
+    """
+    return (
+        EmailTemplate.objects
+        .filter(type=template_type, is_active=True)
+        .order_by("-is_default_for_type", "name")
+        .first()
+    )
+
+
 def _resolve_client_email(client):
+    """
+    Priority:
+    1. Client.email
+    2. Client primary contact email
+    3. First available contact email
+    """
     if not client:
         return ""
 
@@ -1548,54 +1580,149 @@ def _resolve_client_email(client):
         if primary_email:
             return primary_email
 
+    contact = client.contacts.exclude(email="").first()
+    if contact:
+        return (contact.email or "").strip()
+
     return ""
 
 
-def _flash_send_result(request, label, to_email, result, extra_tags=""):
+def _resolve_primary_contact(client):
+    if not client:
+        return None
+
+    primary = getattr(client, "primary_contact", None)
+    if primary:
+        return primary
+
+    return client.contacts.exclude(email="").first()
+
+
+def _build_common_email_context(*, client=None, contact=None, deal=None):
+    return {
+        "company_name": "Ocean Clouds",
+        "client": client,
+        "contact": contact,
+        "deal": deal,
+        "today": timezone.localdate(),
+        "now": timezone.now(),
+    }
+
+
+def _flash_send_result(request, label, to_email, result, success_tags=""):
+    """
+    Shows success, skipped, or failed message after button click.
+    """
     if getattr(result, "ok", False):
         messages.success(
             request,
-            f"{label} email sent to {to_email}.",
-            extra_tags=extra_tags,
+            f"{label} email sent successfully to {to_email}.",
+            extra_tags=success_tags,
+        )
+        return
+
+    error_msg = getattr(result, "error", "") or "Email could not be sent."
+
+    if "disabled" in error_msg.lower():
+        messages.warning(
+            request,
+            f"{label} email was not sent because email sending is disabled in settings.",
+            extra_tags=success_tags,
+        )
+    elif "no active template" in error_msg.lower():
+        messages.warning(
+            request,
+            f"No active {label.lower()} email template found. Please create or activate one template first.",
+            extra_tags=success_tags,
         )
     else:
-        error_msg = getattr(result, "error", None) or "Email send failed."
         messages.error(
             request,
             f"{label} email failed: {error_msg}",
-            extra_tags=extra_tags,
+            extra_tags=success_tags,
         )
+
+
+def _check_before_send(request, *, template_type, label, to_email, redirect_url_name, redirect_pk):
+    """
+    Common validation before sending email.
+    Returns redirect response if blocked, otherwise None.
+    """
+
+    if not _email_enabled():
+        messages.warning(
+            request,
+            f"{label} email was not sent because EMAIL_SENDING_ENABLED is False.",
+            extra_tags="scope:email",
+        )
+        return redirect(redirect_url_name, pk=redirect_pk)
+
+    if not to_email:
+        messages.error(
+            request,
+            "Client email not found. Please add client email or primary contact email.",
+            extra_tags="scope:email",
+        )
+        return redirect(redirect_url_name, pk=redirect_pk)
+
+    template = _get_active_email_template(template_type)
+    if not template:
+        messages.warning(
+            request,
+            f"No active {label.lower()} email template found. Please create one in Messaging > Templates.",
+            extra_tags="scope:email",
+        )
+        return redirect(redirect_url_name, pk=redirect_pk)
+
+    return None
 
 
 @method_decorator(require_POST, name="dispatch")
 class ProposalSendEmailView(AdminManagerMixin, View):
     def post(self, request, pk):
         proposal = get_object_or_404(
-            Proposal.objects.select_related("deal", "deal__client"),
+            Proposal.objects.select_related("deal", "deal__client", "deal__lead"),
             pk=pk,
         )
 
         deal = proposal.deal
         client = deal.client if deal else None
+        contact = _resolve_primary_contact(client)
         to_email = _resolve_client_email(client)
 
-        if not to_email:
+        blocked = _check_before_send(
+            request,
+            template_type=EmailTemplate.TemplateType.PROPOSAL,
+            label="Proposal",
+            to_email=to_email,
+            redirect_url_name="sales:proposal_detail",
+            redirect_pk=proposal.pk,
+        )
+        if blocked:
+            return blocked
+
+        context = _build_common_email_context(
+            client=client,
+            contact=contact,
+            deal=deal,
+        )
+        context.update({
+            "proposal": proposal,
+        })
+
+        try:
+            result = send_templated_email(
+                template_type=EmailTemplate.TemplateType.PROPOSAL,
+                to_emails=to_email,
+                context=context,
+            )
+        except EmailSendError as exc:
             messages.error(
                 request,
-                "Client email not found. Please add client email or primary contact email.",
+                f"Proposal email failed: {exc}",
                 extra_tags="scope:proposal scope:email",
             )
             return redirect("sales:proposal_detail", pk=proposal.pk)
-
-        result = send_templated_email(
-            template_type=EmailTemplate.TemplateType.PROPOSAL,
-            to_emails=to_email,
-            context={
-                "proposal": proposal,
-                "deal": deal,
-                "client": client,
-            },
-        )
 
         if getattr(result, "ok", False):
             proposal.status = ProposalStatus.SENT
@@ -1606,7 +1733,7 @@ class ProposalSendEmailView(AdminManagerMixin, View):
             label="Proposal",
             to_email=to_email,
             result=result,
-            extra_tags="scope:proposal scope:email",
+            success_tags="scope:proposal scope:email",
         )
 
         return redirect("sales:proposal_detail", pk=proposal.pk)
@@ -1622,26 +1749,43 @@ class ContractSendEmailView(AdminManagerMixin, View):
 
         deal = contract.deal
         client = deal.client if deal else None
+        contact = _resolve_primary_contact(client)
         to_email = _resolve_client_email(client)
 
-        if not to_email:
+        blocked = _check_before_send(
+            request,
+            template_type=EmailTemplate.TemplateType.CONTRACT,
+            label="Contract",
+            to_email=to_email,
+            redirect_url_name="sales:contract_detail",
+            redirect_pk=contract.pk,
+        )
+        if blocked:
+            return blocked
+
+        context = _build_common_email_context(
+            client=client,
+            contact=contact,
+            deal=deal,
+        )
+        context.update({
+            "contract": contract,
+            "proposal": contract.proposal,
+        })
+
+        try:
+            result = send_templated_email(
+                template_type=EmailTemplate.TemplateType.CONTRACT,
+                to_emails=to_email,
+                context=context,
+            )
+        except EmailSendError as exc:
             messages.error(
                 request,
-                "Client email not found. Please add client email or primary contact email.",
+                f"Contract email failed: {exc}",
                 extra_tags="scope:contract scope:email",
             )
             return redirect("sales:contract_detail", pk=contract.pk)
-
-        result = send_templated_email(
-            template_type=EmailTemplate.TemplateType.CONTRACT,
-            to_emails=to_email,
-            context={
-                "contract": contract,
-                "proposal": contract.proposal,
-                "deal": deal,
-                "client": client,
-            },
-        )
 
         if getattr(result, "ok", False):
             contract.status = ContractStatus.PENDING_SIGNATURE
@@ -1652,7 +1796,7 @@ class ContractSendEmailView(AdminManagerMixin, View):
             label="Contract",
             to_email=to_email,
             result=result,
-            extra_tags="scope:contract scope:email",
+            success_tags="scope:contract scope:email",
         )
 
         return redirect("sales:contract_detail", pk=contract.pk)
@@ -1668,26 +1812,43 @@ class InvoiceSendEmailView(AdminManagerMixin, View):
 
         deal = invoice.deal
         client = deal.client if deal else None
+        contact = _resolve_primary_contact(client)
         to_email = _resolve_client_email(client)
 
-        if not to_email:
+        blocked = _check_before_send(
+            request,
+            template_type=EmailTemplate.TemplateType.INVOICE,
+            label="Invoice",
+            to_email=to_email,
+            redirect_url_name="sales:invoice_detail",
+            redirect_pk=invoice.pk,
+        )
+        if blocked:
+            return blocked
+
+        context = _build_common_email_context(
+            client=client,
+            contact=contact,
+            deal=deal,
+        )
+        context.update({
+            "invoice": invoice,
+            "contract": invoice.contract,
+        })
+
+        try:
+            result = send_templated_email(
+                template_type=EmailTemplate.TemplateType.INVOICE,
+                to_emails=to_email,
+                context=context,
+            )
+        except EmailSendError as exc:
             messages.error(
                 request,
-                "Client email not found. Please add client email or primary contact email.",
+                f"Invoice email failed: {exc}",
                 extra_tags="scope:invoice scope:email",
             )
             return redirect("sales:invoice_detail", pk=invoice.pk)
-
-        result = send_templated_email(
-            template_type=EmailTemplate.TemplateType.INVOICE,
-            to_emails=to_email,
-            context={
-                "invoice": invoice,
-                "deal": deal,
-                "client": client,
-                "contract": invoice.contract,
-            },
-        )
 
         if getattr(result, "ok", False):
             if invoice.status == InvoiceStatus.DRAFT:
@@ -1699,7 +1860,7 @@ class InvoiceSendEmailView(AdminManagerMixin, View):
             label="Invoice",
             to_email=to_email,
             result=result,
-            extra_tags="scope:invoice scope:email",
+            success_tags="scope:invoice scope:email",
         )
 
         return redirect("sales:invoice_detail", pk=invoice.pk)
@@ -1709,40 +1870,62 @@ class InvoiceSendEmailView(AdminManagerMixin, View):
 class PaymentSendEmailView(AdminManagerMixin, View):
     def post(self, request, pk):
         payment = get_object_or_404(
-            Payment.objects.select_related("invoice", "invoice__deal", "invoice__deal__client"),
+            Payment.objects.select_related(
+                "invoice",
+                "invoice__deal",
+                "invoice__deal__client",
+                "received_by",
+            ),
             pk=pk,
         )
 
         invoice = payment.invoice
         deal = invoice.deal if invoice else None
         client = deal.client if deal else None
+        contact = _resolve_primary_contact(client)
         to_email = _resolve_client_email(client)
 
-        if not to_email:
+        blocked = _check_before_send(
+            request,
+            template_type=EmailTemplate.TemplateType.PAYMENT,
+            label="Payment",
+            to_email=to_email,
+            redirect_url_name="sales:payment_detail",
+            redirect_pk=payment.pk,
+        )
+        if blocked:
+            return blocked
+
+        context = _build_common_email_context(
+            client=client,
+            contact=contact,
+            deal=deal,
+        )
+        context.update({
+            "payment": payment,
+            "invoice": invoice,
+        })
+
+        try:
+            result = send_templated_email(
+                template_type=EmailTemplate.TemplateType.PAYMENT,
+                to_emails=to_email,
+                context=context,
+            )
+        except EmailSendError as exc:
             messages.error(
                 request,
-                "Client email not found. Please add client email or primary contact email.",
+                f"Payment email failed: {exc}",
                 extra_tags="scope:payment scope:email",
             )
             return redirect("sales:payment_detail", pk=payment.pk)
-
-        result = send_templated_email(
-            template_type=EmailTemplate.TemplateType.PAYMENT,
-            to_emails=to_email,
-            context={
-                "payment": payment,
-                "invoice": invoice,
-                "deal": deal,
-                "client": client,
-            },
-        )
 
         _flash_send_result(
             request,
             label="Payment",
             to_email=to_email,
             result=result,
-            extra_tags="scope:payment scope:email",
+            success_tags="scope:payment scope:email",
         )
 
         return redirect("sales:payment_detail", pk=payment.pk)
