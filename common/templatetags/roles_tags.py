@@ -17,6 +17,10 @@ from common.roles import (
     can_manage_services,
     can_manage_events,
     can_access_event_calendar,
+    can_access_reports,
+    can_access_sales_report,
+    can_access_project_report,
+    can_access_employee_report,
     user_has_role,
 )
 
@@ -108,3 +112,22 @@ def has_event_manage_access(user):
 @register.simple_tag
 def has_event_calendar_access(user):
     return can_access_event_calendar(user)
+
+@register.simple_tag
+def has_report_access(user):
+    return can_access_reports(user)
+
+
+@register.simple_tag
+def has_sales_report_access(user):
+    return can_access_sales_report(user)
+
+
+@register.simple_tag
+def has_project_report_access(user):
+    return can_access_project_report(user)
+
+
+@register.simple_tag
+def has_employee_report_access(user):
+    return can_access_employee_report(user)

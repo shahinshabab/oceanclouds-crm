@@ -6,6 +6,7 @@ from django.db import models
 from django.db.models import Q
 from django.utils import timezone
 
+import os
 from common.models import TimeStamped, Owned
 
 
@@ -489,3 +490,132 @@ class WhatsAppSendLog(TimeStamped):
         self.error_message = str(error)
         self.raw_response = raw_response or {}
         self.save(update_fields=["status", "error_message", "raw_response"])
+
+
+# ----------------------------------------------------------------------
+# SUPPORT TICKET SYSTEM
+# ----------------------------------------------------------------------
+class TicketStatus(models.TextChoices):
+    OPEN = "open", "Open"
+    IN_PROGRESS = "in_progress", "In Progress"
+    RESOLVED = "resolved", "Resolved"
+    CLOSED = "closed", "Closed"
+
+
+class TicketPriority(models.TextChoices):
+    LOW = "low", "Low"
+    MEDIUM = "medium", "Medium"
+    HIGH = "high", "High"
+    URGENT = "urgent", "Urgent"
+
+
+class TicketCategory(models.TextChoices):
+    GENERAL = "general", "General"
+    CRM = "crm", "CRM / Clients"
+    SALES = "sales", "Sales / Deals"
+    EVENTS = "events", "Events / Venues"
+    PROJECTS = "projects", "Projects / Tasks"
+    UI = "ui", "UI / Design"
+    BILLING = "billing", "Billing / Payments"
+
+
+class TicketSubject(models.TextChoices):
+    BUG = "bug", "Bug / Error"
+    FEATURE = "feature", "Feature Request"
+    HOWTO = "howto", "How-to Question"
+    DATA = "data_issue", "Data Issue"
+    PERFORMANCE = "performance", "Slow / Performance"
+    OTHER = "other", "Other"
+
+
+def ticket_screenshot_upload_to(instance, filename):
+    """
+    Save screenshot as: ticketNumber_timestamp.ext
+    Example: ticket_15_20251205T210301.png
+    """
+    base, ext = os.path.splitext(filename)
+    timestamp = timezone.now().strftime("%Y%m%dT%H%M%S")
+    ticket_no = instance.ticket_number or "tmp"
+    return f"ticket_screenshots/ticket_{ticket_no}_{timestamp}{ext}"
+    
+
+class Ticket(TimeStamped):
+    """
+    Support ticket raised by any authenticated user.
+    Only the designated support/admin user will respond through admin.
+    """
+
+    # Auto-incrementing ticket number (separate from pk)
+    ticket_number = models.PositiveIntegerField(
+        unique=True,
+        editable=False,
+        null=True,
+        blank=True,
+        help_text="Human-friendly ticket number.",
+    )
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="support_tickets",
+    )
+
+    assigned_to = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="assigned_support_tickets",
+        null=True,
+        blank=True,
+    )
+
+    category = models.CharField(
+        max_length=20,
+        choices=TicketCategory.choices,
+        default=TicketCategory.GENERAL,
+    )
+
+    subject_type = models.CharField(
+        max_length=20,
+        choices=TicketSubject.choices,
+        default=TicketSubject.OTHER,
+    )
+
+    subject = models.CharField(max_length=200)
+    # Detailed description
+    description = models.TextField()
+
+    priority = models.CharField(
+        max_length=20,
+        choices=TicketPriority.choices,
+        default=TicketPriority.MEDIUM,
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=TicketStatus.choices,
+        default=TicketStatus.OPEN,
+    )
+
+    # Optional screenshot, saved with ticket_number + timestamp
+    screenshot = models.ImageField(
+        upload_to=ticket_screenshot_upload_to,
+        null=True,
+        blank=True,
+        help_text="Optional screenshot (PNG/JPG).",
+    )
+
+    admin_response = models.TextField(blank=True)
+    responded_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f"Ticket #{self.ticket_number or self.pk} - {self.subject}"
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def save(self, *args, **kwargs):
+        # Assign auto-increment ticket_number if not set
+        if self.ticket_number is None:
+            last = Ticket.objects.order_by("-ticket_number").first()
+            self.ticket_number = (last.ticket_number + 1) if last and last.ticket_number else 1
+        super().save(*args, **kwargs)

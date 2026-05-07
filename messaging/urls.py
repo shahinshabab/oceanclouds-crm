@@ -26,6 +26,10 @@ from .views import (
     CampaignPauseView,
     CampaignResumeView,
     EmailSendLogListView,
+
+    TicketCreateView,
+    TicketListView,
+    TicketDetailView
 )
 
 app_name = "messaging"
@@ -59,4 +63,8 @@ urlpatterns = [
     # Logs
     path("logs/", EmailSendLogListView.as_view(), name="email_log_list"),
     path("whatsapp/logs/", WhatsAppSendLogListView.as_view(), name="whatsapp_log_list"),
+
+    path("tickets/", TicketListView.as_view(), name="ticket_list"),
+    path("tickets/new/", TicketCreateView.as_view(), name="ticket_create"),
+    path("tickets/<int:pk>/", TicketDetailView.as_view(), name="ticket_detail"),
 ]

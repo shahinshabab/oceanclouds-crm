@@ -19,6 +19,6 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='ticket',
             name='screenshot',
-            field=models.ImageField(blank=True, help_text='Optional screenshot (PNG/JPG).', null=True, upload_to=common.models.ticket_screenshot_upload_to),
+            field=models.ImageField(blank=True, help_text='Optional screenshot (PNG/JPG).', null=True, upload_to="tickets/screenshots/"),
         ),
     ]

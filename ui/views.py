@@ -1,12 +1,24 @@
 # ui/views.py
+
 from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth import get_user_model
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.views import PasswordChangeView
+from django.urls import reverse_lazy
+from django.views.generic import TemplateView, UpdateView
+from django.utils import timezone
 
-from django.contrib.auth.models import Group
-
-from common.roles import user_has_role, ROLE_ADMIN, ROLE_MANAGER, ROLE_EMPLOYEE
+from common.roles import (
+    ROLE_ADMIN,
+    ROLE_CRM_MANAGER,
+    ROLE_PROJECT_MANAGER,
+    ROLE_EMPLOYEE,
+    ROLE_MANAGER,
+    user_has_role,
+)
 
 from crm.models import Client, Lead, Inquiry
 from sales.models import Deal
@@ -19,23 +31,12 @@ from projects.models import (
     DeliverableStatus,
 )
 
-from django.utils import timezone
-from django.contrib.auth import get_user_model
-from django.contrib.auth.mixins import LoginRequiredMixin
-from django.contrib.auth.views import PasswordChangeView
-from django.urls import reverse_lazy
-from django.views.generic import TemplateView, UpdateView
-
 from .forms import ProfileUpdateForm
 
 User = get_user_model()
 
 
 def _get_month_info():
-    """
-    Returns:
-      this_year, this_month, prev_year, prev_month
-    """
     today = timezone.now().date()
     this_year = today.year
     this_month = today.month
@@ -50,219 +51,429 @@ def _get_month_info():
     return this_year, this_month, prev_year, prev_month
 
 
-def _pct_change(current: int, prev: int) -> int:
-    """
-    Returns percentage change rounded to int.
-    - If prev == 0 and current > 0 → 100
-    - If both 0 → 0
-    """
-    if prev == 0:
-        if current == 0:
-            return 0
-        return 100
-    return round((current - prev) * 100 / prev)
+def _pct_change(current: int, previous: int) -> int:
+    if previous == 0:
+        return 100 if current > 0 else 0
+
+    return round((current - previous) * 100 / previous)
+
+
+def _trend_data(current: int, previous: int):
+    pct = _pct_change(current, previous)
+
+    if pct > 0:
+        return {
+            "pct": pct,
+            "abs_pct": abs(pct),
+            "class": "text-success",
+            "icon": "bi-arrow-up-right",
+            "label": "Higher than last month",
+        }
+
+    if pct < 0:
+        return {
+            "pct": pct,
+            "abs_pct": abs(pct),
+            "class": "text-danger",
+            "icon": "bi-arrow-down-right",
+            "label": "Lower than last month",
+        }
+
+    return {
+        "pct": pct,
+        "abs_pct": 0,
+        "class": "text-muted",
+        "icon": "bi-dash-lg",
+        "label": "Same as last month",
+    }
+
+
+def _monthly_card(title, current, previous, icon, bg_class="bg-light"):
+    trend = _trend_data(current, previous)
+
+    return {
+        "title": title,
+        "value": current,
+        "previous": previous,
+        "icon": icon,
+        "bg_class": bg_class,
+        "trend": trend,
+    }
+
+
+def _simple_card(title, value, subtitle, icon, bg_class="bg-light"):
+    return {
+        "title": title,
+        "value": value,
+        "subtitle": subtitle,
+        "icon": icon,
+        "bg_class": bg_class,
+    }
 
 
 @login_required
 def home(request):
     user = request.user
 
-    # ---- Roles ----
     is_admin = user_has_role(user, ROLE_ADMIN)
-    is_manager = user_has_role(user, ROLE_MANAGER)
+    is_crm_manager = user_has_role(user, ROLE_CRM_MANAGER)
+    is_project_manager = user_has_role(user, ROLE_PROJECT_MANAGER)
     is_employee = user_has_role(user, ROLE_EMPLOYEE)
+
+    # Temporary old Manager support
+    is_old_manager = user_has_role(user, ROLE_MANAGER)
 
     if is_admin:
         role_label = "Admin"
-    elif is_manager:
-        role_label = "Manager"
+    elif is_crm_manager:
+        role_label = "CRM Manager"
+    elif is_project_manager:
+        role_label = "Project Manager"
     elif is_employee:
         role_label = "Employee"
+    elif is_old_manager:
+        role_label = "Manager"
     else:
         role_label = "User"
 
-    # Month info for comparisons
     this_year, this_month, prev_year, prev_month = _get_month_info()
 
-    # ------------------------------------------------------------------
-    # Default values (to avoid missing keys in context)
-    # ------------------------------------------------------------------
-    pending_projects_count = 0
-    pending_tasks_count = 0
-    pending_deliverables_count = 0
-
-    # Row 2 (admin/manager) monthly totals + previous month + pct change
-    total_leads_count = 0
-    total_clients_count = 0
-    total_deals_count = 0
-
-    total_leads_prev_count = 0
-    total_clients_prev_count = 0
-    total_deals_prev_count = 0
-
-    total_leads_pct_change = 0
-    total_clients_pct_change = 0
-    total_deals_pct_change = 0
-
-    # Employee counts
-    my_pending_tasks_count = 0
-    my_pending_deliverables_count = 0
-    my_inquiries_count = 0  # open/in-progress
-
-    # Employee row 2 monthly totals + previous + pct
-    my_completed_tasks_count = 0
-    my_completed_deliverables_count = 0
-    my_total_inquiries_count = 0
-
-    my_completed_tasks_prev_count = 0
-    my_completed_deliverables_prev_count = 0
-    my_total_inquiries_prev_count = 0
-
-    my_completed_tasks_pct_change = 0
-    my_completed_deliverables_pct_change = 0
-    my_total_inquiries_pct_change = 0
+    summary_cards = []
+    monthly_cards = []
 
     pending_projects_list = None
     pending_tasks_list = None
     pending_deliverables_list = None
-
     my_pending_tasks_list = None
     my_pending_deliverables_list = None
 
-    # ------------------------------------------------------------------
-    # ADMIN
-    # ------------------------------------------------------------------
+    show_crm_section = False
+    show_project_section = False
+    show_employee_section = False
+
+    # ==========================================================
+    # ADMIN: full dashboard
+    # ==========================================================
     if is_admin:
-        # Row 1: global current pending counts (no month comparison)
+        show_crm_section = True
+        show_project_section = True
+
         pending_projects_count = Project.objects.exclude(
             status__in=[ProjectStatus.COMPLETED, ProjectStatus.CANCELLED]
         ).count()
 
         pending_tasks_count = Task.objects.filter(
-            status=TaskStatus.PENDING
+            status__in=[TaskStatus.PENDING, TaskStatus.IN_PROGRESS]
         ).count()
 
         pending_deliverables_count = Deliverable.objects.filter(
-            status=DeliverableStatus.PENDING
+            status__in=[DeliverableStatus.PENDING, DeliverableStatus.IN_PROGRESS]
         ).count()
 
-        # Row 2: monthly totals for all leads/clients/deals
+        open_inquiries_count = Inquiry.objects.filter(
+            status__in=["open", "in_progress"]
+        ).count()
+
+        summary_cards = [
+            _simple_card(
+                "Open Projects",
+                pending_projects_count,
+                "Projects not completed or cancelled",
+                "bi-kanban",
+                "bg-primary-subtle",
+            ),
+            _simple_card(
+                "Open Tasks",
+                pending_tasks_count,
+                "Pending and in-progress tasks",
+                "bi-list-check",
+                "bg-warning-subtle",
+            ),
+            _simple_card(
+                "Open Deliverables",
+                pending_deliverables_count,
+                "Pending and in-progress deliverables",
+                "bi-box-seam",
+                "bg-info-subtle",
+            ),
+            _simple_card(
+                "Open Inquiries",
+                open_inquiries_count,
+                "Open and in-progress inquiries",
+                "bi-chat-dots",
+                "bg-success-subtle",
+            ),
+        ]
+
         leads_qs = Lead.objects.all()
         clients_qs = Client.objects.all()
         deals_qs = Deal.objects.all()
 
-        total_leads_count = leads_qs.filter(
-            created_at__year=this_year, created_at__month=this_month
+        current_leads = leads_qs.filter(
+            created_at__year=this_year,
+            created_at__month=this_month,
         ).count()
-        total_leads_prev_count = leads_qs.filter(
-            created_at__year=prev_year, created_at__month=prev_month
+        previous_leads = leads_qs.filter(
+            created_at__year=prev_year,
+            created_at__month=prev_month,
         ).count()
-        total_leads_pct_change = _pct_change(total_leads_count, total_leads_prev_count)
 
-        total_clients_count = clients_qs.filter(
-            created_at__year=this_year, created_at__month=this_month
+        current_clients = clients_qs.filter(
+            created_at__year=this_year,
+            created_at__month=this_month,
         ).count()
-        total_clients_prev_count = clients_qs.filter(
-            created_at__year=prev_year, created_at__month=prev_month
+        previous_clients = clients_qs.filter(
+            created_at__year=prev_year,
+            created_at__month=prev_month,
         ).count()
-        total_clients_pct_change = _pct_change(
-            total_clients_count, total_clients_prev_count
-        )
 
-        total_deals_count = deals_qs.filter(
-            created_at__year=this_year, created_at__month=this_month
+        current_deals = deals_qs.filter(
+            created_at__year=this_year,
+            created_at__month=this_month,
         ).count()
-        total_deals_prev_count = deals_qs.filter(
-            created_at__year=prev_year, created_at__month=prev_month
+        previous_deals = deals_qs.filter(
+            created_at__year=prev_year,
+            created_at__month=prev_month,
         ).count()
-        total_deals_pct_change = _pct_change(total_deals_count, total_deals_prev_count)
 
-        # Lists: global scope
+        monthly_cards = [
+            _monthly_card("New Leads", current_leads, previous_leads, "bi-person-plus"),
+            _monthly_card("New Clients", current_clients, previous_clients, "bi-people"),
+            _monthly_card("New Deals", current_deals, previous_deals, "bi-cash-stack"),
+        ]
+
         pending_projects_list = (
-            Project.objects
-            .exclude(status__in=[ProjectStatus.COMPLETED, ProjectStatus.CANCELLED])
+            Project.objects.exclude(
+                status__in=[ProjectStatus.COMPLETED, ProjectStatus.CANCELLED]
+            )
             .select_related("client", "manager")
             .order_by("due_date", "name")[:10]
         )
 
         pending_tasks_list = (
-            Task.objects
-            .filter(status__in=[TaskStatus.PENDING, TaskStatus.IN_PROGRESS])
+            Task.objects.filter(
+                status__in=[TaskStatus.PENDING, TaskStatus.IN_PROGRESS]
+            )
             .select_related("project", "assigned_to")
             .order_by("due_date", "priority")[:10]
         )
 
         pending_deliverables_list = (
-            Deliverable.objects
-            .filter(status__in=[DeliverableStatus.PENDING, DeliverableStatus.IN_PROGRESS])
+            Deliverable.objects.filter(
+                status__in=[DeliverableStatus.PENDING, DeliverableStatus.IN_PROGRESS]
+            )
             .select_related("project", "assigned_to")
             .order_by("due_date", "name")[:10]
         )
 
-    # ------------------------------------------------------------------
-    # MANAGER
-    # ------------------------------------------------------------------
-    elif is_manager:
-        # Row 1: manager's current pending counts
-        pending_projects_count = Project.objects.filter(
-            manager=user
-        ).exclude(
+    # ==========================================================
+    # CRM MANAGER: CRM + Sales only
+    # ==========================================================
+    elif is_crm_manager:
+        show_crm_section = True
+
+        leads_qs = Lead.objects.filter(owner=user)
+        clients_qs = Client.objects.filter(owner=user)
+        deals_qs = Deal.objects.filter(owner=user)
+        inquiries_qs = Inquiry.objects.filter(handled_by=user)
+
+        open_inquiries_count = inquiries_qs.filter(
+            status__in=["open", "in_progress"]
+        ).count()
+
+        total_leads_count = leads_qs.count()
+        total_clients_count = clients_qs.count()
+        total_deals_count = deals_qs.count()
+
+        summary_cards = [
+            _simple_card(
+                "My Leads",
+                total_leads_count,
+                "Leads owned by you",
+                "bi-person-plus",
+                "bg-primary-subtle",
+            ),
+            _simple_card(
+                "My Clients",
+                total_clients_count,
+                "Clients owned by you",
+                "bi-people",
+                "bg-success-subtle",
+            ),
+            _simple_card(
+                "My Deals",
+                total_deals_count,
+                "Deals owned by you",
+                "bi-cash-stack",
+                "bg-warning-subtle",
+            ),
+            _simple_card(
+                "My Open Inquiries",
+                open_inquiries_count,
+                "Open and in-progress inquiries",
+                "bi-chat-dots",
+                "bg-info-subtle",
+            ),
+        ]
+
+        current_leads = leads_qs.filter(
+            created_at__year=this_year,
+            created_at__month=this_month,
+        ).count()
+        previous_leads = leads_qs.filter(
+            created_at__year=prev_year,
+            created_at__month=prev_month,
+        ).count()
+
+        current_clients = clients_qs.filter(
+            created_at__year=this_year,
+            created_at__month=this_month,
+        ).count()
+        previous_clients = clients_qs.filter(
+            created_at__year=prev_year,
+            created_at__month=prev_month,
+        ).count()
+
+        current_deals = deals_qs.filter(
+            created_at__year=this_year,
+            created_at__month=this_month,
+        ).count()
+        previous_deals = deals_qs.filter(
+            created_at__year=prev_year,
+            created_at__month=prev_month,
+        ).count()
+
+        monthly_cards = [
+            _monthly_card("New Leads", current_leads, previous_leads, "bi-person-plus"),
+            _monthly_card("New Clients", current_clients, previous_clients, "bi-people"),
+            _monthly_card("New Deals", current_deals, previous_deals, "bi-cash-stack"),
+        ]
+
+    # ==========================================================
+    # PROJECT MANAGER: project dashboard only
+    # ==========================================================
+    elif is_project_manager or is_old_manager:
+        show_project_section = True
+
+        projects_qs = Project.objects.filter(manager=user)
+
+        pending_projects_count = projects_qs.exclude(
             status__in=[ProjectStatus.COMPLETED, ProjectStatus.CANCELLED]
         ).count()
 
         pending_tasks_count = Task.objects.filter(
             project__manager=user,
-            status=TaskStatus.PENDING,
+            status__in=[TaskStatus.PENDING, TaskStatus.IN_PROGRESS],
         ).count()
 
         pending_deliverables_count = Deliverable.objects.filter(
             project__manager=user,
-            status=DeliverableStatus.PENDING,
+            status__in=[DeliverableStatus.PENDING, DeliverableStatus.IN_PROGRESS],
         ).count()
 
-        # Row 2: manager's monthly totals via Owned.owner
-        leads_qs = Lead.objects.filter(owner=user)
-        clients_qs = Client.objects.filter(owner=user)
-        deals_qs = Deal.objects.filter(owner=user)
+        open_inquiries_count = Inquiry.objects.filter(
+            handled_by=user,
+            status__in=["open", "in_progress"],
+        ).count()
 
-        total_leads_count = leads_qs.filter(
-            created_at__year=this_year, created_at__month=this_month
-        ).count()
-        total_leads_prev_count = leads_qs.filter(
-            created_at__year=prev_year, created_at__month=prev_month
-        ).count()
-        total_leads_pct_change = _pct_change(total_leads_count, total_leads_prev_count)
+        summary_cards = [
+            _simple_card(
+                "My Open Projects",
+                pending_projects_count,
+                "Projects managed by you",
+                "bi-kanban",
+                "bg-primary-subtle",
+            ),
+            _simple_card(
+                "Project Tasks",
+                pending_tasks_count,
+                "Pending and in-progress tasks",
+                "bi-list-check",
+                "bg-warning-subtle",
+            ),
+            _simple_card(
+                "Project Deliverables",
+                pending_deliverables_count,
+                "Pending and in-progress deliverables",
+                "bi-box-seam",
+                "bg-info-subtle",
+            ),
+            _simple_card(
+                "My Open Inquiries",
+                open_inquiries_count,
+                "Open and in-progress inquiries",
+                "bi-chat-dots",
+                "bg-success-subtle",
+            ),
+        ]
 
-        total_clients_count = clients_qs.filter(
-            created_at__year=this_year, created_at__month=this_month
-        ).count()
-        total_clients_prev_count = clients_qs.filter(
-            created_at__year=prev_year, created_at__month=prev_month
-        ).count()
-        total_clients_pct_change = _pct_change(
-            total_clients_count, total_clients_prev_count
+        completed_tasks_qs = Task.objects.filter(
+            project__manager=user,
+            status=TaskStatus.COMPLETED,
         )
 
-        total_deals_count = deals_qs.filter(
-            created_at__year=this_year, created_at__month=this_month
-        ).count()
-        total_deals_prev_count = deals_qs.filter(
-            created_at__year=prev_year, created_at__month=prev_month
-        ).count()
-        total_deals_pct_change = _pct_change(total_deals_count, total_deals_prev_count)
+        delivered_qs = Deliverable.objects.filter(
+            project__manager=user,
+            status=DeliverableStatus.DELIVERED,
+        )
 
-        # Lists: scoped to manager's projects
+        current_completed_tasks = completed_tasks_qs.filter(
+            updated_at__year=this_year,
+            updated_at__month=this_month,
+        ).count()
+        previous_completed_tasks = completed_tasks_qs.filter(
+            updated_at__year=prev_year,
+            updated_at__month=prev_month,
+        ).count()
+
+        current_delivered = delivered_qs.filter(
+            updated_at__year=this_year,
+            updated_at__month=this_month,
+        ).count()
+        previous_delivered = delivered_qs.filter(
+            updated_at__year=prev_year,
+            updated_at__month=prev_month,
+        ).count()
+
+        current_projects = projects_qs.filter(
+            created_at__year=this_year,
+            created_at__month=this_month,
+        ).count()
+        previous_projects = projects_qs.filter(
+            created_at__year=prev_year,
+            created_at__month=prev_month,
+        ).count()
+
+        monthly_cards = [
+            _monthly_card(
+                "New Projects",
+                current_projects,
+                previous_projects,
+                "bi-folder-plus",
+            ),
+            _monthly_card(
+                "Completed Tasks",
+                current_completed_tasks,
+                previous_completed_tasks,
+                "bi-check2-circle",
+            ),
+            _monthly_card(
+                "Delivered Items",
+                current_delivered,
+                previous_delivered,
+                "bi-send-check",
+            ),
+        ]
+
         pending_projects_list = (
-            Project.objects
-            .filter(manager=user)
+            Project.objects.filter(manager=user)
             .exclude(status__in=[ProjectStatus.COMPLETED, ProjectStatus.CANCELLED])
             .select_related("client", "manager")
             .order_by("due_date", "name")[:10]
         )
 
         pending_tasks_list = (
-            Task.objects
-            .filter(
+            Task.objects.filter(
                 project__manager=user,
                 status__in=[TaskStatus.PENDING, TaskStatus.IN_PROGRESS],
             )
@@ -271,8 +482,7 @@ def home(request):
         )
 
         pending_deliverables_list = (
-            Deliverable.objects
-            .filter(
+            Deliverable.objects.filter(
                 project__manager=user,
                 status__in=[DeliverableStatus.PENDING, DeliverableStatus.IN_PROGRESS],
             )
@@ -280,133 +490,141 @@ def home(request):
             .order_by("due_date", "name")[:10]
         )
 
-    # ------------------------------------------------------------------
-    # EMPLOYEE
-    # ------------------------------------------------------------------
+    # ==========================================================
+    # EMPLOYEE: own work only
+    # ==========================================================
     elif is_employee:
-        # Row 1: current pending
+        show_employee_section = True
+
         my_pending_tasks_count = Task.objects.filter(
-            status=TaskStatus.PENDING,
             assigned_to=user,
+            status__in=[TaskStatus.PENDING, TaskStatus.IN_PROGRESS],
         ).count()
 
         my_pending_deliverables_count = Deliverable.objects.filter(
-            status=DeliverableStatus.PENDING,
             assigned_to=user,
+            status__in=[DeliverableStatus.PENDING, DeliverableStatus.IN_PROGRESS],
         ).count()
 
-        my_inquiries_count = Inquiry.objects.filter(
+        my_open_inquiries_count = Inquiry.objects.filter(
             handled_by=user,
             status__in=["open", "in_progress"],
         ).count()
 
-        # Row 2: monthly completed + inquiries handled (this month vs prev)
+        summary_cards = [
+            _simple_card(
+                "My Tasks",
+                my_pending_tasks_count,
+                "Pending and in-progress tasks",
+                "bi-list-check",
+                "bg-warning-subtle",
+            ),
+            _simple_card(
+                "My Deliverables",
+                my_pending_deliverables_count,
+                "Pending and in-progress deliverables",
+                "bi-box-seam",
+                "bg-info-subtle",
+            ),
+            _simple_card(
+                "My Inquiries",
+                my_open_inquiries_count,
+                "Open and in-progress inquiries",
+                "bi-chat-dots",
+                "bg-success-subtle",
+            ),
+        ]
+
         completed_tasks_qs = Task.objects.filter(
+            assigned_to=user,
             status=TaskStatus.COMPLETED,
-            assigned_to=user,
         )
+
         delivered_qs = Deliverable.objects.filter(
-            status=DeliverableStatus.DELIVERED,
             assigned_to=user,
-        )
-        handled_inquiries_qs = Inquiry.objects.filter(handled_by=user)
-
-        my_completed_tasks_count = completed_tasks_qs.filter(
-            updated_at__year=this_year, updated_at__month=this_month
-        ).count()
-        my_completed_tasks_prev_count = completed_tasks_qs.filter(
-            updated_at__year=prev_year, updated_at__month=prev_month
-        ).count()
-        my_completed_tasks_pct_change = _pct_change(
-            my_completed_tasks_count, my_completed_tasks_prev_count
+            status=DeliverableStatus.DELIVERED,
         )
 
-        my_completed_deliverables_count = delivered_qs.filter(
-            updated_at__year=this_year, updated_at__month=this_month
-        ).count()
-        my_completed_deliverables_prev_count = delivered_qs.filter(
-            updated_at__year=prev_year, updated_at__month=prev_month
-        ).count()
-        my_completed_deliverables_pct_change = _pct_change(
-            my_completed_deliverables_count, my_completed_deliverables_prev_count
-        )
+        inquiries_qs = Inquiry.objects.filter(handled_by=user)
 
-        my_total_inquiries_count = handled_inquiries_qs.filter(
-            updated_at__year=this_year, updated_at__month=this_month
+        current_completed_tasks = completed_tasks_qs.filter(
+            updated_at__year=this_year,
+            updated_at__month=this_month,
         ).count()
-        my_total_inquiries_prev_count = handled_inquiries_qs.filter(
-            updated_at__year=prev_year, updated_at__month=prev_month
+        previous_completed_tasks = completed_tasks_qs.filter(
+            updated_at__year=prev_year,
+            updated_at__month=prev_month,
         ).count()
-        my_total_inquiries_pct_change = _pct_change(
-            my_total_inquiries_count, my_total_inquiries_prev_count
-        )
 
-        # Row 3: lists (only own items)
+        current_delivered = delivered_qs.filter(
+            updated_at__year=this_year,
+            updated_at__month=this_month,
+        ).count()
+        previous_delivered = delivered_qs.filter(
+            updated_at__year=prev_year,
+            updated_at__month=prev_month,
+        ).count()
+
+        current_inquiries = inquiries_qs.filter(
+            updated_at__year=this_year,
+            updated_at__month=this_month,
+        ).count()
+        previous_inquiries = inquiries_qs.filter(
+            updated_at__year=prev_year,
+            updated_at__month=prev_month,
+        ).count()
+
+        monthly_cards = [
+            _monthly_card(
+                "Completed Tasks",
+                current_completed_tasks,
+                previous_completed_tasks,
+                "bi-check2-circle",
+            ),
+            _monthly_card(
+                "Delivered Items",
+                current_delivered,
+                previous_delivered,
+                "bi-send-check",
+            ),
+            _monthly_card(
+                "Handled Inquiries",
+                current_inquiries,
+                previous_inquiries,
+                "bi-chat-square-text",
+            ),
+        ]
+
         my_pending_tasks_list = (
-            Task.objects
-            .filter(
-                status__in=[TaskStatus.PENDING, TaskStatus.IN_PROGRESS],
+            Task.objects.filter(
                 assigned_to=user,
+                status__in=[TaskStatus.PENDING, TaskStatus.IN_PROGRESS],
             )
             .select_related("project")
             .order_by("due_date", "priority")[:10]
         )
 
         my_pending_deliverables_list = (
-            Deliverable.objects
-            .filter(
-                status__in=[DeliverableStatus.PENDING, DeliverableStatus.IN_PROGRESS],
+            Deliverable.objects.filter(
                 assigned_to=user,
+                status__in=[DeliverableStatus.PENDING, DeliverableStatus.IN_PROGRESS],
             )
             .select_related("project")
             .order_by("due_date", "name")[:10]
         )
 
-    # ------------------------------------------------------------------
-    # Fallback (user without any role)
-    # ------------------------------------------------------------------
-    else:
-        pass
-
     context = {
         "role_label": role_label,
         "is_admin": is_admin,
-        "is_manager": is_manager,
+        "is_crm_manager": is_crm_manager,
+        "is_project_manager": is_project_manager,
         "is_employee": is_employee,
-
-        # Admin/Manager counts (row 1)
-        "pending_projects_count": pending_projects_count,
-        "pending_tasks_count": pending_tasks_count,
-        "pending_deliverables_count": pending_deliverables_count,
-
-        # Admin/Manager monthly totals (row 2)
-        "total_leads_count": total_leads_count,
-        "total_clients_count": total_clients_count,
-        "total_deals_count": total_deals_count,
-        "total_leads_prev_count": total_leads_prev_count,
-        "total_clients_prev_count": total_clients_prev_count,
-        "total_deals_prev_count": total_deals_prev_count,
-        "total_leads_pct_change": total_leads_pct_change,
-        "total_clients_pct_change": total_clients_pct_change,
-        "total_deals_pct_change": total_deals_pct_change,
-
-        # Employee counts (row 1)
-        "my_pending_tasks_count": my_pending_tasks_count,
-        "my_pending_deliverables_count": my_pending_deliverables_count,
-        "my_inquiries_count": my_inquiries_count,
-
-        # Employee monthly totals (row 2)
-        "my_completed_tasks_count": my_completed_tasks_count,
-        "my_completed_deliverables_count": my_completed_deliverables_count,
-        "my_total_inquiries_count": my_total_inquiries_count,
-        "my_completed_tasks_prev_count": my_completed_tasks_prev_count,
-        "my_completed_deliverables_prev_count": my_completed_deliverables_prev_count,
-        "my_total_inquiries_prev_count": my_total_inquiries_prev_count,
-        "my_completed_tasks_pct_change": my_completed_tasks_pct_change,
-        "my_completed_deliverables_pct_change": my_completed_deliverables_pct_change,
-        "my_total_inquiries_pct_change": my_total_inquiries_pct_change,
-
-        # Lists
+        "is_old_manager": is_old_manager,
+        "show_crm_section": show_crm_section,
+        "show_project_section": show_project_section,
+        "show_employee_section": show_employee_section,
+        "summary_cards": summary_cards,
+        "monthly_cards": monthly_cards,
         "pending_projects_list": pending_projects_list,
         "pending_tasks_list": pending_tasks_list,
         "pending_deliverables_list": pending_deliverables_list,
@@ -415,7 +633,6 @@ def home(request):
     }
 
     return render(request, "ui/home.html", context)
-
 
 
 def login_view(request):
@@ -427,18 +644,25 @@ def login_view(request):
 
         if user is not None:
             login(request, user)
-            messages.success(request, "Welcome back!" ,extra_tags="scope:auth")
-            return redirect("ui:home")  # redirect to dashboard/home
+            messages.success(request, "Welcome back!", extra_tags="scope:auth")
+            return redirect("ui:home")
 
-        else:
-            messages.error(request, "Invalid username or password", extra_tags="scope:auth")
+        messages.error(
+            request,
+            "Invalid username or password",
+            extra_tags="scope:auth",
+        )
 
     return render(request, "ui/login.html")
 
 
 def logout_view(request):
     logout(request)
-    messages.info(request, "You have been logged out.", extra_tags="scope:auth")
+    messages.info(
+        request,
+        "You have been logged out.",
+        extra_tags="scope:auth",
+    )
     return redirect("ui:login")
 
 
@@ -453,8 +677,15 @@ class ProfileUpdateView(LoginRequiredMixin, UpdateView):
     success_url = reverse_lazy("ui:profile")
 
     def get_object(self, queryset=None):
-        # always edit the currently logged-in user
         return self.request.user
+
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+
+        for field_name, field in form.fields.items():
+            field.widget.attrs.setdefault("class", "form-control")
+
+        return form
 
     def form_valid(self, form):
         messages.success(self.request, "Profile updated successfully.")
@@ -468,6 +699,14 @@ class ProfileUpdateView(LoginRequiredMixin, UpdateView):
 class ProfilePasswordChangeView(LoginRequiredMixin, PasswordChangeView):
     template_name = "ui/profile_password.html"
     success_url = reverse_lazy("ui:profile")
+
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+
+        for field_name, field in form.fields.items():
+            field.widget.attrs.setdefault("class", "form-control")
+
+        return form
 
     def form_valid(self, form):
         messages.success(self.request, "Password changed successfully.")

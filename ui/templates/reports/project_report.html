@@ -1,0 +1,194 @@
+{% extends "ui/base.html" %}
+
+{% block title %}Project Report{% endblock %}
+
+{% block content %}
+<div class="container py-3">
+
+  {% include "reports/partials/report_filter_bar.html" with report_title="Project Report" user_label="Project Manager" user_options=project_managers %}
+
+  <div class="row g-3 mb-4">
+    <div class="col-md-3">
+      <div class="card shadow-sm border-0">
+        <div class="card-body">
+          <div class="text-muted small">Projects</div>
+          <div class="fs-4 fw-semibold">{{ summary.project_count }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3">
+      <div class="card shadow-sm border-0">
+        <div class="card-body">
+          <div class="text-muted small">Active Projects</div>
+          <div class="fs-4 fw-semibold">{{ summary.active_project_count }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3">
+      <div class="card shadow-sm border-0">
+        <div class="card-body">
+          <div class="text-muted small">Completed Projects</div>
+          <div class="fs-4 fw-semibold">{{ summary.completed_project_count }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3">
+      <div class="card shadow-sm border-0">
+        <div class="card-body">
+          <div class="text-muted small">Overdue Projects</div>
+          <div class="fs-4 fw-semibold">{{ summary.overdue_project_count }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3 mb-4">
+    <div class="col-md-3">
+      <div class="card shadow-sm border-0">
+        <div class="card-body">
+          <div class="text-muted small">Tasks</div>
+          <div class="fw-semibold">{{ summary.task_count }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3">
+      <div class="card shadow-sm border-0">
+        <div class="card-body">
+          <div class="text-muted small">Completed Tasks</div>
+          <div class="fw-semibold">{{ summary.completed_task_count }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3">
+      <div class="card shadow-sm border-0">
+        <div class="card-body">
+          <div class="text-muted small">Deliverables</div>
+          <div class="fw-semibold">{{ summary.deliverable_count }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3">
+      <div class="card shadow-sm border-0">
+        <div class="card-body">
+          <div class="text-muted small">Delivered</div>
+          <div class="fw-semibold">{{ summary.delivered_count }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3 mb-4">
+    <div class="col-md-4">
+      <div class="card shadow-sm border-0">
+        <div class="card-body">
+          <div class="text-muted small">Completion Rate</div>
+          <div class="fw-semibold">{{ summary.completion_rate }}%</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="card shadow-sm border-0">
+        <div class="card-body">
+          <div class="text-muted small">Work Sessions</div>
+          <div class="fw-semibold">{{ summary.work_session_count }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="card shadow-sm border-0">
+        <div class="card-body">
+          <div class="text-muted small">Total Work Hours</div>
+          <div class="fw-semibold">{{ summary.total_work_hours }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-white fw-semibold">
+      Recent Projects
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-sm align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Project</th>
+            <th>Client</th>
+            <th>Manager</th>
+            <th>Status</th>
+            <th>Priority</th>
+            <th>Due Date</th>
+            <th>Progress</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for project in recent_projects %}
+            <tr>
+              <td>{{ project.name }}</td>
+              <td>{{ project.client|default:"-" }}</td>
+              <td>{{ project.manager|default:"-" }}</td>
+              <td>{{ project.get_status_display }}</td>
+              <td>{{ project.get_priority_display }}</td>
+              <td>{{ project.due_date|date:"d M Y"|default:"-" }}</td>
+              <td>{{ project.progress_percent }}%</td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="7" class="text-center text-muted py-3">
+                No projects found.
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card shadow-sm border-0">
+    <div class="card-header bg-white fw-semibold">
+      Overdue Tasks
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-sm align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Task</th>
+            <th>Project</th>
+            <th>Assigned To</th>
+            <th>Status</th>
+            <th>Due Date</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for task in overdue_tasks %}
+            <tr>
+              <td>{{ task.name }}</td>
+              <td>{{ task.project }}</td>
+              <td>{{ task.assigned_to|default:"-" }}</td>
+              <td>{{ task.get_status_display }}</td>
+              <td>{{ task.due_date|date:"d M Y" }}</td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="5" class="text-center text-muted py-3">
+                No overdue tasks.
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,60 @@
+{% extends "reports/pdf/base_report_pdf.html" %}
+
+{% block pdf_content %}
+<h1>Employee Work Report</h1>
+<div class="meta">
+  {{ date_from }} to {{ date_to }}<br>
+  Employee: {{ selected_user_name }}
+</div>
+
+<div class="summary-grid">
+  <div class="card">
+    <div class="label">Attendance Days</div>
+    <div class="value">{{ summary.attendance_days }}</div>
+  </div>
+  <div class="card">
+    <div class="label">Total Hours</div>
+    <div class="value">{{ summary.total_work_hours }}</div>
+  </div>
+  <div class="card">
+    <div class="label">Task Hours</div>
+    <div class="value">{{ summary.task_work_hours }}</div>
+  </div>
+  <div class="card">
+    <div class="label">Deliverable Hours</div>
+    <div class="value">{{ summary.deliverable_work_hours }}</div>
+  </div>
+</div>
+
+<div class="section-title">Recent Work Sessions</div>
+<table>
+  <thead>
+    <tr>
+      <th>Employee</th>
+      <th>Project</th>
+      <th>Task / Deliverable</th>
+      <th>Status</th>
+      <th>Started</th>
+      <th>Ended</th>
+      <th>Hours</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for session in recent_work_sessions %}
+      <tr>
+        <td>{{ session.user }}</td>
+        <td>{{ session.project }}</td>
+        <td>{{ session.task|default:session.deliverable }}</td>
+        <td>{{ session.get_status_display }}</td>
+        <td>{{ session.started_at|date:"d M Y H:i" }}</td>
+        <td>{{ session.ended_at|date:"d M Y H:i"|default:"-" }}</td>
+        <td>{{ session.live_work_hours }}</td>
+      </tr>
+    {% empty %}
+      <tr>
+        <td colspan="7">No work sessions found.</td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

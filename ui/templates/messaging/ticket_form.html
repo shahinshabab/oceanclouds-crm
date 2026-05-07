@@ -1,0 +1,167 @@
+{% extends "ui/base.html" %}
+
+{% block title %}Raise Support Ticket{% endblock %}
+
+{% block content %}
+
+<div class="container py-3" style="max-width: 920px;">
+
+  <div class="card border-0 shadow-sm">
+    <div class="card-header bg-white border-0 pt-3">
+      <div class="d-flex justify-content-between align-items-center">
+        <div>
+          <h1 class="h4 mb-1">Raise Support Ticket</h1>
+          <div class="text-muted small">
+            Submit an issue or request to the support team.
+          </div>
+        </div>
+
+        <a href="{% url 'messaging:ticket_list' %}" class="btn btn-sm btn-outline-secondary">
+          <i class="bi bi-arrow-left me-1"></i>
+          Back
+        </a>
+      </div>
+    </div>
+
+    <div class="card-body">
+      <form method="post" enctype="multipart/form-data" novalidate>
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+          <div class="alert alert-danger">
+            {{ form.non_field_errors }}
+          </div>
+        {% endif %}
+
+        <div class="row g-3">
+
+          <div class="col-md-4">
+            <label class="form-label">
+              {{ form.category.label }}
+              {% if form.category.field.required %}
+                <span class="text-danger">*</span>
+              {% endif %}
+            </label>
+
+            {{ form.category }}
+
+            {% for error in form.category.errors %}
+              <div class="text-danger small mt-1">{{ error }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label">
+              {{ form.subject_type.label }}
+              {% if form.subject_type.field.required %}
+                <span class="text-danger">*</span>
+              {% endif %}
+            </label>
+
+            {{ form.subject_type }}
+
+            {% for error in form.subject_type.errors %}
+              <div class="text-danger small mt-1">{{ error }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label">
+              {{ form.priority.label }}
+              {% if form.priority.field.required %}
+                <span class="text-danger">*</span>
+              {% endif %}
+            </label>
+
+            {{ form.priority }}
+
+            {% for error in form.priority.errors %}
+              <div class="text-danger small mt-1">{{ error }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="col-12">
+            <label class="form-label">
+              {{ form.subject.label }}
+              {% if form.subject.field.required %}
+                <span class="text-danger">*</span>
+              {% endif %}
+            </label>
+
+            {{ form.subject }}
+
+            {% if form.subject.help_text %}
+              <div class="form-text">
+                {{ form.subject.help_text }}
+              </div>
+            {% endif %}
+
+            {% for error in form.subject.errors %}
+              <div class="text-danger small mt-1">{{ error }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="col-12">
+            <label class="form-label">
+              {{ form.description.label }}
+              {% if form.description.field.required %}
+                <span class="text-danger">*</span>
+              {% endif %}
+            </label>
+
+            {{ form.description }}
+
+            {% if form.description.help_text %}
+              <div class="form-text">
+                {{ form.description.help_text }}
+              </div>
+            {% endif %}
+
+            {% for error in form.description.errors %}
+              <div class="text-danger small mt-1">{{ error }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="col-12">
+            <label class="form-label">
+              {{ form.screenshot.label }}
+            </label>
+
+            {{ form.screenshot }}
+
+            {% if form.screenshot.help_text %}
+              <div class="form-text">
+                {{ form.screenshot.help_text }}
+              </div>
+            {% endif %}
+
+            {% for error in form.screenshot.errors %}
+              <div class="text-danger small mt-1">{{ error }}</div>
+            {% endfor %}
+          </div>
+
+        </div>
+
+        <div class="alert alert-light border small mt-4 mb-0">
+          <i class="bi bi-info-circle me-1"></i>
+          Please explain the issue clearly. If possible, attach a screenshot.
+        </div>
+
+        <div class="border-top mt-4 pt-3 d-flex justify-content-end gap-2">
+          <a href="{% url 'messaging:ticket_list' %}" class="btn btn-outline-secondary">
+            Cancel
+          </a>
+
+          <button type="submit" class="btn btn-dark px-4">
+            <i class="bi bi-check2-circle me-1"></i>
+            Save Ticket
+          </button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+
+</div>
+
+{% endblock %}

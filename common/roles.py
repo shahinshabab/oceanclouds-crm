@@ -68,6 +68,31 @@ EVENT_CALENDAR_ROLES = [
     ROLE_EMPLOYEE,
 ]
 
+# Reports access
+
+REPORT_ACCESS_ROLES = [
+    ROLE_ADMIN,
+    ROLE_CRM_MANAGER,
+    ROLE_PROJECT_MANAGER,
+    ROLE_EMPLOYEE,
+]
+
+SALES_REPORT_ACCESS_ROLES = [
+    ROLE_ADMIN,
+    ROLE_CRM_MANAGER,
+]
+
+PROJECT_REPORT_ACCESS_ROLES = [
+    ROLE_ADMIN,
+    ROLE_PROJECT_MANAGER,
+]
+
+EMPLOYEE_REPORT_ACCESS_ROLES = [
+    ROLE_ADMIN,
+    ROLE_PROJECT_MANAGER,
+    ROLE_EMPLOYEE,
+]
+
 
 def user_has_role(user, *roles):
     """
@@ -130,3 +155,19 @@ def can_access_event_calendar(user):
     Admin + Project Manager + Employee.
     """
     return user_has_role(user, *EVENT_CALENDAR_ROLES)
+
+
+def can_access_reports(user):
+    return user_has_role(user, *REPORT_ACCESS_ROLES)
+
+
+def can_access_sales_report(user):
+    return user_has_role(user, *SALES_REPORT_ACCESS_ROLES)
+
+
+def can_access_project_report(user):
+    return user_has_role(user, *PROJECT_REPORT_ACCESS_ROLES)
+
+
+def can_access_employee_report(user):
+    return user_has_role(user, *EMPLOYEE_REPORT_ACCESS_ROLES)

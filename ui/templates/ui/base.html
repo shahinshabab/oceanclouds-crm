@@ -213,10 +213,9 @@
                 <p class="sidebar-section-title">Overview</p>
                 <nav class="nav flex-column mb-3">
                     <a class="nav-link" href="{% url 'ui:home' %}">Dashboard</a>
-                    <a class="nav-link" href="{% url 'common:analytics_report' %}">Analytics &amp; Reports</a>
-                    <a class="nav-link" href="{% url 'common:project_report' %}">Project Reports</a>
+                    <a class="nav-link" href="{% url 'reports:dashboard' %}">Reports</a>
                 </nav>
-
+  
                 <p class="sidebar-section-title">CRM</p>
                 <nav class="nav flex-column mb-3">
                     <a class="nav-link" href="{% url 'crm:inquiry_list' %}">Inquiries</a>
@@ -266,7 +265,7 @@
 
                 <p class="sidebar-section-title">Communication &amp; Docs</p>
                 <nav class="nav flex-column mb-3">
-                    <a class="nav-link" href="{% url 'common:ticket_list' %}">Raise a Ticket</a>
+                    <a class="nav-link" href="{% url 'messaging:ticket_list' %}">Raise a Ticket</a>
                     <a class="nav-link" href="#">Communication Logs</a>
                     <a class="nav-link" href="#">Documents</a>
                 </nav>
@@ -287,7 +286,7 @@
                 <p class="sidebar-section-title">Overview</p>
                 <nav class="nav flex-column mb-3">
                     <a class="nav-link" href="{% url 'ui:home' %}">Dashboard</a>
-                    <a class="nav-link" href="{% url 'common:analytics_report' %}">Reports</a>
+                    <a class="nav-link" href="{% url 'reports:dashboard' %}">Reports</a>
                 </nav>
 
                 <p class="sidebar-section-title">CRM</p>
@@ -308,7 +307,7 @@
 
                 <p class="sidebar-section-title">Communication</p>
                 <nav class="nav flex-column mb-3">
-                    <a class="nav-link" href="{% url 'common:ticket_list' %}">Raise a Ticket</a>
+                    <a class="nav-link" href="{% url 'messaging:ticket_list' %}">Raise a Ticket</a>
                     <a class="nav-link" href="#">Communication Logs</a>
                     <a class="nav-link" href="#">Documents</a>
                 </nav>
@@ -322,7 +321,7 @@
                 <p class="sidebar-section-title">Overview</p>
                 <nav class="nav flex-column mb-3">
                     <a class="nav-link" href="{% url 'ui:home' %}">Dashboard</a>
-                    <a class="nav-link" href="{% url 'common:project_report' %}">Project Reports</a>
+                    <a class="nav-link" href="{% url 'reports:dashboard' %}">Reports</a>
                 </nav>
 
                 <p class="sidebar-section-title">CRM</p>
@@ -348,7 +347,7 @@
 
                 <p class="sidebar-section-title">Communication</p>
                 <nav class="nav flex-column mb-3">
-                    <a class="nav-link" href="{% url 'common:ticket_list' %}">Raise a Ticket</a>
+                    <a class="nav-link" href="{% url 'messaging:ticket_list' %}">Raise a Ticket</a>
                     <a class="nav-link" href="#">Team Messages</a>
                     <a class="nav-link" href="#">Documents</a>
                 </nav>
@@ -363,7 +362,7 @@
                 <p class="sidebar-section-title">Overview</p>
                 <nav class="nav flex-column mb-3">
                     <a class="nav-link" href="{% url 'ui:home' %}">Dashboard</a>
-                    <a class="nav-link" href="{% url 'common:analytics_report' %}">Analytics &amp; Reports</a>
+                    <a class="nav-link" href="{% url 'reports:dashboard' %}">Reports</a>
                 </nav>
 
                 <p class="sidebar-section-title">CRM</p>
@@ -386,7 +385,7 @@
 
                 <p class="sidebar-section-title">Communication</p>
                 <nav class="nav flex-column mb-3">
-                    <a class="nav-link" href="{% url 'common:ticket_list' %}">Raise a Ticket</a>
+                    <a class="nav-link" href="{% url 'messaging:ticket_list' %}">Raise a Ticket</a>
                     <a class="nav-link" href="#">Communication Logs</a>
                     <a class="nav-link" href="#">Documents</a>
                 </nav>
@@ -399,7 +398,8 @@
 
                 <p class="sidebar-section-title">My Day</p>
                 <nav class="nav flex-column mb-3">
-                    <a class="nav-link" href="{% url 'ui:home' %}">My Dashboard</a>
+                    <a class="nav-link" href="{% url 'ui:home' %}">Dashboard</a>
+                    <a class="nav-link" href="{% url 'reports:dashboard' %}">Reports</a>
                 </nav>
 
                 <p class="sidebar-section-title">My Tasks</p>
@@ -420,7 +420,7 @@
 
                 <p class="sidebar-section-title">Communication</p>
                 <nav class="nav flex-column mb-3">
-                    <a class="nav-link" href="{% url 'common:ticket_list' %}">Raise a Ticket</a>
+                    <a class="nav-link" href="{% url 'messaging:ticket_list' %}">Raise a Ticket</a>
                     <a class="nav-link" href="#">Team Messages</a>
                 </nav>
 

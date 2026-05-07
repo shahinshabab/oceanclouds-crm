@@ -1,0 +1,204 @@
+{% extends "ui/base.html" %}
+
+{% block title %}Sales Report{% endblock %}
+
+{% block content %}
+<div class="container py-3">
+
+  {% include "reports/partials/report_filter_bar.html" with report_title="Sales Report" user_label="CRM Manager" user_options=crm_managers %}
+
+  <div class="row g-3 mb-4">
+    <div class="col-md-3">
+      <div class="card shadow-sm border-0">
+        <div class="card-body">
+          <div class="text-muted small">Inquiries</div>
+          <div class="fs-4 fw-semibold">{{ summary.inquiry_count }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3">
+      <div class="card shadow-sm border-0">
+        <div class="card-body">
+          <div class="text-muted small">Leads</div>
+          <div class="fs-4 fw-semibold">{{ summary.lead_count }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3">
+      <div class="card shadow-sm border-0">
+        <div class="card-body">
+          <div class="text-muted small">Deals</div>
+          <div class="fs-4 fw-semibold">{{ summary.deal_count }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3">
+      <div class="card shadow-sm border-0">
+        <div class="card-body">
+          <div class="text-muted small">Contracts</div>
+          <div class="fs-4 fw-semibold">{{ summary.contract_count }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3 mb-4">
+    <div class="col-md-3">
+      <div class="card shadow-sm border-0">
+        <div class="card-body">
+          <div class="text-muted small">Inquiry to Lead</div>
+          <div class="fw-semibold">{{ summary.inquiry_to_lead_count }}</div>
+          <div class="small text-muted">{{ summary.inquiry_to_lead_rate }}%</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3">
+      <div class="card shadow-sm border-0">
+        <div class="card-body">
+          <div class="text-muted small">Lead to Deal</div>
+          <div class="fw-semibold">{{ summary.lead_to_deal_count }}</div>
+          <div class="small text-muted">{{ summary.lead_to_deal_rate }}%</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3">
+      <div class="card shadow-sm border-0">
+        <div class="card-body">
+          <div class="text-muted small">Deal to Contract</div>
+          <div class="fw-semibold">{{ summary.deal_to_contract_count }}</div>
+          <div class="small text-muted">{{ summary.deal_to_contract_rate }}%</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3">
+      <div class="card shadow-sm border-0">
+        <div class="card-body">
+          <div class="text-muted small">Deal to Invoice</div>
+          <div class="fw-semibold">{{ summary.deal_to_invoice_count }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3 mb-4">
+    <div class="col-md-3">
+      <div class="card shadow-sm border-0">
+        <div class="card-body">
+          <div class="text-muted small">Invoice Total</div>
+          <div class="fw-semibold">₹{{ summary.invoice_total }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3">
+      <div class="card shadow-sm border-0">
+        <div class="card-body">
+          <div class="text-muted small">Amount Paid</div>
+          <div class="fw-semibold">₹{{ summary.amount_paid_total }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3">
+      <div class="card shadow-sm border-0">
+        <div class="card-body">
+          <div class="text-muted small">Payment Received</div>
+          <div class="fw-semibold">₹{{ summary.payment_received_total }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3">
+      <div class="card shadow-sm border-0">
+        <div class="card-body">
+          <div class="text-muted small">Outstanding</div>
+          <div class="fw-semibold">₹{{ summary.outstanding_total }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-white fw-semibold">
+      Recent Inquiries
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-sm align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Name</th>
+            <th>Channel</th>
+            <th>Status</th>
+            <th>Owner</th>
+            <th>Created</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for inquiry in recent_inquiries %}
+            <tr>
+              <td>{{ inquiry.name|default:"-" }}</td>
+              <td>{{ inquiry.get_channel_display }}</td>
+              <td>{{ inquiry.get_status_display }}</td>
+              <td>{{ inquiry.owner|default:"-" }}</td>
+              <td>{{ inquiry.created_at|date:"d M Y" }}</td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="5" class="text-center text-muted py-3">
+                No inquiries found.
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card shadow-sm border-0">
+    <div class="card-header bg-white fw-semibold">
+      Recent Deals
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-sm align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Deal</th>
+            <th>Client</th>
+            <th>Stage</th>
+            <th>Amount</th>
+            <th>Owner</th>
+            <th>Created</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for deal in recent_deals %}
+            <tr>
+              <td>{{ deal.name }}</td>
+              <td>{{ deal.client|default:"-" }}</td>
+              <td>{{ deal.get_stage_display }}</td>
+              <td>₹{{ deal.amount|default:"0.00" }}</td>
+              <td>{{ deal.owner|default:"-" }}</td>
+              <td>{{ deal.created_at|date:"d M Y" }}</td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="6" class="text-center text-muted py-3">
+                No deals found.
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

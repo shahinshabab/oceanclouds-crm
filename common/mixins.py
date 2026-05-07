@@ -13,6 +13,10 @@ from .roles import (
     SERVICE_ADMIN_ROLES,
     EVENT_MANAGE_ROLES,
     EVENT_CALENDAR_ROLES,
+    REPORT_ACCESS_ROLES,
+    SALES_REPORT_ACCESS_ROLES,
+    PROJECT_REPORT_ACCESS_ROLES,
+    EMPLOYEE_REPORT_ACCESS_ROLES,
     user_has_role,
 )
 
@@ -136,3 +140,42 @@ class EventCalendarAccessMixin(RolesRequiredMixin):
     - Employee
     """
     allowed_roles = EVENT_CALENDAR_ROLES
+
+
+class ReportAccessMixin(RolesRequiredMixin):
+    """
+    Reports dashboard:
+    - Admin
+    - CRM Manager
+    - Project Manager
+    - Employee
+    """
+    allowed_roles = REPORT_ACCESS_ROLES
+
+
+class SalesReportAccessMixin(RolesRequiredMixin):
+    """
+    Sales report:
+    - Admin
+    - CRM Manager
+    """
+    allowed_roles = SALES_REPORT_ACCESS_ROLES
+
+
+class ProjectReportAccessMixin(RolesRequiredMixin):
+    """
+    Project report:
+    - Admin
+    - Project Manager
+    """
+    allowed_roles = PROJECT_REPORT_ACCESS_ROLES
+
+
+class EmployeeReportAccessMixin(RolesRequiredMixin):
+    """
+    Employee work report:
+    - Admin
+    - Project Manager
+    - Employee
+    """
+    allowed_roles = EMPLOYEE_REPORT_ACCESS_ROLES

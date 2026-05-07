@@ -18,7 +18,7 @@ from common.mixins import SalesAccessMixin
 from .services import sync_campaign_recipients
 from .utils import render_email_from_template
 
-from .forms import EmailTemplateForm, CampaignForm, WhatsAppTemplateForm
+from .forms import EmailTemplateForm, CampaignForm, WhatsAppTemplateForm, TicketForm
 from .models import (
     EmailTemplate,
     Campaign,
@@ -26,9 +26,23 @@ from .models import (
     EmailSendLog,
     WhatsAppTemplate,
     WhatsAppSendLog,
+    Ticket, 
+    TicketPriority, 
+    TicketStatus
 )
 from .utils import render_template_string
 
+from django.contrib.auth.mixins import LoginRequiredMixin
+
+
+from common.roles import (
+    ROLE_ADMIN,
+    ROLE_CRM_MANAGER,
+    ROLE_PROJECT_MANAGER,
+    ROLE_EMPLOYEE,
+    ROLE_MANAGER,
+    user_has_role,
+)
 
 class MessagingAccessMixin(SalesAccessMixin):
     """
@@ -571,3 +585,132 @@ class WhatsAppSendLogListView(MessagingAccessMixin, ListView):
         context["current_type"] = self.request.GET.get("type") or ""
         context["current_provider"] = self.request.GET.get("provider") or ""
         return context
+
+
+
+
+
+class TicketListView(LoginRequiredMixin, ListView):
+    model = Ticket
+    template_name = "messaging/ticket_list.html"
+    context_object_name = "tickets"
+    paginate_by = 20
+
+    def get_queryset(self):
+        user = self.request.user
+
+        # Admin can see all tickets.
+        # Other users can see only their own tickets.
+        if user_has_role(user, ROLE_ADMIN):
+            qs = Ticket.objects.select_related(
+                "created_by",
+                "assigned_to",
+            ).all()
+        else:
+            qs = Ticket.objects.select_related(
+                "created_by",
+                "assigned_to",
+            ).filter(created_by=user)
+
+        q = self.request.GET.get("q", "").strip()
+        status = self.request.GET.get("status", "").strip()
+        priority = self.request.GET.get("priority", "").strip()
+
+        if q:
+            qs = qs.filter(
+                Q(ticket_number__icontains=q)
+                | Q(subject__icontains=q)
+                | Q(description__icontains=q)
+                | Q(created_by__username__icontains=q)
+                | Q(created_by__first_name__icontains=q)
+                | Q(created_by__last_name__icontains=q)
+            )
+
+        if status:
+            qs = qs.filter(status=status)
+
+        if priority:
+            qs = qs.filter(priority=priority)
+
+        return qs.order_by("-created_at")
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+
+        user = self.request.user
+
+        ctx["q"] = self.request.GET.get("q", "").strip()
+        ctx["status_filter"] = self.request.GET.get("status", "").strip()
+        ctx["priority_filter"] = self.request.GET.get("priority", "").strip()
+
+        ctx["ticket_status_choices"] = TicketStatus.choices
+        ctx["ticket_priority_choices"] = TicketPriority.choices
+
+        ctx["is_admin"] = user_has_role(user, ROLE_ADMIN)
+        ctx["is_crm_manager"] = user_has_role(user, ROLE_CRM_MANAGER)
+        ctx["is_project_manager"] = user_has_role(user, ROLE_PROJECT_MANAGER)
+        ctx["is_employee"] = user_has_role(user, ROLE_EMPLOYEE)
+
+        # Temporary old Manager support
+        ctx["is_old_manager"] = user_has_role(user, ROLE_MANAGER)
+
+        return ctx
+
+
+class TicketCreateView(LoginRequiredMixin, CreateView):
+    model = Ticket
+    form_class = TicketForm
+    template_name = "messaging/ticket_form.html"
+    success_url = reverse_lazy("messaging:ticket_list")
+
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+
+        for field_name, field in form.fields.items():
+            existing_class = field.widget.attrs.get("class", "")
+
+            if field.widget.__class__.__name__ == "Select":
+                field.widget.attrs["class"] = f"{existing_class} form-select".strip()
+            elif field.widget.__class__.__name__ == "ClearableFileInput":
+                field.widget.attrs["class"] = f"{existing_class} form-control".strip()
+            else:
+                field.widget.attrs["class"] = f"{existing_class} form-control".strip()
+
+        return form
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        return super().form_valid(form)
+
+
+class TicketDetailView(LoginRequiredMixin, DetailView):
+    model = Ticket
+    template_name = "messaging/ticket_detail.html"
+    context_object_name = "ticket"
+
+    def get_queryset(self):
+        user = self.request.user
+
+        if user_has_role(user, ROLE_ADMIN):
+            return Ticket.objects.select_related(
+                "created_by",
+                "assigned_to",
+            ).all()
+
+        return Ticket.objects.select_related(
+            "created_by",
+            "assigned_to",
+        ).filter(created_by=user)
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+
+        user = self.request.user
+
+        ctx["is_admin"] = user_has_role(user, ROLE_ADMIN)
+        ctx["is_crm_manager"] = user_has_role(user, ROLE_CRM_MANAGER)
+        ctx["is_project_manager"] = user_has_role(user, ROLE_PROJECT_MANAGER)
+        ctx["is_employee"] = user_has_role(user, ROLE_EMPLOYEE)
+        ctx["is_old_manager"] = user_has_role(user, ROLE_MANAGER)
+
+        return ctx

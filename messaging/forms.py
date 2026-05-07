@@ -4,7 +4,7 @@ from django import forms
 from django.core.exceptions import ValidationError
 
 from common.forms import BootstrapModelForm
-from .models import EmailTemplate, EmailTemplateAttachment, Campaign, WhatsAppTemplate
+from .models import EmailTemplate, EmailTemplateAttachment, Campaign, WhatsAppTemplate, Ticket
 
 
 class EmailTemplateForm(BootstrapModelForm):
@@ -197,3 +197,25 @@ class WhatsAppTemplateForm(BootstrapModelForm):
             self.save_m2m()
 
         return instance
+    
+
+
+# -------------------------------------------------------------------
+# Support Ticket Form
+# -------------------------------------------------------------------
+
+class TicketForm(BootstrapModelForm):
+    class Meta:
+        model = Ticket
+        fields = [
+            "category",
+            "subject_type",
+            "subject",
+            "description",
+            "priority",
+            "screenshot",
+        ]
+        widgets = {
+            "description": forms.Textarea(attrs={"rows": 4}),
+            # screenshot uses default ClearableFileInput
+        }

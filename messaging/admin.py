@@ -1,7 +1,7 @@
 # messaging/admin.py
 
 from django.contrib import admin
-
+from django.utils import timezone
 from .models import (
     EmailTemplate,
     EmailTemplateAttachment,
@@ -10,6 +10,7 @@ from .models import (
     CampaignRecipient,
     WhatsAppTemplate,
     WhatsAppSendLog,
+    Ticket
 )
 
 
@@ -416,3 +417,30 @@ class WhatsAppSendLogAdmin(admin.ModelAdmin):
         "sent_at",
     )
     autocomplete_fields = ("template",)
+
+
+
+@admin.register(Ticket)
+class TicketAdmin(admin.ModelAdmin):
+    list_display = ("id", "subject", "created_by", "priority", "status", "created_at")
+    list_filter = ("status", "priority")
+    search_fields = ("subject", "description", "created_by__email")
+    readonly_fields = ("created_at", "updated_at", "responded_at")
+
+    fieldsets = (
+        ("Ticket Info", {
+            "fields": ("subject", "description", "priority", "status")
+        }),
+        ("Users", {
+            "fields": ("created_by", "assigned_to")
+        }),
+        ("Support Response", {
+            "fields": ("admin_response", "responded_at")
+        }),
+        ("Timestamps", {"fields": ("created_at", "updated_at")}),
+    )
+
+    def save_model(self, request, obj, form, change):
+        if "admin_response" in form.changed_data:
+            obj.responded_at = timezone.now()
+        super().save_model(request, obj, form, change)

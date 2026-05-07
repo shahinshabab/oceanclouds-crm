@@ -1,0 +1,75 @@
+{% extends "reports/pdf/base_report_pdf.html" %}
+
+{% block pdf_content %}
+<h1>Sales Report</h1>
+<div class="meta">
+  {{ date_from }} to {{ date_to }}<br>
+  User: {{ selected_user_name }}
+</div>
+
+<div class="summary-grid">
+  <div class="card">
+    <div class="label">Inquiries</div>
+    <div class="value">{{ summary.inquiry_count }}</div>
+  </div>
+  <div class="card">
+    <div class="label">Leads</div>
+    <div class="value">{{ summary.lead_count }}</div>
+  </div>
+  <div class="card">
+    <div class="label">Deals</div>
+    <div class="value">{{ summary.deal_count }}</div>
+  </div>
+  <div class="card">
+    <div class="label">Contracts</div>
+    <div class="value">{{ summary.contract_count }}</div>
+  </div>
+</div>
+
+<div class="summary-grid">
+  <div class="card">
+    <div class="label">Inquiry to Lead</div>
+    <div class="value">{{ summary.inquiry_to_lead_count }}</div>
+  </div>
+  <div class="card">
+    <div class="label">Lead to Deal</div>
+    <div class="value">{{ summary.lead_to_deal_count }}</div>
+  </div>
+  <div class="card">
+    <div class="label">Deal to Contract</div>
+    <div class="value">{{ summary.deal_to_contract_count }}</div>
+  </div>
+  <div class="card">
+    <div class="label">Revenue</div>
+    <div class="value">₹{{ summary.payment_received_total }}</div>
+  </div>
+</div>
+
+<div class="section-title">Recent Deals</div>
+<table>
+  <thead>
+    <tr>
+      <th>Deal</th>
+      <th>Client</th>
+      <th>Stage</th>
+      <th>Amount</th>
+      <th>Owner</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for deal in recent_deals %}
+      <tr>
+        <td>{{ deal.name }}</td>
+        <td>{{ deal.client|default:"-" }}</td>
+        <td>{{ deal.get_stage_display }}</td>
+        <td>₹{{ deal.amount|default:"0.00" }}</td>
+        <td>{{ deal.owner|default:"-" }}</td>
+      </tr>
+    {% empty %}
+      <tr>
+        <td colspan="5">No deals found.</td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
