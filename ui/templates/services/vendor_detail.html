@@ -4,9 +4,7 @@
 {% block title %}Vendor – {{ vendor.company_name|default:vendor.name }}{% endblock %}
 
 {% block content %}
-{% is_admin as is_admin %}
-{% is_manager as is_manager %}
-{% is_employee as is_employee %}
+{% has_services_manage_access request.user as can_manage_services %}
 
 <div class="container py-4">
 
@@ -16,24 +14,35 @@
       <h2 class="fw-semibold mb-1">
         {{ vendor.company_name|default:vendor.name }}
       </h2>
+
       <span class="badge bg-light text-dark">
         {{ vendor.get_vendor_type_display }}
       </span>
+
       {% if vendor.is_preferred %}
         <span class="badge bg-success ms-1">Preferred</span>
       {% endif %}
+
+      {% if vendor.is_active %}
+        <span class="badge bg-primary ms-1">Active</span>
+      {% else %}
+        <span class="badge bg-secondary ms-1">Inactive</span>
+      {% endif %}
     </div>
 
-    {# Only Admin & Manager can see Edit Vendor button #}
-    {% has_role user ROLE_ADMIN ROLE_MANAGER as can_manage_vendors %}
-    {% if can_manage_vendors %}
-      <a href="{% url 'services:vendor_update' vendor.pk %}" class="btn btn-primary btn-sm">
-        Edit Vendor
-      </a>
+    {% if can_manage_services %}
+      <div class="d-flex gap-2">
+        <a href="{% url 'services:vendor_update' vendor.pk %}" class="btn btn-primary btn-sm">
+          Edit Vendor
+        </a>
+        <a href="{% url 'services:vendor_delete' vendor.pk %}" class="btn btn-outline-danger btn-sm">
+          Delete
+        </a>
+      </div>
     {% endif %}
   </div>
 
-  <!-- Main details -->
+  <!-- Main Details -->
   <div class="card mb-3">
     <div class="card-body">
       <div class="row gy-3">
@@ -41,6 +50,11 @@
         <div class="col-md-4">
           <div class="text-uppercase text-muted small">Name</div>
           <div class="fw-semibold">{{ vendor.name }}</div>
+        </div>
+
+        <div class="col-md-4">
+          <div class="text-uppercase text-muted small">Company</div>
+          <div class="fw-semibold">{{ vendor.company_name|default:"—" }}</div>
         </div>
 
         <div class="col-md-4">
@@ -87,7 +101,8 @@
           <div class="text-uppercase text-muted small">Address</div>
           <div class="fw-semibold">
             {% if vendor.address_line1 or vendor.address_line2 %}
-              {{ vendor.address_line1 }}{% if vendor.address_line2 %}, {{ vendor.address_line2 }}{% endif %}
+              {{ vendor.address_line1 }}
+              {% if vendor.address_line2 %}, {{ vendor.address_line2 }}{% endif %}
             {% else %}
               <span class="text-muted">—</span>
             {% endif %}
@@ -109,11 +124,12 @@
     </div>
   </div>
 
-  <!-- Related services -->
+  <!-- Related Services -->
   <div class="card mb-4">
     <div class="card-header">
       <span class="fw-semibold">Services Provided</span>
     </div>
+
     <div class="card-body">
       {% if vendor.services.all %}
         <ul class="list-group list-group-flush">
@@ -122,6 +138,7 @@
               <a href="{% url 'services:service_detail' service.pk %}">
                 {{ service.name }}
               </a>
+
               <span class="text-muted small">
                 {{ service.get_category_display }}
               </span>
@@ -139,7 +156,8 @@
     <a href="{% url 'services:vendor_list' %}" class="btn btn-outline-secondary me-2">
       Back to Vendors
     </a>
-    {% if is_admin or is_manager %}
+
+    {% if can_manage_services %}
       <a href="{% url 'services:vendor_update' vendor.pk %}" class="btn btn-primary">
         Edit Vendor
       </a>

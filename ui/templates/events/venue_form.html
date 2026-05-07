@@ -1,20 +1,29 @@
 {% extends "ui/base.html" %}
 {% load roles_tags %}
+
 {% block title %}
   {% if form.instance.pk %}Edit Venue{% else %}New Venue{% endif %}
 {% endblock %}
+
 {% block content %}
-{% is_admin as is_admin %}
-{% is_manager as is_manager %}
-{% is_employee as is_employee %}
+{% has_event_manage_access request.user as can_manage_events %}
+
 <div class="container py-3 max-w-2xl">
 
-  <h2 class="fw-semibold mb-4">
-    {% if form.instance.pk %}Edit Venue{% else %}New Venue{% endif %}
-  </h2>
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="fw-semibold mb-0">
+      {% if form.instance.pk %}Edit Venue{% else %}New Venue{% endif %}
+    </h2>
+
+    <a href="{% url 'events:venue_list' %}" class="btn btn-outline-secondary btn-sm">
+      Back to Venues
+    </a>
+  </div>
 
   <form method="post" novalidate>
     {% csrf_token %}
+
     {% if form.non_field_errors %}
       <div class="alert alert-danger">
         {{ form.non_field_errors }}
@@ -24,9 +33,9 @@
     <div class="card shadow-sm">
       <div class="card-body">
 
-        <!-- Row 1: Name / Type / Capacity -->
+        <!-- Row 1 -->
         <div class="row">
-          <div class="col-md-6 mb-3">
+          <div class="col-md-5 mb-3">
             <label class="form-label">
               {{ form.name.label }}{% if form.name.field.required %} *{% endif %}
             </label>
@@ -36,7 +45,7 @@
             {% endfor %}
           </div>
 
-          <div class="col-md-3 mb-3">
+          <div class="col-md-4 mb-3">
             <label class="form-label">
               {{ form.venue_type.label }}{% if form.venue_type.field.required %} *{% endif %}
             </label>
@@ -46,25 +55,24 @@
             {% endfor %}
           </div>
 
-          <div class="col-md-3 mb-3">
-            <label class="form-label">
-              {{ form.capacity.label }}
-            </label>
-            {{ form.capacity }}
-            {% if form.capacity.help_text %}
-              <small class="form-text text-muted">{{ form.capacity.help_text }}</small>
-            {% endif %}
-            {% for error in form.capacity.errors %}
-              <div class="text-danger small">{{ error }}</div>
-            {% endfor %}
+          <div class="col-md-3 mb-3 d-flex align-items-center">
+            <div class="form-check mt-3">
+              {{ form.is_active }}
+              <label class="form-check-label ms-1">
+                {{ form.is_active.label }}
+              </label>
+              {% for error in form.is_active.errors %}
+                <div class="text-danger small d-block">{{ error }}</div>
+              {% endfor %}
+            </div>
           </div>
         </div>
 
-        <!-- Row 2: Contact Name / Phone / Email -->
+        <!-- Row 2 -->
         <div class="row">
           <div class="col-md-4 mb-3">
             <label class="form-label">
-              {{ form.contact_name.label }}
+              {{ form.contact_name.label }}{% if form.contact_name.field.required %} *{% endif %}
             </label>
             {{ form.contact_name }}
             {% for error in form.contact_name.errors %}
@@ -74,7 +82,7 @@
 
           <div class="col-md-4 mb-3">
             <label class="form-label">
-              {{ form.phone.label }}
+              {{ form.phone.label }}{% if form.phone.field.required %} *{% endif %}
             </label>
             {{ form.phone }}
             {% for error in form.phone.errors %}
@@ -84,7 +92,7 @@
 
           <div class="col-md-4 mb-3">
             <label class="form-label">
-              {{ form.email.label }}
+              {{ form.email.label }}{% if form.email.field.required %} *{% endif %}
             </label>
             {{ form.email }}
             {% for error in form.email.errors %}
@@ -93,11 +101,11 @@
           </div>
         </div>
 
-        <!-- Row 3: Address line 1 / line 2 -->
+        <!-- Row 3 -->
         <div class="row">
           <div class="col-md-6 mb-3">
             <label class="form-label">
-              {{ form.address_line1.label }}
+              {{ form.address_line1.label }}{% if form.address_line1.field.required %} *{% endif %}
             </label>
             {{ form.address_line1 }}
             {% for error in form.address_line1.errors %}
@@ -107,7 +115,7 @@
 
           <div class="col-md-6 mb-3">
             <label class="form-label">
-              {{ form.address_line2.label }}
+              {{ form.address_line2.label }}{% if form.address_line2.field.required %} *{% endif %}
             </label>
             {{ form.address_line2 }}
             {% for error in form.address_line2.errors %}
@@ -116,11 +124,11 @@
           </div>
         </div>
 
-        <!-- Row 4: City / District -->
+        <!-- Row 4 -->
         <div class="row">
-          <div class="col-md-6 mb-3">
+          <div class="col-md-3 mb-3">
             <label class="form-label">
-              {{ form.city.label }}
+              {{ form.city.label }}{% if form.city.field.required %} *{% endif %}
             </label>
             {{ form.city }}
             {% for error in form.city.errors %}
@@ -128,22 +136,19 @@
             {% endfor %}
           </div>
 
-          <div class="col-md-6 mb-3">
+          <div class="col-md-3 mb-3">
             <label class="form-label">
-              {{ form.district.label }}
+              {{ form.district.label }}{% if form.district.field.required %} *{% endif %}
             </label>
             {{ form.district }}
             {% for error in form.district.errors %}
               <div class="text-danger small">{{ error }}</div>
             {% endfor %}
           </div>
-        </div>
 
-        <!-- Row 5: State / Country -->
-        <div class="row">
-          <div class="col-md-6 mb-3">
+          <div class="col-md-3 mb-3">
             <label class="form-label">
-              {{ form.state.label }}
+              {{ form.state.label }}{% if form.state.field.required %} *{% endif %}
             </label>
             {{ form.state }}
             {% for error in form.state.errors %}
@@ -151,9 +156,9 @@
             {% endfor %}
           </div>
 
-          <div class="col-md-6 mb-3">
+          <div class="col-md-3 mb-3">
             <label class="form-label">
-              {{ form.country.label }}
+              {{ form.country.label }}{% if form.country.field.required %} *{% endif %}
             </label>
             {{ form.country }}
             {% for error in form.country.errors %}
@@ -162,15 +167,17 @@
           </div>
         </div>
 
-        <!-- Row 6: Notes (full width) -->
-        <div class="mb-3">
-          <label class="form-label">
-            {{ form.notes.label }}
-          </label>
-          {{ form.notes }}
-          {% for error in form.notes.errors %}
-            <div class="text-danger small">{{ error }}</div>
-          {% endfor %}
+        <!-- Row 5 -->
+        <div class="row">
+          <div class="col-12 mb-3">
+            <label class="form-label">
+              {{ form.notes.label }}{% if form.notes.field.required %} *{% endif %}
+            </label>
+            {{ form.notes }}
+            {% for error in form.notes.errors %}
+              <div class="text-danger small">{{ error }}</div>
+            {% endfor %}
+          </div>
         </div>
 
       </div>
@@ -179,11 +186,12 @@
     <!-- Buttons -->
     <div class="row mt-3">
       <div class="col-12 d-flex justify-content-center gap-2">
-        {% if is_admin or is_manager %}
+        {% if can_manage_events %}
           <button type="submit" class="btn btn-primary px-4">
             Save
           </button>
-        {% endif %}  
+        {% endif %}
+
         <a href="{% url 'events:venue_list' %}" class="btn btn-secondary">
           Cancel
         </a>

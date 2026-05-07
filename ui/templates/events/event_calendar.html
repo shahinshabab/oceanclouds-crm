@@ -1,30 +1,32 @@
 {# events/event_calendar.html #}
 {% extends "ui/base.html" %}
+{% load roles_tags %}
+
 {% block title %}Event Calendar{% endblock %}
 
 {% block content %}
+{% has_event_manage_access request.user as can_manage_events %}
+
 <div class="container-fluid px-3 pt-0 pb-3">
 
-  <!-- Calendar styles -->
   <style>
     .calendar-scroll {
       max-height: 600px;
-      overflow-x: auto;   /* horizontal scroll */
-      overflow-y: auto;   /* vertical scroll */
+      overflow-x: auto;
+      overflow-y: auto;
       position: relative;
     }
 
     .calendar-table {
       border-collapse: separate;
       border-spacing: 0;
-      width: max-content; /* let table expand so X can scroll */
+      width: max-content;
     }
 
     .calendar-table thead th {
       position: static !important;
     }
 
-    /* Fixed width for time column (Y axis) */
     .calendar-table .time-col,
     .calendar-table .time-cell {
       width: 80px;
@@ -35,7 +37,6 @@
       white-space: nowrap;
     }
 
-    /* Y axis: Time column sticky on the LEFT */
     .calendar-table th.time-col,
     .calendar-table td.time-cell {
       position: sticky !important;
@@ -44,32 +45,28 @@
       background-color: #ffffff;
     }
 
-    /* Corner cell at top-left */
     .calendar-table .corner-cell {
       z-index: 6;
       background-color: #ffffff;
     }
 
-    /* X axis: Date columns – fixed width */
     .calendar-table th.date-col,
     .calendar-table td.date-cell {
-      min-width: 140px;
-      max-width: 140px;
+      min-width: 150px;
+      max-width: 150px;
     }
 
     .calendar-table th.date-col {
-      white-space: nowrap;  /* keep "Dec 8 - Mon" on one line */
+      white-space: nowrap;
       font-size: 0.85rem;
       text-align: center;
     }
 
-    /* Fixed height for each time row – ORIGINAL GAP RESTORED */
     .calendar-table .slot-row td {
       height: 60px;
       vertical-align: top;
     }
 
-    /* Event pill */
     .calendar-event-pill {
       min-height: 40px;
       border-radius: 0.4rem;
@@ -77,21 +74,32 @@
     }
   </style>
 
-  <!-- Filters Row -->
-  <form method="get" class="row g-2 mb-2">
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="fw-semibold mb-0">Event Calendar</h2>
+
+    {% if can_manage_events %}
+      <a href="{% url 'events:event_create' %}" class="btn btn-success btn-sm">
+        + New Event
+      </a>
+    {% endif %}
+  </div>
+
+  <!-- Filters -->
+  <form method="get" class="row g-2 align-items-end mb-3">
 
     <div class="col-md-4">
       <label class="form-label small text-muted mb-1">View Range</label>
-      <select name="range" class="form-select">
+      <select name="range" class="form-select form-select-sm">
         <option value="1m" {% if range_param == "1m" %}selected{% endif %}>1 month</option>
         <option value="2m" {% if range_param == "2m" %}selected{% endif %}>2 months</option>
         <option value="3m" {% if range_param == "3m" %}selected{% endif %}>3 months</option>
       </select>
     </div>
 
-    <div class="col-md-4">
+    <div class="col-md-3">
       <label class="form-label small text-muted mb-1">Event Type</label>
-      <select name="event_type" class="form-select">
+      <select name="event_type" class="form-select form-select-sm">
         <option value="">All types</option>
         {% for value, label in event_type_choices %}
           <option value="{{ value }}" {% if event_type == value %}selected{% endif %}>
@@ -103,7 +111,7 @@
 
     <div class="col-md-3">
       <label class="form-label small text-muted mb-1">Status</label>
-      <select name="status" class="form-select">
+      <select name="status" class="form-select form-select-sm">
         <option value="">All statuses</option>
         {% for value, label in status_choices %}
           <option value="{{ value }}" {% if status == value %}selected{% endif %}>
@@ -113,13 +121,12 @@
       </select>
     </div>
 
-    <div class="col-md-1 d-flex align-items-end">
-      <div class="d-grid w-100">
-        <button type="submit" class="btn btn-outline-secondary">
-          Apply
-        </button>
-      </div>
+    <div class="col-md-2">
+      <button type="submit" class="btn btn-outline-secondary btn-sm w-100">
+        Apply
+      </button>
     </div>
+
   </form>
 
   <!-- Calendar Grid -->
@@ -129,15 +136,16 @@
       <div class="calendar-scroll">
         <table class="table table-sm mb-0 align-middle calendar-table">
 
-          <!-- Header: Dates (X-axis) -->
           <thead class="table-light">
             <tr>
               <th scope="col" class="time-col corner-cell">
                 Time
               </th>
+
               {% for d in dates %}
                 <th scope="col" class="date-col">
-                  {{ d|date:"M d" }} - <span class="text-muted small">{{ d|date:"D" }}</span>
+                  {{ d|date:"M d" }} -
+                  <span class="text-muted small">{{ d|date:"D" }}</span>
                 </th>
               {% endfor %}
             </tr>
@@ -146,26 +154,30 @@
           <tbody>
             {% if dates %}
               {% for row in time_rows %}
-                {# Show only 10:00–19:00 (10 AM–7 PM) #}
                 {% if row.hour >= 10 and row.hour <= 19 %}
                   <tr class="slot-row">
-                    <!-- Y axis: Time label (fixed left) -->
+
                     <td class="fw-semibold text-nowrap time-cell">
                       {{ row.hour|stringformat:"02d" }}:00
                     </td>
 
-                    <!-- X axis: Dates (scroll horizontally) -->
                     {% for cell in row.cells %}
                       <td class="date-cell">
                         {% if cell.events %}
                           {% for ev in cell.events %}
-                            <a href="{% url 'events:event_detail' ev.pk %}"
-                               class="text-decoration-none d-block mb-1">
+
+                            {% if can_manage_events %}
+                              <a href="{% url 'events:event_detail' ev.pk %}"
+                                 class="text-decoration-none d-block mb-1">
+                            {% else %}
+                              <div class="d-block mb-1">
+                            {% endif %}
+
                               {% with ev.status as st %}
                                 <div class="calendar-event-pill text-white px-2 py-1
                                   {% if st == 'completed' %} bg-success
                                   {% elif st == 'confirmed' %} bg-primary
-                                  {% elif st == 'tentative' %} bg-warning text-dark
+                                  {% elif st == 'in_progress' %} bg-info
                                   {% elif st == 'cancelled' %} bg-danger
                                   {% else %} bg-secondary
                                   {% endif %}
@@ -173,17 +185,31 @@
                                   <div class="fw-semibold small">
                                     {{ ev.name|truncatechars:28 }}
                                   </div>
+
                                   <div class="small">
                                     {% if ev.start_time %}
                                       {{ ev.start_time|time:"H:i" }}
                                     {% endif %}
+
                                     {% if ev.client %}
                                       • {{ ev.client }}
                                     {% endif %}
                                   </div>
+
+                                  {% if ev.venue %}
+                                    <div class="small">
+                                      {{ ev.venue.name|truncatechars:24 }}
+                                    </div>
+                                  {% endif %}
                                 </div>
                               {% endwith %}
-                            </a>
+
+                            {% if can_manage_events %}
+                              </a>
+                            {% else %}
+                              </div>
+                            {% endif %}
+
                           {% endfor %}
                         {% endif %}
                       </td>

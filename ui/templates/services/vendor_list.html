@@ -4,24 +4,22 @@
 {% block title %}Vendors{% endblock %}
 
 {% block content %}
-{% is_admin as is_admin %}
-{% is_manager as is_manager %}
-{% is_employee as is_employee %}
+{% has_services_manage_access request.user as can_manage_services %}
 
 <div class="container py-4">
 
-  <!-- Header -->
+  <!-- Row 1: Heading + Button -->
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h4 mb-0">Vendors</h1>
 
-    {% if is_admin or is_manager %}
+    {% if can_manage_services %}
       <a href="{% url 'services:vendor_create' %}" class="btn btn-success btn-sm">
         + New Vendor
       </a>
     {% endif %}
   </div>
 
-  <!-- Filters -->
+  <!-- Row 2: Search + Two Filters + Apply -->
   <form method="get" class="row g-2 align-items-end mb-3">
     <div class="col-md-4">
       <label class="form-label small text-muted">Search</label>
@@ -29,11 +27,11 @@
              name="q"
              value="{{ q }}"
              class="form-control form-control-sm"
-             placeholder="Search by name or company…">
+             placeholder="Search by name, company, phone…">
     </div>
 
     <div class="col-md-3">
-      <label class="form-label small text-muted">Vendor type</label>
+      <label class="form-label small text-muted">Vendor Type</label>
       <select name="vendor_type" class="form-select form-select-sm">
         <option value="">All vendor types</option>
         {% for value, label in vendor_type_choices %}
@@ -53,27 +51,29 @@
       </select>
     </div>
 
-    <div class="col-md-2 text-md-end">
+    <div class="col-md-2">
       <button type="submit" class="btn btn-outline-secondary btn-sm w-100">
         Apply
       </button>
     </div>
   </form>
 
-  <!-- Table -->
+  <!-- Row 3: Table -->
   <div class="card">
     <div class="card-body p-0">
       <table class="table table-hover mb-0 align-middle">
         <thead class="table-light">
         <tr>
-          <th scope="col">Name</th>
-          <th scope="col">Company</th>
-          <th scope="col">Type</th>
-          <th scope="col">City</th>
-          <th scope="col">Phone</th>
-          <th scope="col" class="text-end">Actions</th>
+          <th>Name</th>
+          <th>Company</th>
+          <th>Type</th>
+          <th>City</th>
+          <th>Phone</th>
+          <th>Status</th>
+          <th class="text-end">Actions</th>
         </tr>
         </thead>
+
         <tbody>
         {% for vendor in vendors %}
           <tr>
@@ -83,28 +83,41 @@
               <span class="badge bg-light text-dark">
                 {{ vendor.get_vendor_type_display }}
               </span>
+
               {% if vendor.is_preferred %}
                 <span class="badge bg-success ms-1">Preferred</span>
               {% endif %}
             </td>
             <td>{{ vendor.city|default:"—" }}</td>
             <td>{{ vendor.phone|default:"—" }}</td>
+            <td>
+              {% if vendor.is_active %}
+                <span class="badge bg-success">Active</span>
+              {% else %}
+                <span class="badge bg-secondary">Inactive</span>
+              {% endif %}
+            </td>
             <td class="text-end">
               <a href="{% url 'services:vendor_detail' vendor.pk %}"
                  class="btn btn-sm btn-outline-primary">
                 View
               </a>
-              {% if is_admin or is_manager %}
+
+              {% if can_manage_services %}
                 <a href="{% url 'services:vendor_update' vendor.pk %}"
                    class="btn btn-sm btn-outline-secondary">
                   Edit
+                </a>
+                <a href="{% url 'services:vendor_delete' vendor.pk %}"
+                   class="btn btn-sm btn-outline-danger">
+                  Delete
                 </a>
               {% endif %}
             </td>
           </tr>
         {% empty %}
           <tr>
-            <td colspan="6" class="text-center text-muted py-4">
+            <td colspan="7" class="text-center text-muted py-4">
               No vendors found.
             </td>
           </tr>

@@ -6,18 +6,24 @@
 {% endblock %}
 
 {% block content %}
-{% is_admin as is_admin %}
-{% is_manager as is_manager %}
-{% is_employee as is_employee %}
+{% has_services_manage_access request.user as can_manage_services %}
 
 <div class="container py-3 max-w-2xl">
 
-  <h2 class="fw-semibold mb-4">
-    {% if form.instance.pk %}Edit Package{% else %}New Package{% endif %}
-  </h2>
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="fw-semibold mb-0">
+      {% if form.instance.pk %}Edit Package{% else %}New Package{% endif %}
+    </h2>
+
+    <a href="{% url 'services:package_list' %}" class="btn btn-outline-secondary btn-sm">
+      Back to Packages
+    </a>
+  </div>
 
   <form method="post" novalidate>
     {% csrf_token %}
+
     {% if form.non_field_errors %}
       <div class="alert alert-danger">
         {{ form.non_field_errors }}
@@ -28,7 +34,7 @@
     <div class="card shadow-sm mb-3">
       <div class="card-body">
 
-        <!-- Row 1: Name / Code -->
+        <!-- Row 1: Name / Code / Active -->
         <div class="row">
           <div class="col-md-6 mb-3">
             <label class="form-label">
@@ -41,8 +47,11 @@
           </div>
 
           <div class="col-md-3 mb-3">
-            <label class="form-label">{{ form.code.label }}</label>
+            <label class="form-label">
+              {{ form.code.label }}{% if form.code.field.required %} *{% endif %}
+            </label>
             {{ form.code }}
+            <div class="form-text">Leave blank to auto-generate.</div>
             {% for error in form.code.errors %}
               <div class="text-danger small">{{ error }}</div>
             {% endfor %}
@@ -64,7 +73,9 @@
         <!-- Row 2: Description -->
         <div class="row">
           <div class="col-12 mb-3">
-            <label class="form-label">{{ form.description.label }}</label>
+            <label class="form-label">
+              {{ form.description.label }}{% if form.description.field.required %} *{% endif %}
+            </label>
             {{ form.description }}
             {% for error in form.description.errors %}
               <div class="text-danger small">{{ error }}</div>
@@ -75,7 +86,9 @@
         <!-- Row 3: Notes -->
         <div class="row">
           <div class="col-12 mb-0">
-            <label class="form-label">{{ form.notes.label }}</label>
+            <label class="form-label">
+              {{ form.notes.label }}{% if form.notes.field.required %} *{% endif %}
+            </label>
             {{ form.notes }}
             {% for error in form.notes.errors %}
               <div class="text-danger small">{{ error }}</div>
@@ -89,81 +102,106 @@
     <!-- Package items formset -->
     <div class="card shadow-sm mb-3">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <span class="fw-semibold small text-uppercase text-muted">Package Items</span>
-        <button type="button" class="btn btn-sm btn-outline-primary" id="add-item-row">
-          + Add Item
-        </button>
+        <span class="fw-semibold small text-uppercase text-muted">
+          Package Items
+        </span>
+
+        {% if can_manage_services %}
+          <button type="button" class="btn btn-sm btn-outline-primary" id="add-item-row">
+            + Add Item
+          </button>
+        {% endif %}
       </div>
+
       <div class="card-body p-0">
 
         {{ items_formset.management_form }}
 
-        <table class="table table-sm mb-0 align-middle">
-          <thead class="table-light">
-          <tr>
-            <th style="width: 30%;">Service</th>
-            <th style="width: 30%;">Description</th>
-            <th class="text-end" style="width: 10%;">Qty</th>
-            <th class="text-end" style="width: 15%;">Unit price</th>
-            <th class="text-center" style="width: 10%;">Delete</th>
-          </tr>
-          </thead>
-          <tbody id="items-table-body">
-          {% for item_form in items_formset %}
-            <tr class="item-row">
-              {{ item_form.id }} {# hidden id field #}
-              <td>
-                {{ item_form.service }}
-                {% for error in item_form.service.errors %}
-                  <div class="text-danger small">{{ error }}</div>
-                {% endfor %}
-              </td>
-              <td>
-                {{ item_form.description }}
-                {% for error in item_form.description.errors %}
-                  <div class="text-danger small">{{ error }}</div>
-                {% endfor %}
-              </td>
-              <td class="text-end">
-                {{ item_form.quantity }}
-                {% for error in item_form.quantity.errors %}
-                  <div class="text-danger small">{{ error }}</div>
-                {% endfor %}
-              </td>
-              <td class="text-end">
-                {{ item_form.unit_price }}
-                {% for error in item_form.unit_price.errors %}
-                  <div class="text-danger small">{{ error }}</div>
-                {% endfor %}
-              </td>
-              <td class="text-center">
-                {% if item_form.DELETE %}
-                  <div class="form-check d-inline-block">
-                    {{ item_form.DELETE }}
-                  </div>
-                {% endif %}
-              </td>
-            </tr>
-          {% endfor %}
-          </tbody>
-        </table>
+        {% if items_formset.non_form_errors %}
+          <div class="alert alert-danger m-3">
+            {{ items_formset.non_form_errors }}
+          </div>
+        {% endif %}
 
-        {# Empty form template for JS cloning #}
+        <div class="table-responsive">
+          <table class="table table-sm mb-0 align-middle">
+            <thead class="table-light">
+            <tr>
+              <th style="width: 30%;">Service</th>
+              <th style="width: 30%;">Description</th>
+              <th class="text-end" style="width: 10%;">Qty</th>
+              <th class="text-end" style="width: 15%;">Unit Price</th>
+              <th class="text-center" style="width: 10%;">Delete</th>
+            </tr>
+            </thead>
+
+            <tbody id="items-table-body">
+            {% for item_form in items_formset %}
+              <tr class="item-row">
+                {{ item_form.id }}
+
+                <td>
+                  {{ item_form.service }}
+                  {% for error in item_form.service.errors %}
+                    <div class="text-danger small">{{ error }}</div>
+                  {% endfor %}
+                </td>
+
+                <td>
+                  {{ item_form.description }}
+                  {% for error in item_form.description.errors %}
+                    <div class="text-danger small">{{ error }}</div>
+                  {% endfor %}
+                </td>
+
+                <td class="text-end">
+                  {{ item_form.quantity }}
+                  {% for error in item_form.quantity.errors %}
+                    <div class="text-danger small">{{ error }}</div>
+                  {% endfor %}
+                </td>
+
+                <td class="text-end">
+                  {{ item_form.unit_price }}
+                  {% for error in item_form.unit_price.errors %}
+                    <div class="text-danger small">{{ error }}</div>
+                  {% endfor %}
+                </td>
+
+                <td class="text-center">
+                  {% if item_form.DELETE %}
+                    <div class="form-check d-inline-block">
+                      {{ item_form.DELETE }}
+                    </div>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Empty form template for JS cloning -->
         <script type="text/template" id="empty-item-form-template">
           <tr class="item-row">
             {{ items_formset.empty_form.id }}
+
             <td>
               {{ items_formset.empty_form.service }}
             </td>
+
             <td>
               {{ items_formset.empty_form.description }}
             </td>
+
             <td class="text-end">
               {{ items_formset.empty_form.quantity }}
             </td>
+
             <td class="text-end">
               {{ items_formset.empty_form.unit_price }}
             </td>
+
             <td class="text-center">
               {% if items_formset.empty_form.DELETE %}
                 <div class="form-check d-inline-block">
@@ -175,18 +213,24 @@
         </script>
 
       </div>
+
       <div class="card-footer text-end small text-muted">
-        Total price is auto-calculated from item lines after saving.
+        Total price is auto-calculated from package item lines after saving.
       </div>
     </div>
 
     <!-- Buttons -->
     <div class="row mt-3">
       <div class="col-12 d-flex justify-content-center gap-2">
-        {% if is_admin or is_manager %}
-          <button type="submit" class="btn btn-primary px-4">Save</button>
+        {% if can_manage_services %}
+          <button type="submit" class="btn btn-primary px-4">
+            Save
+          </button>
         {% endif %}
-        <a href="{% url 'services:package_list' %}" class="btn btn-secondary">Cancel</a>
+
+        <a href="{% url 'services:package_list' %}" class="btn btn-secondary">
+          Cancel
+        </a>
       </div>
     </div>
 
@@ -204,7 +248,8 @@
 
     addBtn.addEventListener("click", function () {
       const currentCount = parseInt(totalFormsInput.value, 10) || 0;
-      let newRowHtml = templateEl.innerHTML.replace(/__prefix__/g, currentCount);
+      const newRowHtml = templateEl.innerHTML.replace(/__prefix__/g, currentCount);
+
       tableBody.insertAdjacentHTML("beforeend", newRowHtml);
       totalFormsInput.value = currentCount + 1;
     });

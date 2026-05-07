@@ -6,18 +6,24 @@
 {% endblock %}
 
 {% block content %}
-{% is_admin as is_admin %}
-{% is_manager as is_manager %}
-{% is_employee as is_employee %}
+{% has_services_manage_access request.user as can_manage_services %}
 
 <div class="container py-3 max-w-2xl">
 
-  <h2 class="fw-semibold mb-4">
-    {% if form.instance.pk %}Edit Service{% else %}New Service{% endif %}
-  </h2>
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="fw-semibold mb-0">
+      {% if form.instance.pk %}Edit Service{% else %}New Service{% endif %}
+    </h2>
+
+    <a href="{% url 'services:service_list' %}" class="btn btn-outline-secondary btn-sm">
+      Back to Services
+    </a>
+  </div>
 
   <form method="post" novalidate>
     {% csrf_token %}
+
     {% if form.non_field_errors %}
       <div class="alert alert-danger">
         {{ form.non_field_errors }}
@@ -44,6 +50,7 @@
               {{ form.code.label }}{% if form.code.field.required %} *{% endif %}
             </label>
             {{ form.code }}
+            <div class="form-text">Leave blank to auto-generate.</div>
             {% for error in form.code.errors %}
               <div class="text-danger small">{{ error }}</div>
             {% endfor %}
@@ -54,16 +61,13 @@
               {{ form.category.label }}{% if form.category.field.required %} *{% endif %}
             </label>
             {{ form.category }}
-            {% if form.category.help_text %}
-              <div class="form-text">{{ form.category.help_text }}</div>
-            {% endif %}
             {% for error in form.category.errors %}
               <div class="text-danger small">{{ error }}</div>
             {% endfor %}
           </div>
         </div>
 
-        <!-- Row 2: Base price -->
+        <!-- Row 2: Base Price / Active -->
         <div class="row">
           <div class="col-md-6 mb-3">
             <label class="form-label">
@@ -77,9 +81,21 @@
               <div class="text-danger small">{{ error }}</div>
             {% endfor %}
           </div>
+
+          <div class="col-md-3 mb-3 d-flex align-items-center">
+            <div class="form-check mt-3">
+              {{ form.is_active }}
+              <label class="form-check-label ms-1">
+                {{ form.is_active.label }}
+              </label>
+              {% for error in form.is_active.errors %}
+                <div class="text-danger small d-block">{{ error }}</div>
+              {% endfor %}
+            </div>
+          </div>
         </div>
 
-        <!-- Row 3: Vendors (full width) -->
+        <!-- Row 3: Vendors -->
         <div class="row">
           <div class="col-12 mb-3">
             <label class="form-label">
@@ -95,46 +111,29 @@
           </div>
         </div>
 
-        <!-- Row 4: Description (full width) -->
+        <!-- Row 4: Description -->
         <div class="row">
           <div class="col-12 mb-3">
             <label class="form-label">
               {{ form.description.label }}{% if form.description.field.required %} *{% endif %}
             </label>
             {{ form.description }}
-            {% if form.description.help_text %}
-              <div class="form-text">{{ form.description.help_text }}</div>
-            {% endif %}
             {% for error in form.description.errors %}
               <div class="text-danger small">{{ error }}</div>
             {% endfor %}
           </div>
         </div>
 
-        <!-- Row 5: Notes + Active -->
+        <!-- Row 5: Notes -->
         <div class="row">
-          <div class="col-md-9 mb-3">
+          <div class="col-12 mb-3">
             <label class="form-label">
               {{ form.notes.label }}{% if form.notes.field.required %} *{% endif %}
             </label>
             {{ form.notes }}
-            {% if form.notes.help_text %}
-              <div class="form-text">{{ form.notes.help_text }}</div>
-            {% endif %}
             {% for error in form.notes.errors %}
               <div class="text-danger small">{{ error }}</div>
             {% endfor %}
-          </div>
-          <div class="col-md-3 mb-3 d-flex align-items-center">
-            <div class="form-check mt-3">
-              {{ form.is_active }}
-              <label class="form-check-label ms-1">
-                {{ form.is_active.label }}
-              </label>
-              {% for error in form.is_active.errors %}
-                <div class="text-danger small d-block">{{ error }}</div>
-              {% endfor %}
-            </div>
           </div>
         </div>
 
@@ -144,11 +143,12 @@
     <!-- Buttons -->
     <div class="row mt-3">
       <div class="col-12 d-flex justify-content-center gap-2">
-        {% if is_admin or is_manager %}
+        {% if can_manage_services %}
           <button type="submit" class="btn btn-primary px-4">
             Save
           </button>
         {% endif %}
+
         <a href="{% url 'services:service_list' %}" class="btn btn-secondary">
           Cancel
         </a>

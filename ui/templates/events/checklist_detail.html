@@ -1,91 +1,246 @@
 {% extends "ui/base.html" %}
 {% load roles_tags %}
-{% block title %}Checklist – {{ item.title }}{% endblock %}
+
+{% block title %}Checklist – {{ checklist.title }}{% endblock %}
+
 {% block content %}
-{% is_admin as is_admin %}
-{% is_manager as is_manager %}
-{% is_employee as is_employee %}
-<div class="container py-3 max-w-2xl">
+{% has_event_manage_access request.user as can_manage_events %}
 
-  <!-- Heading -->
-  <h2 class="fw-semibold mb-4">{{ item.title }}</h2>
+<div class="container py-3 max-w-3xl">
 
-  <!-- Main Card -->
-  <div class="card shadow-sm mb-4">
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-start mb-4">
+    <div>
+      <h2 class="fw-semibold mb-1">{{ checklist.title }}</h2>
+
+      {% if checklist.event %}
+        <div class="text-muted small">
+          Event:
+          <a href="{% url 'events:event_detail' checklist.event.pk %}">
+            {{ checklist.event.name }}
+          </a>
+          {% if checklist.event.date %}
+            · {{ checklist.event.date }}
+          {% endif %}
+        </div>
+      {% endif %}
+
+      <div class="mt-2">
+        {% if checklist.total_items %}
+          <span class="badge bg-light text-dark">
+            {{ checklist.done_items }}/{{ checklist.total_items }} done
+          </span>
+
+          {% if checklist.pending_items == 0 %}
+            <span class="badge bg-success ms-1">Completed</span>
+          {% else %}
+            <span class="badge bg-secondary ms-1">Pending</span>
+          {% endif %}
+        {% else %}
+          <span class="badge bg-warning text-dark">No items</span>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if can_manage_events %}
+      <div class="d-flex gap-2">
+        <a href="{% url 'events:checklist_item_create' %}?checklist={{ checklist.pk }}"
+           class="btn btn-success btn-sm">
+          + Add Item
+        </a>
+
+        <a href="{% url 'events:checklist_update' checklist.pk %}"
+           class="btn btn-primary btn-sm">
+          Edit Checklist
+        </a>
+
+        <a href="{% url 'events:checklist_delete' checklist.pk %}"
+           class="btn btn-outline-danger btn-sm">
+          Delete
+        </a>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- Checklist Summary -->
+  <div class="card shadow-sm mb-3">
     <div class="card-body">
+      <div class="row gy-3">
 
-      <div class="row">
-        <!-- Col 1: Event / Category -->
-        <div class="col-md-4 mb-3">
+        <div class="col-md-4">
           <div class="text-uppercase text-muted small">Event</div>
-          <div class="fw-semibold mb-2">
-            {% if item.event %}
-              <a href="{% url 'events:event_detail' item.event.pk %}">
-                {{ item.event.name }}
+          <div class="fw-semibold">
+            {% if checklist.event %}
+              <a href="{% url 'events:event_detail' checklist.event.pk %}">
+                {{ checklist.event.name }}
               </a>
             {% else %}
               —
             {% endif %}
           </div>
-
-          <div class="text-uppercase text-muted small">Category</div>
-          <div class="fw-semibold mb-2">{{ item.get_category_display }}</div>
         </div>
 
-        <!-- Col 2: Due Date / Status -->
-        <div class="col-md-4 mb-3">
-          <div class="text-uppercase text-muted small">Due Date</div>
-          <div class="fw-semibold mb-2">
-            {% if item.due_date %}
-              {{ item.due_date }}
+        <div class="col-md-4">
+          <div class="text-uppercase text-muted small">Client</div>
+          <div class="fw-semibold">
+            {% if checklist.event.client %}
+              {{ checklist.event.client }}
             {% else %}
               —
             {% endif %}
           </div>
+        </div>
 
-          <div class="text-uppercase text-muted small">Status</div>
-          <div class="fw-semibold mb-2">
-            {% if item.is_done %}
-              <span class="badge bg-success">Done</span>
+        <div class="col-md-4">
+          <div class="text-uppercase text-muted small">Project</div>
+          <div class="fw-semibold">
+            {% if checklist.event.project %}
+              {{ checklist.event.project.name }}
             {% else %}
-              <span class="badge bg-secondary">Pending</span>
+              —
             {% endif %}
           </div>
         </div>
 
-        <!-- Col 3: Assigned To / Vendor -->
-        <div class="col-md-4 mb-3">
-          <div class="text-uppercase text-muted small">Assigned To</div>
-          <div class="fw-semibold mb-2">
-            {{ item.assigned_to|default:"—" }}
-          </div>
-
-          <div class="text-uppercase text-muted small">Vendor</div>
-          <div class="fw-semibold mb-2">
-            {{ item.vendor|default:"—" }}
+        <div class="col-md-4">
+          <div class="text-uppercase text-muted small">Event Date</div>
+          <div class="fw-semibold">
+            {{ checklist.event.date|default:"—" }}
           </div>
         </div>
-      </div>
 
-      <!-- Notes -->
-      <div class="mt-2">
-        <div class="text-uppercase text-muted small mb-1">Notes</div>
-        <div class="fw-semibold">
-          {{ item.notes|default:"—" }}
+        <div class="col-md-4">
+          <div class="text-uppercase text-muted small">Total Items</div>
+          <div class="fw-semibold">{{ checklist.total_items }}</div>
         </div>
-      </div>
 
+        <div class="col-md-4">
+          <div class="text-uppercase text-muted small">Pending Items</div>
+          <div class="fw-semibold">{{ checklist.pending_items }}</div>
+        </div>
+
+        <div class="col-12">
+          <div class="text-uppercase text-muted small">Notes</div>
+          <div>
+            {% if checklist.notes %}
+              {{ checklist.notes|linebreaksbr }}
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          </div>
+        </div>
+
+      </div>
     </div>
   </div>
 
-  <!-- Action Buttons -->
+  <!-- Checklist Items -->
+  <div class="card mb-4">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+      <span class="fw-semibold small text-uppercase text-muted">
+        Checklist Items
+      </span>
+
+      {% if can_manage_events %}
+        <a href="{% url 'events:checklist_item_create' %}?checklist={{ checklist.pk }}"
+           class="btn btn-sm btn-outline-success">
+          + Add Item
+        </a>
+      {% endif %}
+    </div>
+
+    <div class="card-body p-0">
+      {% if items %}
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Item</th>
+                <th>Category</th>
+                <th>Due Date</th>
+                <th>Assigned To</th>
+                <th>Status</th>
+                <th class="text-end">Actions</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {% for item in items %}
+                <tr>
+                  <td>
+                    <div class="d-flex align-items-start">
+                      <input class="form-check-input me-2 mt-1"
+                             type="checkbox"
+                             disabled
+                             {% if item.is_done %}checked{% endif %}>
+
+                      <div>
+                        <div {% if item.is_done %}class="text-muted text-decoration-line-through"{% endif %}>
+                          {{ item.title }}
+                        </div>
+
+                        {% if item.notes %}
+                          <div class="small text-muted">
+                            {{ item.notes|truncatechars:80 }}
+                          </div>
+                        {% endif %}
+                      </div>
+                    </div>
+                  </td>
+
+                  <td>{{ item.get_category_display }}</td>
+
+                  <td>{{ item.due_date|default:"—" }}</td>
+
+                  <td>{{ item.assigned_to|default:"—" }}</td>
+
+                  <td>
+                    {% if item.is_done %}
+                      <span class="badge bg-success">Done</span>
+                    {% else %}
+                      <span class="badge bg-secondary">Pending</span>
+                    {% endif %}
+                  </td>
+
+                  <td class="text-end">
+                    {% if can_manage_events %}
+                      <a href="{% url 'events:checklist_item_update' item.pk %}"
+                         class="btn btn-sm btn-outline-secondary">
+                        Edit
+                      </a>
+
+                      <a href="{% url 'events:checklist_item_delete' item.pk %}"
+                         class="btn btn-sm btn-outline-danger">
+                        Delete
+                      </a>
+                    {% else %}
+                      —
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+
+          </table>
+        </div>
+      {% else %}
+        <p class="text-muted mb-0 p-3">
+          No checklist items added yet.
+        </p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Actions -->
   <div class="d-flex justify-content-center gap-2">
-    {% if is_admin or is_manager %}
-      <a href="{% url 'events:checklist_update' item.pk %}" class="btn btn-primary">
-        Edit Checklist Item
-      </a>
-      <a href="{% url 'events:checklist_list' %}" class="btn btn-outline-secondary">
-        Back to Checklist
+    <a href="{% url 'events:checklist_list' %}" class="btn btn-outline-secondary">
+      Back to Checklists
+    </a>
+
+    {% if can_manage_events %}
+      <a href="{% url 'events:checklist_item_create' %}?checklist={{ checklist.pk }}"
+         class="btn btn-success">
+        + Add Item
       </a>
     {% endif %}
   </div>

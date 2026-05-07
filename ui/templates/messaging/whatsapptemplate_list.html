@@ -1,42 +1,42 @@
 {% extends "ui/base.html" %}
 {% load roles_tags %}
 
-{% block title %}Venues{% endblock %}
+{% block title %}WhatsApp Templates{% endblock %}
 
 {% block content %}
-{% has_event_manage_access request.user as can_manage_events %}
+{% has_sales_access request.user as can_manage_messaging %}
 
 <div class="container py-3">
 
   <!-- Header Row -->
   <div class="d-flex justify-content-between align-items-center mb-3">
-    <h2 class="fw-semibold mb-0">Venues</h2>
+    <h2 class="fw-semibold mb-0">WhatsApp Templates</h2>
 
-    {% if can_manage_events %}
-      <a href="{% url 'events:venue_create' %}" class="btn btn-success btn-sm">
-        + New Venue
+    {% if can_manage_messaging %}
+      <a href="{% url 'messaging:whatsapp_template_create' %}" class="btn btn-success btn-sm">
+        + New WhatsApp Template
       </a>
     {% endif %}
   </div>
 
-  <!-- Search + Two Filters + Apply -->
+  <!-- Search + Filters -->
   <form method="get" class="row g-2 align-items-end mb-3">
 
     <div class="col-md-4">
       <label class="form-label small text-muted">Search</label>
       <input type="text"
              name="q"
-             value="{{ q }}"
+             value="{{ current_q }}"
              class="form-control form-control-sm"
-             placeholder="Search by name, city, district, or phone">
+             placeholder="Search by name, slug, provider template…">
     </div>
 
     <div class="col-md-3">
-      <label class="form-label small text-muted">Venue Type</label>
-      <select name="venue_type" class="form-select form-select-sm">
+      <label class="form-label small text-muted">Template Type</label>
+      <select name="type" class="form-select form-select-sm">
         <option value="">All types</option>
-        {% for value, label in venue_type_choices %}
-          <option value="{{ value }}" {% if venue_type == value %}selected{% endif %}>
+        {% for value, label in type_choices %}
+          <option value="{{ value }}" {% if current_type == value %}selected{% endif %}>
             {{ label }}
           </option>
         {% endfor %}
@@ -44,15 +44,27 @@
     </div>
 
     <div class="col-md-3">
-      <label class="form-label small text-muted">Status</label>
-      <select name="is_active" class="form-select form-select-sm">
-        <option value="">All statuses</option>
-        <option value="active" {% if is_active == "active" %}selected{% endif %}>Active</option>
-        <option value="inactive" {% if is_active == "inactive" %}selected{% endif %}>Inactive</option>
+      <label class="form-label small text-muted">Provider</label>
+      <select name="provider" class="form-select form-select-sm">
+        <option value="">All providers</option>
+        {% for value, label in provider_choices %}
+          <option value="{{ value }}" {% if current_provider == value %}selected{% endif %}>
+            {{ label }}
+          </option>
+        {% endfor %}
       </select>
     </div>
 
     <div class="col-md-2">
+      <label class="form-label small text-muted">Status</label>
+      <select name="is_active" class="form-select form-select-sm">
+        <option value="">All</option>
+        <option value="1" {% if current_is_active == "1" %}selected{% endif %}>Active</option>
+        <option value="0" {% if current_is_active == "0" %}selected{% endif %}>Inactive</option>
+      </select>
+    </div>
+
+    <div class="col-md-2 ms-auto">
       <button type="submit" class="btn btn-outline-secondary btn-sm w-100">
         Apply
       </button>
@@ -68,48 +80,64 @@
           <tr>
             <th>Name</th>
             <th>Type</th>
-            <th>City</th>
-            <th>District</th>
-            <th>Phone</th>
+            <th>Provider</th>
+            <th>Provider Template</th>
+            <th>Language</th>
             <th>Status</th>
             <th class="text-end">Actions</th>
           </tr>
         </thead>
 
         <tbody>
-          {% for venue in venues %}
+          {% for template in templates %}
             <tr>
               <td>
-                <a href="{% url 'events:venue_detail' venue.pk %}">
-                  {{ venue.name }}
+                <a href="{% url 'messaging:whatsapp_template_detail' template.pk %}">
+                  {{ template.name }}
                 </a>
+                <div class="small text-muted">{{ template.slug }}</div>
               </td>
 
-              <td>{{ venue.get_venue_type_display }}</td>
-              <td>{{ venue.city|default:"—" }}</td>
-              <td>{{ venue.district|default:"—" }}</td>
-              <td>{{ venue.phone|default:"—" }}</td>
+              <td>{{ template.get_type_display }}</td>
+
+              <td>{{ template.get_provider_display }}</td>
 
               <td>
-                {% if venue.is_active %}
+                <code>{{ template.provider_template_name }}</code>
+              </td>
+
+              <td>{{ template.language_code }}</td>
+
+              <td>
+                {% if template.is_active %}
                   <span class="badge bg-success">Active</span>
                 {% else %}
                   <span class="badge bg-secondary">Inactive</span>
                 {% endif %}
+
+                {% if template.is_default_for_type %}
+                  <span class="badge bg-primary ms-1">Default</span>
+                {% endif %}
               </td>
 
               <td class="text-end">
-                <a href="{% url 'events:venue_detail' venue.pk %}"
+                <a href="{% url 'messaging:whatsapp_template_detail' template.pk %}"
                    class="btn btn-sm btn-outline-primary">
                   View
                 </a>
 
-                {% if can_manage_events %}
-                  <a href="{% url 'events:venue_update' venue.pk %}"
+                <a href="{% url 'messaging:whatsapp_template_preview' template.pk %}"
+                   class="btn btn-sm btn-outline-info">
+                  Preview
+                </a>
+
+                {% if can_manage_messaging %}
+                  <a href="{% url 'messaging:whatsapp_template_update' template.pk %}"
                      class="btn btn-sm btn-outline-secondary">
                     Edit
                   </a>
-                  <a href="{% url 'events:venue_delete' venue.pk %}"
+
+                  <a href="{% url 'messaging:whatsapp_template_delete' template.pk %}"
                      class="btn btn-sm btn-outline-danger">
                     Delete
                   </a>
@@ -119,7 +147,7 @@
           {% empty %}
             <tr>
               <td colspan="7" class="text-center text-muted py-4">
-                No venues found.
+                No WhatsApp templates found.
               </td>
             </tr>
           {% endfor %}
@@ -131,13 +159,13 @@
 
   <!-- Pagination -->
   {% if is_paginated %}
-    <nav aria-label="Venue pagination" class="mt-3">
+    <nav aria-label="WhatsApp template pagination" class="mt-3">
       <ul class="pagination pagination-sm justify-content-between mb-0">
 
         <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
           {% if page_obj.has_previous %}
             <a class="page-link"
-               href="?page={{ page_obj.previous_page_number }}&q={{ q }}&venue_type={{ venue_type }}&is_active={{ is_active }}">
+               href="?page={{ page_obj.previous_page_number }}&q={{ current_q }}&type={{ current_type }}&provider={{ current_provider }}&is_active={{ current_is_active }}">
               Previous
             </a>
           {% else %}
@@ -154,7 +182,7 @@
         <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
           {% if page_obj.has_next %}
             <a class="page-link"
-               href="?page={{ page_obj.next_page_number }}&q={{ q }}&venue_type={{ venue_type }}&is_active={{ is_active }}">
+               href="?page={{ page_obj.next_page_number }}&q={{ current_q }}&type={{ current_type }}&provider={{ current_provider }}&is_active={{ current_is_active }}">
               Next
             </a>
           {% else %}

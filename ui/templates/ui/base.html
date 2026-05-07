@@ -244,9 +244,7 @@
                 <nav class="nav flex-column mb-3">
                     <a class="nav-link" href="{% url 'events:event_list' %}">Events</a>
                     <a class="nav-link" href="{% url 'events:venue_list' %}">Venues</a>
-                    <a class="nav-link" href="{% url 'events:event_person_list' %}">Event Persons</a>
                     <a class="nav-link" href="{% url 'events:checklist_list' %}">Checklists</a>
-                    <a class="nav-link" href="{% url 'events:event_vendor_list' %}">Event Vendors</a>
                     <a class="nav-link" href="{% url 'events:event_calendar' %}">Event Calendar</a>
                 </nav>
 
@@ -260,8 +258,10 @@
 
                 <p class="sidebar-section-title">Messaging</p>
                 <nav class="nav flex-column mb-3">
-                    <a class="nav-link" href="{% url 'messaging:template_list' %}">Templates</a>
-                    <a class="nav-link" href="{% url 'messaging:campaign_list' %}">Campaigns</a>
+                    <a class="nav-link" href="{% url 'messaging:template_list' %}">Email Templates</a>
+                    <a class="nav-link" href="{% url 'messaging:campaign_list' %}">Email Campaigns</a>
+                    <a href="{% url 'messaging:whatsapp_template_list' %}" class="nav-link">WhatsApp Templates</a>
+                    <a href="{% url 'messaging:whatsapp_log_list' %}" class="nav-link">WhatsApp Logs</a>
                 </nav>
 
                 <p class="sidebar-section-title">Communication &amp; Docs</p>
@@ -306,30 +306,6 @@
                     <a class="nav-link" href="{% url 'sales:invoice_list' %}">Invoices</a>
                 </nav>
 
-                <p class="sidebar-section-title">Events</p>
-                <nav class="nav flex-column mb-3">
-                    <a class="nav-link" href="{% url 'events:event_list' %}">Events</a>
-                    <a class="nav-link" href="{% url 'events:venue_list' %}">Venues</a>
-                    <a class="nav-link" href="{% url 'events:event_person_list' %}">Event Persons</a>
-                    <a class="nav-link" href="{% url 'events:checklist_list' %}">Checklists</a>
-                    <a class="nav-link" href="{% url 'events:event_vendor_list' %}">Event Vendors</a>
-                    <a class="nav-link" href="{% url 'events:event_calendar' %}">Event Calendar</a>
-                </nav>
-
-                <p class="sidebar-section-title">Services &amp; Catalog</p>
-                <nav class="nav flex-column mb-3">
-                    <a class="nav-link" href="{% url 'services:service_list' %}">Services</a>
-                    <a class="nav-link" href="{% url 'services:package_list' %}">Packages</a>
-                    <a class="nav-link" href="{% url 'services:vendor_list' %}">Vendors</a>
-                    <a class="nav-link" href="{% url 'services:inventory_list' %}">Inventory</a>
-                </nav>
-
-                <p class="sidebar-section-title">Messaging</p>
-                <nav class="nav flex-column mb-3">
-                    <a class="nav-link" href="{% url 'messaging:template_list' %}">Templates</a>
-                    <a class="nav-link" href="{% url 'messaging:campaign_list' %}">Campaigns</a>
-                </nav>
-
                 <p class="sidebar-section-title">Communication</p>
                 <nav class="nav flex-column mb-3">
                     <a class="nav-link" href="{% url 'common:ticket_list' %}">Raise a Ticket</a>
@@ -365,19 +341,10 @@
                 <nav class="nav flex-column mb-3">
                     <a class="nav-link" href="{% url 'events:event_list' %}">Events</a>
                     <a class="nav-link" href="{% url 'events:venue_list' %}">Venues</a>
-                    <a class="nav-link" href="{% url 'events:event_person_list' %}">Event Persons</a>
                     <a class="nav-link" href="{% url 'events:checklist_list' %}">Checklists</a>
-                    <a class="nav-link" href="{% url 'events:event_vendor_list' %}">Event Vendors</a>
                     <a class="nav-link" href="{% url 'events:event_calendar' %}">Event Calendar</a>
                 </nav>
 
-                <p class="sidebar-section-title">Services &amp; Catalog</p>
-                <nav class="nav flex-column mb-3">
-                    <a class="nav-link" href="{% url 'services:service_list' %}">Services</a>
-                    <a class="nav-link" href="{% url 'services:package_list' %}">Packages</a>
-                    <a class="nav-link" href="{% url 'services:vendor_list' %}">Vendors</a>
-                    <a class="nav-link" href="{% url 'services:inventory_list' %}">Inventory</a>
-                </nav>
 
                 <p class="sidebar-section-title">Communication</p>
                 <nav class="nav flex-column mb-3">

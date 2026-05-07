@@ -2,9 +2,8 @@
 
 from django.utils import timezone
 
-from .models import EmailTemplate, Campaign, CampaignRecipient
-from .utils import send_templated_email
-
+from .models import EmailTemplate, Campaign, CampaignRecipient, WhatsAppTemplate
+from .utils import send_templated_email ,send_templated_whatsapp, normalize_whatsapp_number
 
 def get_client_email(client):
     """
@@ -196,3 +195,94 @@ def sync_campaign_recipients(campaign):
             new_rows,
             ignore_conflicts=True,
         )
+
+
+
+def get_client_whatsapp(client):
+    if not client:
+        return ""
+
+    if getattr(client, "phone", None):
+        return client.phone
+
+    contacts = getattr(client, "contacts", None)
+
+    if contacts:
+        contact = contacts.exclude(whatsapp="").first()
+        if contact:
+            return contact.whatsapp
+
+        contact = contacts.exclude(phone="").first()
+        if contact:
+            return contact.phone
+
+    return ""
+
+
+def get_vendor_whatsapp(vendor):
+    if not vendor:
+        return ""
+
+    return (
+        getattr(vendor, "whatsapp", "")
+        or getattr(vendor, "phone", "")
+        or getattr(vendor, "alt_phone", "")
+        or ""
+    )
+
+
+def get_event_whatsapp_context(event):
+    context = {
+        "company_name": "Ocean Clouds",
+        "event": event,
+        "project": getattr(event, "project", None),
+        "client": getattr(event, "client", None),
+        "primary_contact": getattr(event, "primary_contact", None),
+        "venue": getattr(event, "venue", None),
+        "services": event.services.all(),
+        "packages": event.packages.all(),
+        "vendors": event.vendors.all(),
+        "inventory_items": event.inventory_items.all(),
+        "today": timezone.localdate(),
+        "now": timezone.now(),
+    }
+
+    return context
+
+
+def send_event_client_whatsapp(event):
+    client = getattr(event, "client", None)
+    to_number = get_client_whatsapp(client)
+
+    context = get_event_whatsapp_context(event)
+
+    return send_templated_whatsapp(
+        template_type=WhatsAppTemplate.TemplateType.EVENT_CLIENT,
+        to_number=to_number,
+        context=context,
+        related_object=event,
+    )
+
+
+def send_event_vendor_whatsapp(event, vendor):
+    to_number = get_vendor_whatsapp(vendor)
+
+    context = get_event_whatsapp_context(event)
+    context["vendor"] = vendor
+
+    return send_templated_whatsapp(
+        template_type=WhatsAppTemplate.TemplateType.EVENT_VENDOR,
+        to_number=to_number,
+        context=context,
+        related_object=event,
+    )
+
+
+def send_event_all_vendor_whatsapp(event):
+    results = []
+
+    for vendor in event.vendors.all():
+        result = send_event_vendor_whatsapp(event, vendor)
+        results.append((vendor, result))
+
+    return results

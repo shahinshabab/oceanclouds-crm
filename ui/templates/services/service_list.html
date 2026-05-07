@@ -4,24 +4,22 @@
 {% block title %}Services{% endblock %}
 
 {% block content %}
-{% is_admin as is_admin %}
-{% is_manager as is_manager %}
-{% is_employee as is_employee %}
+{% has_services_manage_access request.user as can_manage_services %}
 
 <div class="container py-4">
 
-  <!-- Header -->
+  <!-- Row 1: Heading + Button -->
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h4 mb-0">Services</h1>
 
-    {% if is_admin or is_manager %}
+    {% if can_manage_services %}
       <a href="{% url 'services:service_create' %}" class="btn btn-success btn-sm">
         + New Service
       </a>
     {% endif %}
   </div>
 
-  <!-- Search + Filters -->
+  <!-- Row 2: Search + Two Filters + Apply -->
   <form method="get" class="row g-2 align-items-end mb-3">
     <div class="col-md-4">
       <label class="form-label small text-muted">Search</label>
@@ -53,26 +51,28 @@
       </select>
     </div>
 
-    <div class="col-md-2 text-md-end">
+    <div class="col-md-2">
       <button type="submit" class="btn btn-outline-secondary btn-sm w-100">
         Apply
       </button>
     </div>
   </form>
 
-  <!-- Table -->
+  <!-- Row 3: Table -->
   <div class="card">
     <div class="card-body p-0">
       <table class="table table-hover mb-0 align-middle">
         <thead class="table-light">
         <tr>
-          <th scope="col">Name</th>
-          <th scope="col">Code</th>
-          <th scope="col">Category</th>
-          <th scope="col">Base price</th>
-          <th scope="col" class="text-end">Actions</th>
+          <th>Name</th>
+          <th>Code</th>
+          <th>Category</th>
+          <th>Base Price</th>
+          <th>Status</th>
+          <th class="text-end">Actions</th>
         </tr>
         </thead>
+
         <tbody>
         {% for service in services %}
           <tr>
@@ -90,22 +90,34 @@
                 —
               {% endif %}
             </td>
+            <td>
+              {% if service.is_active %}
+                <span class="badge bg-success">Active</span>
+              {% else %}
+                <span class="badge bg-secondary">Inactive</span>
+              {% endif %}
+            </td>
             <td class="text-end">
               <a href="{% url 'services:service_detail' service.pk %}"
                  class="btn btn-sm btn-outline-primary">
                 View
               </a>
-              {% if is_admin or is_manager %}
+
+              {% if can_manage_services %}
                 <a href="{% url 'services:service_update' service.pk %}"
                    class="btn btn-sm btn-outline-secondary">
                   Edit
+                </a>
+                <a href="{% url 'services:service_delete' service.pk %}"
+                   class="btn btn-sm btn-outline-danger">
+                  Delete
                 </a>
               {% endif %}
             </td>
           </tr>
         {% empty %}
           <tr>
-            <td colspan="5" class="text-center text-muted py-4">
+            <td colspan="6" class="text-center text-muted py-4">
               No services found.
             </td>
           </tr>

@@ -1,32 +1,34 @@
 # events/models.py
+
 from django.conf import settings
 from django.db import models
-from django.db.models import Q, UniqueConstraint
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from common.models import TimeStamped, Owned
 from crm.models import Client, Contact
-from services.models import Vendor, Service
-from django.utils import timezone
+from services.models import Vendor, Service, Package, InventoryItem
 
-# -------------------------------------------------------------------
-# Choice enums
-# -------------------------------------------------------------------
 
 class EventType(models.TextChoices):
     WEDDING = "wedding", _("Wedding")
     RECEPTION = "reception", _("Reception")
+    ENGAGEMENT = "engagement", _("Engagement")
     MEHNDI = "mehndi", _("Mehndi")
     SANGEET = "sangeet", _("Sangeet")
-    ENGAGEMENT = "engagement", _("Engagement")
+    HALDI = "haldi", _("Haldi")
+    SAVE_THE_DATE = "save_the_date", _("Save the Date")
+    BIRTHDAY = "birthday", _("Birthday")
+    CORPORATE = "corporate", _("Corporate Event")
     OTHER = "other", _("Other")
 
 
 class EventStatus(models.TextChoices):
-    TENTATIVE = "tentative", _("Tentative")
+    DRAFT = "draft", _("Draft")
     PLANNED = "planned", _("Planned")
     CONFIRMED = "confirmed", _("Confirmed")
+    IN_PROGRESS = "in_progress", _("In Progress")
     COMPLETED = "completed", _("Completed")
     CANCELLED = "cancelled", _("Cancelled")
 
@@ -36,43 +38,27 @@ class VenueType(models.TextChoices):
     HALL = "hall", _("Function Hall")
     OUTDOOR = "outdoor", _("Outdoor")
     PRIVATE_PROPERTY = "private_property", _("Private Property")
+    AUDITORIUM = "auditorium", _("Auditorium")
+    RESORT = "resort", _("Resort")
+    HOME = "home", _("Home")
     OTHER = "other", _("Other")
-
-
-class RSVPStatus(models.TextChoices):
-    PENDING = "pending", _("Pending")
-    ACCEPTED = "accepted", _("Accepted")
-    DECLINED = "declined", _("Declined")
-    MAYBE = "maybe", _("Maybe")
 
 
 class ChecklistCategory(models.TextChoices):
-    LOGISTICS = "logistics", _("Logistics")
-    DECOR = "decor", _("Decor")
-    CATERING = "catering", _("Catering")
-    PHOTOGRAPHY = "photography", _("Photography & Video")
-    PROGRAM = "program", _("Program & Rituals")
+    EVENT_SETUP = "event_setup", _("Event Setup")
+    SERVICE = "service", _("Service")
+    PACKAGE = "package", _("Package")
+    VENDOR = "vendor", _("Vendor")
+    INVENTORY = "inventory", _("Inventory")
+    VENUE = "venue", _("Venue")
     COMMUNICATION = "communication", _("Communication")
-    PAYMENTS = "payments", _("Payments")
+    INTERNAL = "internal", _("Internal")
     OTHER = "other", _("Other")
 
 
-class EventPersonRole(models.TextChoices):
-    BRIDE = "bride", _("Bride")
-    GROOM = "groom", _("Groom")
-    OTHER = "other", _("Other / Family")
-
-
-# -------------------------------------------------------------------
-# Venue
-# -------------------------------------------------------------------
-
 class Venue(TimeStamped, Owned):
-    """
-    Event venue (hotel, hall, outdoor space).
-    """
-
     name = models.CharField(max_length=255)
+
     venue_type = models.CharField(
         max_length=32,
         choices=VenueType.choices,
@@ -90,37 +76,36 @@ class Venue(TimeStamped, Owned):
     state = models.CharField(max_length=128, blank=True, default="Kerala")
     country = models.CharField(max_length=128, blank=True, default="India")
 
-    capacity = models.PositiveIntegerField(
-        null=True,
-        blank=True,
-        help_text=_("Approximate maximum capacity."),
-    )
-
     notes = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
 
     class Meta:
         ordering = ("name",)
 
-    def __str__(self) -> str:
+    def __str__(self):
         return self.name
 
     def get_absolute_url(self):
         return reverse("events:venue_detail", args=[self.pk])
 
 
-# -------------------------------------------------------------------
-# Event
-# -------------------------------------------------------------------
-
 class Event(TimeStamped, Owned):
-    """
-    Individual ceremony or function (wedding, reception, mehndi, etc.).
-    """
+    project = models.ForeignKey(
+        "projects.Project",
+        on_delete=models.SET_NULL,
+        related_name="linked_events",
+        null=True,
+        blank=True,
+        help_text=_("Optional for now. Can be made required later."),
+    )
 
     client = models.ForeignKey(
         Client,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
         related_name="events",
+        null=True,
+        blank=True,
+        help_text=_("Optional for now. Can be made required later."),
     )
 
     primary_contact = models.ForeignKey(
@@ -131,24 +116,21 @@ class Event(TimeStamped, Owned):
         blank=True,
     )
 
-    name = models.CharField(
-        max_length=255,
-        help_text=_("Internal event name, e.g. 'Rohan & Aisha – Wedding Ceremony'."),
-    )
+    name = models.CharField(max_length=255)
+
     event_type = models.CharField(
         max_length=32,
         choices=EventType.choices,
         default=EventType.WEDDING,
     )
+
     status = models.CharField(
         max_length=32,
         choices=EventStatus.choices,
         default=EventStatus.PLANNED,
     )
 
-    date = models.DateField(
-        help_text=_("Main event date (for multi-day events, use earliest)."),
-    )
+    date = models.DateField()
     start_time = models.TimeField(blank=True, null=True)
     end_time = models.TimeField(blank=True, null=True)
 
@@ -160,135 +142,217 @@ class Event(TimeStamped, Owned):
         blank=True,
     )
 
-    expected_guests = models.PositiveIntegerField(
-        null=True,
+    services = models.ManyToManyField(
+        Service,
+        related_name="events",
         blank=True,
-        help_text=_("Expected guest count."),
+    )
+
+    packages = models.ManyToManyField(
+        Package,
+        related_name="events",
+        blank=True,
+    )
+
+    vendors = models.ManyToManyField(
+        Vendor,
+        related_name="events",
+        blank=True,
+    )
+
+    inventory_items = models.ManyToManyField(
+        InventoryItem,
+        related_name="events",
+        blank=True,
     )
 
     notes = models.TextField(blank=True)
+    internal_notes = models.TextField(blank=True)
+
+    vendor_template_sent = models.BooleanField(default=False)
+    client_template_sent = models.BooleanField(default=False)
+
+    vendor_template_sent_at = models.DateTimeField(null=True, blank=True)
+    client_template_sent_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ("date", "start_time", "name")
+        indexes = [
+            models.Index(fields=["date"]),
+            models.Index(fields=["status"]),
+            models.Index(fields=["event_type"]),
+            models.Index(fields=["client"]),
+            models.Index(fields=["project"]),
+        ]
 
-    def __str__(self) -> str:
+    def __str__(self):
         return f"{self.name} ({self.date})"
 
     def get_absolute_url(self):
         return reverse("events:event_detail", args=[self.pk])
 
+    @property
+    def checklist(self):
+        checklist, created = EventChecklist.objects.get_or_create(
+            event=self,
+            defaults={
+                "owner": self.owner,
+                "title": f"Checklist for {self.name}",
+            },
+        )
+        return checklist
 
-# -------------------------------------------------------------------
-# Event Timeline
-# -------------------------------------------------------------------
+    @property
+    def checklist_total(self):
+        return self.checklist.items.count()
 
-class EventTimelineItem(models.Model):
+    @property
+    def checklist_done_count(self):
+        return self.checklist.items.filter(is_done=True).count()
+
+    @property
+    def checklist_pending_count(self):
+        return self.checklist.items.filter(is_done=False).count()
+
+    def build_messaging_context(self):
+        return {
+            "event": self,
+            "project": self.project,
+            "client": self.client,
+            "primary_contact": self.primary_contact,
+            "venue": self.venue,
+            "services": self.services.all(),
+            "packages": self.packages.all(),
+            "vendors": self.vendors.all(),
+            "inventory_items": self.inventory_items.all(),
+            "date": self.date,
+            "start_time": self.start_time,
+            "end_time": self.end_time,
+        }
+
+    def sync_auto_checklist(self, owner=None):
+        checklist, created = EventChecklist.objects.get_or_create(
+            event=self,
+            defaults={
+                "owner": owner or self.owner,
+                "title": f"Checklist for {self.name}",
+            },
+        )
+
+        if owner and not checklist.owner_id:
+            checklist.owner = owner
+            checklist.save(update_fields=["owner"])
+
+        def create_item(title, category, notes=""):
+            exists = checklist.items.filter(
+                title=title,
+                category=category,
+            ).exists()
+
+            if not exists:
+                ChecklistItem.objects.create(
+                    checklist=checklist,
+                    title=title,
+                    category=category,
+                    due_date=self.date,
+                    owner=owner or self.owner,
+                    notes=notes,
+                )
+
+        if self.venue:
+            create_item(
+                title=f"Confirm venue: {self.venue.name}",
+                category=ChecklistCategory.VENUE,
+                notes="Verify venue/location details before event.",
+            )
+
+        for service in self.services.all():
+            create_item(
+                title=f"Prepare service: {service.name}",
+                category=ChecklistCategory.SERVICE,
+                notes=f"Service code: {service.code or '-'}",
+            )
+
+        for package in self.packages.all():
+            create_item(
+                title=f"Prepare package: {package.name}",
+                category=ChecklistCategory.PACKAGE,
+                notes=f"Package code: {package.code or '-'}",
+            )
+
+        for vendor in self.vendors.all():
+            create_item(
+                title=f"Confirm vendor/operator: {vendor}",
+                category=ChecklistCategory.VENDOR,
+                notes="Send event details to vendor/operator.",
+            )
+
+        for item in self.inventory_items.all():
+            create_item(
+                title=f"Prepare inventory: {item.name}",
+                category=ChecklistCategory.INVENTORY,
+                notes=f"Available: {item.quantity_available}/{item.quantity_total} {item.unit}",
+            )
+
+        create_item(
+            title="Send event plan to client",
+            category=ChecklistCategory.COMMUNICATION,
+            notes="Client template will be handled by messaging app.",
+        )
+
+        create_item(
+            title="Send event plan to vendors",
+            category=ChecklistCategory.COMMUNICATION,
+            notes="Vendor template will be handled by messaging app.",
+        )
+
+
+class EventChecklist(TimeStamped, Owned):
     """
-    Schedule / run sheet entry for an event.
+    One checklist per event.
+    This groups all checklist items under a single event checklist.
     """
 
-    event = models.ForeignKey(
+    event = models.OneToOneField(
         Event,
         on_delete=models.CASCADE,
-        related_name="timeline_items",
+        related_name="event_checklist",
     )
+
     title = models.CharField(max_length=255)
-    description = models.TextField(blank=True)
-    start_time = models.TimeField()
-    end_time = models.TimeField(blank=True, null=True)
-    order = models.PositiveIntegerField(default=0)
-
-    assigned_vendor = models.ForeignKey(
-        Vendor,
-        on_delete=models.SET_NULL,
-        related_name="timeline_items",
-        null=True,
-        blank=True,
-    )
-    assigned_contact = models.ForeignKey(
-        Contact,
-        on_delete=models.SET_NULL,
-        related_name="timeline_items",
-        null=True,
-        blank=True,
-    )
-
-    class Meta:
-        ordering = ("event", "order", "start_time")
-
-    def __str__(self) -> str:
-        return f"{self.title} ({self.event})"
-
-
-# -------------------------------------------------------------------
-# Event People (Bride / Groom / Family)
-# -------------------------------------------------------------------
-
-class EventPerson(TimeStamped, Owned):
-    """
-    Key people for an event (bride, groom, parents, etc.).
-    Used for anniversary wishes, offers, and feedback.
-    """
-
-    event = models.ForeignKey(
-        Event,
-        on_delete=models.CASCADE,
-        related_name="people",
-    )
-
-    role = models.CharField(
-        max_length=16,
-        choices=EventPersonRole.choices,
-        default=EventPersonRole.OTHER,
-    )
-
-    full_name = models.CharField(max_length=255)
-
-    email = models.EmailField(blank=True)
-    phone = models.CharField(max_length=32, blank=True)
-    whatsapp = models.CharField(
-        max_length=32,
-        blank=True,
-        help_text=_("WhatsApp number if different from phone."),
-    )
-
-    # For marketing / offers
-    allow_marketing = models.BooleanField(
-        default=True,
-        help_text=_("Allow anniversary wishes, offers, and follow-up messages."),
-    )
-
     notes = models.TextField(blank=True)
 
     class Meta:
-        ordering = ("event", "role", "full_name")
-        constraints = [
-            UniqueConstraint(
-                fields=["event", "role"],
-                condition=Q(role__in=[EventPersonRole.BRIDE, EventPersonRole.GROOM]),
-                name="unique_bride_groom_per_event",
-            )
-        ]
+        ordering = ("event__date", "event__name")
 
-    def __str__(self) -> str:
-        return f"{self.full_name} ({self.get_role_display()} – {self.event})"
+    def __str__(self):
+        return self.title or f"Checklist for {self.event}"
 
+    def get_absolute_url(self):
+        return reverse("events:checklist_detail", args=[self.pk])
 
-# -------------------------------------------------------------------
-# Checklist
-# -------------------------------------------------------------------
+    @property
+    def total_items(self):
+        return self.items.count()
+
+    @property
+    def done_items(self):
+        return self.items.filter(is_done=True).count()
+
+    @property
+    def pending_items(self):
+        return self.items.filter(is_done=False).count()
+
 
 class ChecklistItem(TimeStamped, Owned):
-    """
-    Planning checklist item per event.
-    """
-
-    event = models.ForeignKey(
-        Event,
+    checklist = models.ForeignKey(
+        EventChecklist,
         on_delete=models.CASCADE,
-        related_name="checklist_items",
+        related_name="items",
     )
+
     title = models.CharField(max_length=255)
+
     category = models.CharField(
         max_length=32,
         choices=ChecklistCategory.choices,
@@ -301,14 +365,7 @@ class ChecklistItem(TimeStamped, Owned):
     assigned_to = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
-        related_name="event_tasks",
-        null=True,
-        blank=True,
-    )
-    vendor = models.ForeignKey(
-        Vendor,
-        on_delete=models.SET_NULL,
-        related_name="checklist_items",
+        related_name="event_checklist_items",
         null=True,
         blank=True,
     )
@@ -316,87 +373,17 @@ class ChecklistItem(TimeStamped, Owned):
     notes = models.TextField(blank=True)
 
     class Meta:
-        ordering = ("event", "due_date", "title")
-
-    def __str__(self) -> str:
-        return f"{self.title} ({self.event})"
-
-
-# -------------------------------------------------------------------
-# Event Vendors
-# -------------------------------------------------------------------
-
-class EventVendor(TimeStamped, Owned):
-    """
-    Vendor assignment for an event with cost tracking.
-    """
-
-    event = models.ForeignKey(
-        Event,
-        on_delete=models.CASCADE,
-        related_name="event_vendors",
-    )
-    vendor = models.ForeignKey(
-        Vendor,
-        on_delete=models.PROTECT,
-        related_name="event_assignments",
-    )
-    service = models.ForeignKey(
-        Service,
-        on_delete=models.SET_NULL,
-        related_name="event_assignments",
-        null=True,
-        blank=True,
-    )
-
-    role = models.CharField(
-        max_length=255,
-        help_text=_("Role for this event, e.g. 'Main Decor', 'Photo & Video'."),
-    )
-
-    cost_estimate = models.DecimalField(
-        max_digits=12,
-        decimal_places=2,
-        default=0,
-        help_text=_("Estimated vendor cost."),
-    )
-    cost_actual = models.DecimalField(
-        max_digits=12,
-        decimal_places=2,
-        null=True,
-        blank=True,
-        help_text=_("Actual final vendor cost."),
-    )
-    is_confirmed = models.BooleanField(default=False)
-    notes = models.TextField(blank=True)
-
-    class Meta:
-        ordering = ("event", "vendor__name")
-        unique_together = ("event", "vendor", "service")
-
-    def __str__(self) -> str:
-        return f"{self.vendor} for {self.event}"
-
-
-class AnniversaryWishLog(TimeStamped):
-    """
-    One row per person per year to avoid sending duplicate wishes.
-    """
-    person = models.ForeignKey(
-        EventPerson,
-        on_delete=models.CASCADE,
-        related_name="anniversary_wish_logs",
-    )
-    year = models.PositiveIntegerField()
-    sent_at = models.DateTimeField(default=timezone.now)
-    message_id = models.CharField(max_length=255, blank=True)
-    error = models.TextField(blank=True)
-
-    class Meta:
-        constraints = [
-            UniqueConstraint(fields=["person", "year"], name="uniq_anniversary_wish_per_person_year")
+        ordering = ("checklist", "is_done", "due_date", "title")
+        indexes = [
+            models.Index(fields=["checklist", "is_done"]),
+            models.Index(fields=["category"]),
+            models.Index(fields=["due_date"]),
+            models.Index(fields=["assigned_to"]),
         ]
-        ordering = ["-sent_at"]
 
     def __str__(self):
-        return f"{self.person.full_name} - {self.year}"
+        return f"{self.title} - {self.checklist.event}"
+
+    @property
+    def event(self):
+        return self.checklist.event

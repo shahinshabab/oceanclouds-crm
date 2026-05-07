@@ -1,0 +1,154 @@
+{% extends "ui/base.html" %}
+{% load roles_tags %}
+
+{% block title %}Preview WhatsApp Template – {{ template.name }}{% endblock %}
+
+{% block content %}
+{% has_sales_access request.user as can_manage_messaging %}
+
+<div class="container py-3 max-w-3xl">
+
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-start mb-4">
+    <div>
+      <h2 class="fw-semibold mb-1">Preview WhatsApp Template</h2>
+      <div class="text-muted small">
+        {{ template.name }} · {{ template.get_type_display }} · {{ template.get_provider_display }}
+      </div>
+    </div>
+
+    <div class="d-flex gap-2">
+      <a href="{% url 'messaging:whatsapp_template_detail' template.pk %}"
+         class="btn btn-outline-secondary btn-sm">
+        Back to Template
+      </a>
+
+      {% if can_manage_messaging %}
+        <a href="{% url 'messaging:whatsapp_template_update' template.pk %}"
+           class="btn btn-primary btn-sm">
+          Edit
+        </a>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Template Info -->
+  <div class="card shadow-sm mb-3">
+    <div class="card-body">
+      <div class="row gy-3">
+
+        <div class="col-md-4">
+          <div class="text-uppercase text-muted small">Provider Template</div>
+          <div class="fw-semibold">
+            <code>{{ template.provider_template_name }}</code>
+          </div>
+        </div>
+
+        <div class="col-md-4">
+          <div class="text-uppercase text-muted small">Language</div>
+          <div class="fw-semibold">{{ template.language_code }}</div>
+        </div>
+
+        <div class="col-md-4">
+          <div class="text-uppercase text-muted small">Category</div>
+          <div class="fw-semibold">{{ template.get_category_display }}</div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- WhatsApp Style Preview -->
+  <div class="card shadow-sm mb-3">
+    <div class="card-header bg-white">
+      <span class="fw-semibold small text-uppercase text-muted">
+        Rendered Message Preview
+      </span>
+    </div>
+
+    <div class="card-body">
+      <div class="mx-auto" style="max-width: 420px;">
+        <div class="border rounded-4 p-3 bg-light">
+
+          <div class="small text-muted mb-2">
+            WhatsApp Preview
+          </div>
+
+          <div class="bg-white rounded-3 p-3 shadow-sm">
+            {% if template.header_text %}
+              <div class="fw-semibold mb-2">
+                {{ template.header_text }}
+              </div>
+            {% endif %}
+
+            <div style="white-space: pre-line;">{{ preview_text }}</div>
+
+            {% if template.footer_text %}
+              <div class="small text-muted mt-2">
+                {{ template.footer_text }}
+              </div>
+            {% endif %}
+          </div>
+
+          <div class="text-end small text-muted mt-2">
+            Sample preview only
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Variable Order -->
+  <div class="card shadow-sm mb-3">
+    <div class="card-header bg-white">
+      <span class="fw-semibold small text-uppercase text-muted">
+        Variable Order
+      </span>
+    </div>
+
+    <div class="card-body">
+      {% if template.variable_order %}
+        <ol class="mb-0">
+          {% for variable in template.variable_order %}
+            <li>
+              <code>{{ variable }}</code>
+            </li>
+          {% endfor %}
+        </ol>
+      {% else %}
+        <p class="text-muted mb-0">
+          No variables configured.
+        </p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Sample Context -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-header bg-white">
+      <span class="fw-semibold small text-uppercase text-muted">
+        Sample Context
+      </span>
+    </div>
+
+    <div class="card-body">
+      <pre class="bg-light p-3 rounded-3 small mb-0" style="white-space: pre-wrap;">{{ sample_variables }}</pre>
+    </div>
+  </div>
+
+  <!-- Actions -->
+  <div class="d-flex justify-content-center gap-2">
+    <a href="{{ back_url }}" class="btn btn-outline-secondary">
+      Back
+    </a>
+
+    {% if can_manage_messaging %}
+      <a href="{% url 'messaging:whatsapp_template_update' template.pk %}" class="btn btn-primary">
+        Edit Template
+      </a>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

@@ -15,10 +15,19 @@ from django.views.generic import (
 
 from common.mixins import SalesAccessMixin
 
-from .forms import EmailTemplateForm, CampaignForm
-from .models import EmailTemplate, Campaign, CampaignRecipient, EmailSendLog
 from .services import sync_campaign_recipients
 from .utils import render_email_from_template
+
+from .forms import EmailTemplateForm, CampaignForm, WhatsAppTemplateForm
+from .models import (
+    EmailTemplate,
+    Campaign,
+    CampaignRecipient,
+    EmailSendLog,
+    WhatsAppTemplate,
+    WhatsAppSendLog,
+)
+from .utils import render_template_string
 
 
 class MessagingAccessMixin(SalesAccessMixin):
@@ -342,3 +351,223 @@ class EmailSendLogListView(MessagingAccessMixin, ListView):
             qs = qs.filter(template_type=template_type)
 
         return qs
+    
+class WhatsAppTemplateListView(MessagingAccessMixin, ListView):
+    model = WhatsAppTemplate
+    template_name = "messaging/whatsapptemplate_list.html"
+    context_object_name = "templates"
+    paginate_by = 20
+
+    def get_queryset(self):
+        qs = WhatsAppTemplate.objects.select_related("owner")
+
+        q = (self.request.GET.get("q") or "").strip()
+        template_type = self.request.GET.get("type") or ""
+        provider = self.request.GET.get("provider") or ""
+        is_active = self.request.GET.get("is_active") or ""
+
+        if q:
+            qs = qs.filter(
+                Q(name__icontains=q)
+                | Q(slug__icontains=q)
+                | Q(provider_template_name__icontains=q)
+                | Q(body_text__icontains=q)
+            )
+
+        if template_type:
+            qs = qs.filter(type=template_type)
+
+        if provider:
+            qs = qs.filter(provider=provider)
+
+        if is_active == "1":
+            qs = qs.filter(is_active=True)
+        elif is_active == "0":
+            qs = qs.filter(is_active=False)
+
+        return qs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        context["type_choices"] = WhatsAppTemplate.TemplateType.choices
+        context["provider_choices"] = WhatsAppTemplate.Provider.choices
+        context["current_q"] = self.request.GET.get("q") or ""
+        context["current_type"] = self.request.GET.get("type") or ""
+        context["current_provider"] = self.request.GET.get("provider") or ""
+        context["current_is_active"] = self.request.GET.get("is_active") or ""
+
+        return context
+
+
+class WhatsAppTemplateDetailView(MessagingAccessMixin, DetailView):
+    model = WhatsAppTemplate
+    template_name = "messaging/whatsapptemplate_detail.html"
+    context_object_name = "template"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["logs"] = self.object.send_logs.all()[:10]
+        return context
+
+
+class WhatsAppTemplateCreateView(MessagingAccessMixin, CreateView):
+    model = WhatsAppTemplate
+    form_class = WhatsAppTemplateForm
+    template_name = "messaging/whatsapptemplate_form.html"
+
+    @transaction.atomic
+    def form_valid(self, form):
+        if not form.instance.owner_id:
+            form.instance.owner = self.request.user
+
+        response = super().form_valid(form)
+
+        if self.object.is_active:
+            WhatsAppTemplate.objects.filter(
+                type=self.object.type,
+                provider=self.object.provider,
+                language_code=self.object.language_code,
+                is_active=True,
+            ).exclude(pk=self.object.pk).update(
+                is_active=False,
+                is_default_for_type=False,
+            )
+
+            self.object.is_active = True
+            self.object.is_default_for_type = True
+            self.object.save(update_fields=["is_active", "is_default_for_type"])
+
+        messages.success(self.request, "WhatsApp template saved.")
+        return response
+
+    def get_success_url(self):
+        return reverse("messaging:whatsapp_template_detail", args=[self.object.pk])
+
+
+class WhatsAppTemplateUpdateView(MessagingAccessMixin, UpdateView):
+    model = WhatsAppTemplate
+    form_class = WhatsAppTemplateForm
+    template_name = "messaging/whatsapptemplate_form.html"
+
+    @transaction.atomic
+    def form_valid(self, form):
+        response = super().form_valid(form)
+
+        if self.object.is_active:
+            WhatsAppTemplate.objects.filter(
+                type=self.object.type,
+                provider=self.object.provider,
+                language_code=self.object.language_code,
+                is_active=True,
+            ).exclude(pk=self.object.pk).update(
+                is_active=False,
+                is_default_for_type=False,
+            )
+
+            self.object.is_active = True
+            self.object.is_default_for_type = True
+            self.object.save(update_fields=["is_active", "is_default_for_type"])
+
+        messages.success(self.request, "WhatsApp template updated.")
+        return response
+
+    def get_success_url(self):
+        return reverse("messaging:whatsapp_template_detail", args=[self.object.pk])
+
+
+class WhatsAppTemplateDeleteView(MessagingAccessMixin, DeleteView):
+    model = WhatsAppTemplate
+    template_name = "messaging/whatsapptemplate_confirm_delete.html"
+    success_url = reverse_lazy("messaging:whatsapp_template_list")
+
+    def post(self, request, *args, **kwargs):
+        messages.success(request, "WhatsApp template deleted.")
+        return super().post(request, *args, **kwargs)
+
+
+class WhatsAppTemplatePreviewView(MessagingAccessMixin, DetailView):
+    model = WhatsAppTemplate
+    template_name = "messaging/whatsapptemplate_preview.html"
+    context_object_name = "template"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        sample_context = {
+            "company_name": "Ocean Clouds",
+            "client": {
+                "name": "Sample Client",
+                "display_name": "Sample Client",
+            },
+            "vendor": {
+                "name": "Sample Vendor",
+                "company_name": "Sample Vendor Company",
+            },
+            "venue": {
+                "name": "Sample Wedding Hall",
+                "city": "Kochi",
+            },
+            "event": {
+                "name": "Sample Wedding Event",
+                "date": "2026-05-07",
+                "start_time": "10:00",
+                "end_time": "17:00",
+            },
+            "today": "2026-05-07",
+        }
+
+        preview_text = render_template_string(
+            self.object.body_text,
+            sample_context,
+        )
+
+        variable_values = []
+
+        for variable in self.object.variable_order or []:
+            variable_values.append(variable)
+
+        context["preview_text"] = preview_text
+        context["sample_variables"] = sample_context
+        context["variable_values"] = variable_values
+        context["back_url"] = reverse(
+            "messaging:whatsapp_template_detail",
+            args=[self.object.pk],
+        )
+
+        return context
+
+
+class WhatsAppSendLogListView(MessagingAccessMixin, ListView):
+    model = WhatsAppSendLog
+    template_name = "messaging/whatsapp_log_list.html"
+    context_object_name = "logs"
+    paginate_by = 30
+
+    def get_queryset(self):
+        qs = WhatsAppSendLog.objects.select_related("template")
+
+        status = self.request.GET.get("status") or ""
+        template_type = self.request.GET.get("type") or ""
+        provider = self.request.GET.get("provider") or ""
+
+        if status:
+            qs = qs.filter(status=status)
+
+        if template_type:
+            qs = qs.filter(template_type=template_type)
+
+        if provider:
+            qs = qs.filter(provider=provider)
+
+        return qs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["status_choices"] = WhatsAppSendLog.Status.choices
+        context["type_choices"] = WhatsAppTemplate.TemplateType.choices
+        context["provider_choices"] = WhatsAppTemplate.Provider.choices
+        context["current_status"] = self.request.GET.get("status") or ""
+        context["current_type"] = self.request.GET.get("type") or ""
+        context["current_provider"] = self.request.GET.get("provider") or ""
+        return context

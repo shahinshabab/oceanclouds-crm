@@ -1,16 +1,20 @@
 # services/forms.py
+
 from django import forms
 from django.forms import inlineformset_factory
 
-from .models import Vendor, Service, Package, PackageItem, InventoryItem
+from .models import (
+    Vendor,
+    Service,
+    Package,
+    PackageItem,
+    InventoryItem,
+)
 
 
 class BootstrapModelForm(forms.ModelForm):
     """
-    Base form to automatically add Bootstrap classes to widgets.
-    - Text / number / email / URL / textarea / date => form-control
-    - Select / ModelChoiceField / ModelMultipleChoiceField => form-select
-    - Checkbox => form-check-input
+    Base form to automatically add Bootstrap classes.
     """
 
     def __init__(self, *args, **kwargs):
@@ -18,19 +22,14 @@ class BootstrapModelForm(forms.ModelForm):
 
         for name, field in self.fields.items():
             widget = field.widget
-
-            # Keep any existing classes
             existing_classes = widget.attrs.get("class", "")
 
-            # Checkbox
             if isinstance(widget, forms.CheckboxInput):
                 widget.attrs["class"] = (existing_classes + " form-check-input").strip()
 
-            # Selects (ChoiceField, ModelChoiceField, Multiple select, etc.)
             elif isinstance(widget, (forms.Select, forms.SelectMultiple)):
                 widget.attrs["class"] = (existing_classes + " form-select").strip()
 
-            # Everything else → form-control
             else:
                 widget.attrs["class"] = (existing_classes + " form-control").strip()
 
@@ -53,8 +52,10 @@ class VendorForm(BootstrapModelForm):
             "state",
             "country",
             "is_preferred",
+            "is_active",
             "notes",
         ]
+
         widgets = {
             "notes": forms.Textarea(attrs={"rows": 3}),
             "address_line1": forms.TextInput(attrs={"placeholder": "Street / Building"}),
@@ -75,16 +76,17 @@ class ServiceForm(BootstrapModelForm):
             "is_active",
             "notes",
         ]
+
         widgets = {
             "description": forms.Textarea(attrs={"rows": 3}),
             "notes": forms.Textarea(attrs={"rows": 3}),
+            "base_price": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
         }
 
 
 class PackageForm(BootstrapModelForm):
     class Meta:
         model = Package
-        # total_price is auto-calculated, so we don't expose it directly
         fields = [
             "name",
             "code",
@@ -92,6 +94,7 @@ class PackageForm(BootstrapModelForm):
             "is_active",
             "notes",
         ]
+
         widgets = {
             "description": forms.Textarea(attrs={"rows": 3}),
             "notes": forms.Textarea(attrs={"rows": 3}),
@@ -101,11 +104,19 @@ class PackageForm(BootstrapModelForm):
 class PackageItemForm(BootstrapModelForm):
     class Meta:
         model = PackageItem
-        fields = ["service", "description", "quantity", "unit_price"]
+        fields = [
+            "service",
+            "description",
+            "quantity",
+            "unit_price",
+        ]
+
         widgets = {
-            "description": forms.TextInput(attrs={"placeholder": "Description"}),
+            "description": forms.TextInput(
+                attrs={"placeholder": "Example: Wedding Photography - Full Day"}
+            ),
             "quantity": forms.NumberInput(attrs={"min": 1}),
-            "unit_price": forms.NumberInput(attrs={"step": "0.01"}),
+            "unit_price": forms.NumberInput(attrs={"step": "0.01", "min": "0"}),
         }
 
 
@@ -124,13 +135,32 @@ class InventoryItemForm(BootstrapModelForm):
         fields = [
             "name",
             "sku",
+            "category",
             "service",
             "quantity_total",
             "quantity_available",
             "unit",
             "location",
+            "is_active",
             "notes",
         ]
+
         widgets = {
             "notes": forms.Textarea(attrs={"rows": 3}),
+            "quantity_total": forms.NumberInput(attrs={"min": 0}),
+            "quantity_available": forms.NumberInput(attrs={"min": 0}),
         }
+
+    def clean(self):
+        cleaned_data = super().clean()
+
+        quantity_total = cleaned_data.get("quantity_total") or 0
+        quantity_available = cleaned_data.get("quantity_available") or 0
+
+        if quantity_available > quantity_total:
+            self.add_error(
+                "quantity_available",
+                "Available quantity cannot be greater than total quantity.",
+            )
+
+        return cleaned_data

@@ -14,6 +14,9 @@ from common.roles import (
     can_access_project_work,
     can_access_inquiry,
     can_manage_inquiry,
+    can_manage_services,
+    can_manage_events,
+    can_access_event_calendar,
     user_has_role,
 )
 
@@ -52,19 +55,11 @@ def has_sales_access(user):
 
 @register.simple_tag
 def has_project_access(user):
-    """
-    Project pages:
-    Admin + Project Manager.
-    """
     return can_access_project(user)
 
 
 @register.simple_tag
 def has_project_work_access(user):
-    """
-    Task/deliverable pages:
-    Admin + Project Manager + Employee.
-    """
     return can_access_project_work(user)
 
 
@@ -76,6 +71,15 @@ def has_inquiry_access(user):
 @register.simple_tag
 def has_inquiry_manage_access(user):
     return can_manage_inquiry(user)
+
+
+@register.simple_tag
+def has_services_manage_access(user):
+    """
+    Services master data:
+    Admin only.
+    """
+    return can_manage_services(user)
 
 
 # Keep temporarily for old templates
@@ -94,3 +98,13 @@ def get_item(dictionary, key):
     if dictionary is None:
         return None
     return dictionary.get(key)
+
+
+@register.simple_tag
+def has_event_manage_access(user):
+    return can_manage_events(user)
+
+
+@register.simple_tag
+def has_event_calendar_access(user):
+    return can_access_event_calendar(user)

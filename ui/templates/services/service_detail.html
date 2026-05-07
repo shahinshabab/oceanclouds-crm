@@ -4,9 +4,7 @@
 {% block title %}Service – {{ service.name }}{% endblock %}
 
 {% block content %}
-{% is_admin as is_admin %}
-{% is_manager as is_manager %}
-{% is_employee as is_employee %}
+{% has_services_manage_access request.user as can_manage_services %}
 
 <div class="container py-4">
 
@@ -14,9 +12,11 @@
   <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
       <h2 class="fw-semibold mb-1">{{ service.name }}</h2>
+
       <span class="badge bg-light text-dark">
         {{ service.get_category_display }}
       </span>
+
       {% if service.is_active %}
         <span class="badge bg-success ms-1">Active</span>
       {% else %}
@@ -24,14 +24,19 @@
       {% endif %}
     </div>
 
-    {% if is_admin or is_manager %}
-      <a href="{% url 'services:service_update' service.pk %}" class="btn btn-primary btn-sm">
-        Edit Service
-      </a>
+    {% if can_manage_services %}
+      <div class="d-flex gap-2">
+        <a href="{% url 'services:service_update' service.pk %}" class="btn btn-primary btn-sm">
+          Edit Service
+        </a>
+        <a href="{% url 'services:service_delete' service.pk %}" class="btn btn-outline-danger btn-sm">
+          Delete
+        </a>
+      </div>
     {% endif %}
   </div>
 
-  <!-- Detail grid -->
+  <!-- Detail Grid -->
   <div class="card mb-3">
     <div class="card-body">
       <div class="row gy-3">
@@ -44,7 +49,7 @@
         </div>
 
         <div class="col-md-4">
-          <div class="text-uppercase text-muted small">Base price</div>
+          <div class="text-uppercase text-muted small">Base Price</div>
           <div class="fw-semibold">
             {% if service.base_price %}
               {{ service.base_price }}
@@ -80,11 +85,12 @@
     </div>
   </div>
 
-  <!-- Preferred vendors -->
+  <!-- Preferred Vendors -->
   <div class="card mb-3">
-    <div class="card-header d-flex justify-content-between align-items-center">
+    <div class="card-header">
       <span class="fw-semibold small text-uppercase text-muted">Preferred Vendors</span>
     </div>
+
     <div class="card-body">
       {% if service.vendors.all %}
         <ul class="list-group list-group-flush">
@@ -93,6 +99,7 @@
               <a href="{% url 'services:vendor_detail' vendor.pk %}">
                 {{ vendor.company_name|default:vendor.name }}
               </a>
+
               {% if vendor.city %}
                 <span class="text-muted small">{{ vendor.city }}</span>
               {% endif %}
@@ -105,11 +112,12 @@
     </div>
   </div>
 
-  <!-- Inventory items -->
+  <!-- Inventory Items -->
   <div class="card mb-4">
     <div class="card-header">
       <span class="fw-semibold small text-uppercase text-muted">Inventory Items</span>
     </div>
+
     <div class="card-body">
       {% if service.inventory_items.all %}
         <ul class="list-group list-group-flush">
@@ -118,6 +126,7 @@
               <a href="{% url 'services:inventory_detail' item.pk %}">
                 {{ item.name }}
               </a>
+
               <span class="text-muted small">
                 {{ item.quantity_available }}/{{ item.quantity_total }} {{ item.unit }}
               </span>
@@ -130,12 +139,13 @@
     </div>
   </div>
 
-  <!-- Action row -->
+  <!-- Actions -->
   <div class="text-center">
     <a href="{% url 'services:service_list' %}" class="btn btn-outline-secondary me-2">
       Back to Services
     </a>
-    {% if is_admin or is_manager %}
+
+    {% if can_manage_services %}
       <a href="{% url 'services:service_update' service.pk %}" class="btn btn-primary">
         Edit Service
       </a>

@@ -4,24 +4,22 @@
 {% block title %}Inventory{% endblock %}
 
 {% block content %}
-{% is_admin as is_admin %}
-{% is_manager as is_manager %}
-{% is_employee as is_employee %}
+{% has_services_manage_access request.user as can_manage_services %}
 
 <div class="container py-4">
 
-  <!-- Header -->
+  <!-- Row 1: Heading + Button -->
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h4 mb-0">Inventory</h1>
 
-    {% if is_admin or is_manager %}
+    {% if can_manage_services %}
       <a href="{% url 'services:inventory_create' %}" class="btn btn-success btn-sm">
         + New Item
       </a>
     {% endif %}
   </div>
 
-  <!-- Filters -->
+  <!-- Row 2: Search + Two Filters + Apply -->
   <form method="get" class="row g-2 align-items-end mb-3">
     <div class="col-md-4">
       <label class="form-label small text-muted">Search</label>
@@ -29,23 +27,23 @@
              name="q"
              value="{{ q }}"
              class="form-control form-control-sm"
-             placeholder="Search by name or SKU…">
+             placeholder="Search by name, SKU, or location…">
     </div>
 
     <div class="col-md-3">
-      <label class="form-label small text-muted">Service</label>
-      <select name="service" class="form-select form-select-sm">
-        <option value="">All services</option>
-        {% for s in service_choices %}
-          <option value="{{ s.id }}" {% if service_filter == s.id|stringformat:"s" %}selected{% endif %}>
-            {{ s.name }}
+      <label class="form-label small text-muted">Category</label>
+      <select name="category" class="form-select form-select-sm">
+        <option value="">All categories</option>
+        {% for value, label in category_choices %}
+          <option value="{{ value }}" {% if category == value %}selected{% endif %}>
+            {{ label }}
           </option>
         {% endfor %}
       </select>
     </div>
 
     <div class="col-md-3">
-      <label class="form-label small text-muted">Stock status</label>
+      <label class="form-label small text-muted">Stock Status</label>
       <select name="stock_status" class="form-select form-select-sm">
         <option value="">Any stock status</option>
         <option value="in_stock" {% if stock_status == "in_stock" %}selected{% endif %}>In stock</option>
@@ -53,32 +51,40 @@
       </select>
     </div>
 
-    <div class="col-md-2 text-md-end">
+    <div class="col-md-2">
       <button type="submit" class="btn btn-outline-secondary btn-sm w-100">
         Apply
       </button>
     </div>
   </form>
 
-  <!-- Table -->
+  <!-- Row 3: Table -->
   <div class="card">
     <div class="card-body p-0">
       <table class="table table-hover mb-0 align-middle">
         <thead class="table-light">
         <tr>
-          <th scope="col">Name</th>
-          <th scope="col">SKU</th>
-          <th scope="col">Service</th>
-          <th scope="col">Available</th>
-          <th scope="col">Location</th>
-          <th scope="col" class="text-end">Actions</th>
+          <th>Name</th>
+          <th>SKU</th>
+          <th>Category</th>
+          <th>Service</th>
+          <th>Available</th>
+          <th>Location</th>
+          <th>Status</th>
+          <th class="text-end">Actions</th>
         </tr>
         </thead>
+
         <tbody>
         {% for item in inventory_items %}
           <tr>
             <td>{{ item.name }}</td>
             <td>{{ item.sku|default:"—" }}</td>
+            <td>
+              <span class="badge bg-light text-dark">
+                {{ item.get_category_display }}
+              </span>
+            </td>
             <td>
               {% if item.service %}
                 {{ item.service.name }}
@@ -88,27 +94,40 @@
             </td>
             <td>
               {{ item.quantity_available }}/{{ item.quantity_total }} {{ item.unit }}
+
               {% if item.quantity_available <= 0 %}
                 <span class="badge bg-danger ms-1">Out</span>
               {% endif %}
             </td>
             <td>{{ item.location|default:"—" }}</td>
+            <td>
+              {% if item.is_active %}
+                <span class="badge bg-success">Active</span>
+              {% else %}
+                <span class="badge bg-secondary">Inactive</span>
+              {% endif %}
+            </td>
             <td class="text-end">
               <a href="{% url 'services:inventory_detail' item.pk %}"
                  class="btn btn-sm btn-outline-primary">
                 View
               </a>
-              {% if is_admin or is_manager %}
+
+              {% if can_manage_services %}
                 <a href="{% url 'services:inventory_update' item.pk %}"
                    class="btn btn-sm btn-outline-secondary">
                   Edit
+                </a>
+                <a href="{% url 'services:inventory_delete' item.pk %}"
+                   class="btn btn-sm btn-outline-danger">
+                  Delete
                 </a>
               {% endif %}
             </td>
           </tr>
         {% empty %}
           <tr>
-            <td colspan="6" class="text-center text-muted py-4">
+            <td colspan="8" class="text-center text-muted py-4">
               No inventory items found.
             </td>
           </tr>
@@ -125,7 +144,7 @@
         <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
           {% if page_obj.has_previous %}
             <a class="page-link"
-               href="?page={{ page_obj.previous_page_number }}&q={{ q }}&service={{ service_filter }}&stock_status={{ stock_status }}">
+               href="?page={{ page_obj.previous_page_number }}&q={{ q }}&category={{ category }}&stock_status={{ stock_status }}">
               Previous
             </a>
           {% else %}
@@ -142,7 +161,7 @@
         <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
           {% if page_obj.has_next %}
             <a class="page-link"
-               href="?page={{ page_obj.next_page_number }}&q={{ q }}&service={{ service_filter }}&stock_status={{ stock_status }}">
+               href="?page={{ page_obj.next_page_number }}&q={{ q }}&category={{ category }}&stock_status={{ stock_status }}">
               Next
             </a>
           {% else %}

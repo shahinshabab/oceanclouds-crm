@@ -2,6 +2,7 @@
 
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 
+
 from .roles import (
     CRM_ACCESS_ROLES,
     SALES_ACCESS_ROLES,
@@ -9,9 +10,11 @@ from .roles import (
     PROJECT_WORK_ACCESS_ROLES,
     INQUIRY_ACCESS_ROLES,
     INQUIRY_MANAGE_ROLES,
+    SERVICE_ADMIN_ROLES,
+    EVENT_MANAGE_ROLES,
+    EVENT_CALENDAR_ROLES,
     user_has_role,
 )
-
 
 class RolesRequiredMixin(LoginRequiredMixin, UserPassesTestMixin):
     allowed_roles = []
@@ -21,16 +24,25 @@ class RolesRequiredMixin(LoginRequiredMixin, UserPassesTestMixin):
         return user_has_role(self.request.user, *self.allowed_roles)
 
 
-class CRMAccessMixin(RolesRequiredMixin):
+class AdminOnlyMixin(RolesRequiredMixin):
     """
-    Use for:
-    - Clients
-    - Contacts
-    - Leads
-    - Client Reviews
-    - CRM dashboard
+    Use for master data / system setup pages.
 
     Access:
+    - Admin only
+
+    Example:
+    - Services
+    - Packages
+    - Inventory
+    - Vendors
+    """
+    allowed_roles = SERVICE_ADMIN_ROLES
+
+
+class CRMAccessMixin(RolesRequiredMixin):
+    """
+    CRM pages:
     - Admin
     - CRM Manager
     """
@@ -39,14 +51,7 @@ class CRMAccessMixin(RolesRequiredMixin):
 
 class SalesAccessMixin(RolesRequiredMixin):
     """
-    Use for:
-    - Deals
-    - Proposals
-    - Contracts
-    - Invoices
-    - Payments
-
-    Access:
+    Sales pages:
     - Admin
     - CRM Manager
     """
@@ -55,31 +60,16 @@ class SalesAccessMixin(RolesRequiredMixin):
 
 class ProjectAccessMixin(RolesRequiredMixin):
     """
-    Use for:
-    - Project list
-    - Project detail
-    - Project create/update
-    - Project overview
-    - Project kanban
-
-    Access:
+    Project main pages:
     - Admin
     - Project Manager
-
-    Employees should NOT access project pages directly.
-    CRM Manager should NOT access project pages.
     """
     allowed_roles = PROJECT_ACCESS_ROLES
 
 
 class ProjectWorkAccessMixin(RolesRequiredMixin):
     """
-    Use for:
-    - Task list/detail/kanban/status
-    - Deliverable list/detail/kanban/status
-    - Work sessions
-
-    Access:
+    Task/deliverable/work pages:
     - Admin
     - Project Manager
     - Employee
@@ -89,9 +79,7 @@ class ProjectWorkAccessMixin(RolesRequiredMixin):
 
 class InquiryAccessMixin(RolesRequiredMixin):
     """
-    Everyone can see/create inquiries.
-
-    Access:
+    Inquiry pages:
     - Admin
     - CRM Manager
     - Project Manager
@@ -102,12 +90,16 @@ class InquiryAccessMixin(RolesRequiredMixin):
 
 class InquiryManageMixin(RolesRequiredMixin):
     """
-    Admin, CRM Manager, and Project Manager can edit/delete inquiries.
+    Inquiry edit/delete/convert:
+    - Admin
+    - CRM Manager
+    - Project Manager
     """
     allowed_roles = INQUIRY_MANAGE_ROLES
 
 
 # Backward compatibility with old names
+
 class AdminCRMManagerMixin(CRMAccessMixin):
     pass
 
@@ -115,7 +107,7 @@ class AdminCRMManagerMixin(CRMAccessMixin):
 class AdminManagerMixin(CRMAccessMixin):
     """
     Old name kept only for old CRM/Sales views.
-    Do not use this in project app anymore.
+    Do not use this for services app anymore.
     """
     pass
 
@@ -126,3 +118,21 @@ class StaffAllMixin(InquiryAccessMixin):
 
 class InquiryManagerMixin(InquiryManageMixin):
     pass
+
+class EventManageMixin(RolesRequiredMixin):
+    """
+    Event management pages:
+    - Admin
+    - Project Manager
+    """
+    allowed_roles = EVENT_MANAGE_ROLES
+
+
+class EventCalendarAccessMixin(RolesRequiredMixin):
+    """
+    Event calendar access:
+    - Admin
+    - Project Manager
+    - Employee
+    """
+    allowed_roles = EVENT_CALENDAR_ROLES

@@ -286,3 +286,206 @@ class CampaignRecipient(TimeStamped):
         self.status = self.SendStatus.FAILED
         self.last_error = str(error)
         self.save(update_fields=["status", "last_error"])
+
+
+class WhatsAppTemplate(TimeStamped, Owned):
+    class TemplateType(models.TextChoices):
+        EVENT_CLIENT = "event_client", "Event - Client"
+        EVENT_VENDOR = "event_vendor", "Event - Vendor"
+        PROPOSAL = "proposal", "Proposal"
+        CONTRACT = "contract", "Contract"
+        INVOICE = "invoice", "Invoice"
+        PAYMENT = "payment", "Payment"
+        ANNIVERSARY = "anniversary", "Anniversary"
+        CUSTOM = "custom", "Custom"
+
+    class Provider(models.TextChoices):
+        META = "meta", "Meta WhatsApp Cloud API"
+        MSG91 = "msg91", "MSG91"
+
+    class Category(models.TextChoices):
+        UTILITY = "UTILITY", "Utility"
+        MARKETING = "MARKETING", "Marketing"
+        AUTHENTICATION = "AUTHENTICATION", "Authentication"
+
+    class Language(models.TextChoices):
+        EN = "en", "English"
+        EN_US = "en_US", "English US"
+        EN_GB = "en_GB", "English UK"
+        ML = "ml", "Malayalam"
+        HI = "hi", "Hindi"
+
+    name = models.CharField(max_length=200)
+
+    slug = models.SlugField(
+        unique=True,
+        help_text="Example: event-client-default, event-vendor-default",
+    )
+
+    type = models.CharField(
+        max_length=40,
+        choices=TemplateType.choices,
+        default=TemplateType.EVENT_CLIENT,
+    )
+
+    provider = models.CharField(
+        max_length=20,
+        choices=Provider.choices,
+        default=Provider.META,
+    )
+
+    provider_template_name = models.CharField(
+        max_length=255,
+        help_text="Exact approved template name in Meta/MSG91. Example: event_client_update",
+    )
+
+    language_code = models.CharField(
+        max_length=20,
+        choices=Language.choices,
+        default=Language.EN,
+        help_text="Must match approved WhatsApp template language.",
+    )
+
+    category = models.CharField(
+        max_length=30,
+        choices=Category.choices,
+        default=Category.UTILITY,
+    )
+
+    body_text = models.TextField(
+        help_text=(
+            "Internal preview body. Use Django variables like "
+            "{{ event.name }}, {{ client.name }}, {{ venue.name }}. "
+            "This is for your preview/log only. Actual WhatsApp template text is approved in provider."
+        )
+    )
+
+    header_text = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Optional internal preview header.",
+    )
+
+    footer_text = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Optional internal preview footer.",
+    )
+
+    # Store variables in order because WhatsApp templates use positional params.
+    # Example:
+    # ["event.name", "event.date", "venue.name"]
+    variable_order = models.JSONField(
+        default=list,
+        blank=True,
+        help_text=(
+            "Ordered variables for WhatsApp template parameters. "
+            "Example: [\"event.name\", \"event.date\", \"venue.name\"]"
+        ),
+    )
+
+    is_active = models.BooleanField(default=True)
+
+    is_default_for_type = models.BooleanField(
+        default=True,
+        help_text="Only one active default WhatsApp template per type/provider/language.",
+    )
+
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["type", "name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["type", "provider", "language_code"],
+                condition=Q(is_active=True, is_default_for_type=True),
+                name="only_one_active_whatsapp_template_per_type_provider_lang",
+            )
+        ]
+
+    def clean(self):
+        super().clean()
+
+        if self.is_active:
+            self.is_default_for_type = True
+
+        if not self.provider_template_name:
+            raise ValidationError({
+                "provider_template_name": "Provider template name is required."
+            })
+
+    def save(self, *args, **kwargs):
+        if self.is_active:
+            self.is_default_for_type = True
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        status = "Active" if self.is_active else "Inactive"
+        return f"{self.get_type_display()} - {self.name} ({status})"
+
+
+class WhatsAppSendLog(TimeStamped):
+    class Status(models.TextChoices):
+        SKIPPED = "skipped", "Skipped"
+        SENT = "sent", "Sent"
+        FAILED = "failed", "Failed"
+
+    class Provider(models.TextChoices):
+        META = "meta", "Meta WhatsApp Cloud API"
+        MSG91 = "msg91", "MSG91"
+
+    template = models.ForeignKey(
+        WhatsAppTemplate,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="send_logs",
+    )
+
+    template_type = models.CharField(max_length=40, blank=True)
+    provider = models.CharField(
+        max_length=20,
+        choices=Provider.choices,
+        default=Provider.META,
+    )
+
+    to_number = models.CharField(max_length=32)
+    rendered_message = models.TextField(blank=True)
+
+    related_model = models.CharField(max_length=100, blank=True)
+    related_object_id = models.PositiveIntegerField(null=True, blank=True)
+
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.SKIPPED,
+    )
+
+    provider_message_id = models.CharField(max_length=255, blank=True)
+    error_message = models.TextField(blank=True)
+    sent_at = models.DateTimeField(null=True, blank=True)
+
+    raw_response = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def mark_sent(self, message_id="", raw_response=None):
+        self.status = self.Status.SENT
+        self.provider_message_id = message_id or ""
+        self.sent_at = timezone.now()
+        self.error_message = ""
+        self.raw_response = raw_response or {}
+        self.save(update_fields=[
+            "status",
+            "provider_message_id",
+            "sent_at",
+            "error_message",
+            "raw_response",
+        ])
+
+    def mark_failed(self, error, raw_response=None):
+        self.status = self.Status.FAILED
+        self.error_message = str(error)
+        self.raw_response = raw_response or {}
+        self.save(update_fields=["status", "error_message", "raw_response"])

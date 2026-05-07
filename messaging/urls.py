@@ -9,6 +9,15 @@ from .views import (
     EmailTemplateUpdateView,
     EmailTemplateDeleteView,
     EmailTemplatePreviewView,
+
+    WhatsAppTemplateListView,
+    WhatsAppTemplateCreateView,
+    WhatsAppTemplateDetailView,
+    WhatsAppTemplateUpdateView,
+    WhatsAppTemplateDeleteView,
+    WhatsAppTemplatePreviewView,
+    WhatsAppSendLogListView,
+
     CampaignListView,
     CampaignCreateView,
     CampaignDetailView,
@@ -22,6 +31,7 @@ from .views import (
 app_name = "messaging"
 
 urlpatterns = [
+    # Email Templates
     path("templates/", EmailTemplateListView.as_view(), name="template_list"),
     path("templates/new/", EmailTemplateCreateView.as_view(), name="template_create"),
     path("templates/<int:pk>/", EmailTemplateDetailView.as_view(), name="template_detail"),
@@ -29,6 +39,15 @@ urlpatterns = [
     path("templates/<int:pk>/delete/", EmailTemplateDeleteView.as_view(), name="template_delete"),
     path("templates/<int:pk>/preview/", EmailTemplatePreviewView.as_view(), name="template_preview"),
 
+    # WhatsApp Templates
+    path("whatsapp/templates/", WhatsAppTemplateListView.as_view(), name="whatsapp_template_list"),
+    path("whatsapp/templates/new/", WhatsAppTemplateCreateView.as_view(), name="whatsapp_template_create"),
+    path("whatsapp/templates/<int:pk>/", WhatsAppTemplateDetailView.as_view(), name="whatsapp_template_detail"),
+    path("whatsapp/templates/<int:pk>/edit/", WhatsAppTemplateUpdateView.as_view(), name="whatsapp_template_update"),
+    path("whatsapp/templates/<int:pk>/delete/", WhatsAppTemplateDeleteView.as_view(), name="whatsapp_template_delete"),
+    path("whatsapp/templates/<int:pk>/preview/", WhatsAppTemplatePreviewView.as_view(), name="whatsapp_template_preview"),
+
+    # Campaigns
     path("campaigns/", CampaignListView.as_view(), name="campaign_list"),
     path("campaigns/new/", CampaignCreateView.as_view(), name="campaign_create"),
     path("campaigns/<int:pk>/", CampaignDetailView.as_view(), name="campaign_detail"),
@@ -37,5 +56,7 @@ urlpatterns = [
     path("campaigns/<int:pk>/pause/", CampaignPauseView.as_view(), name="campaign_pause"),
     path("campaigns/<int:pk>/resume/", CampaignResumeView.as_view(), name="campaign_resume"),
 
+    # Logs
     path("logs/", EmailSendLogListView.as_view(), name="email_log_list"),
+    path("whatsapp/logs/", WhatsAppSendLogListView.as_view(), name="whatsapp_log_list"),
 ]

@@ -16,7 +16,10 @@ from django.core.files.base import ContentFile
 from django.template import Context, Template
 from django.utils import timezone
 
-from .models import EmailTemplate, EmailSendLog
+from .models import EmailTemplate, EmailSendLog, WhatsAppTemplate, WhatsAppSendLog
+
+
+import requests
 
 
 class EmailSendError(Exception):
@@ -366,3 +369,341 @@ def send_templated_email(
         log.error_message = str(exc)
         log.save()
         return SendResult(ok=False, error=str(exc))
+    
+
+
+
+
+class WhatsAppSendError(Exception):
+    pass
+
+
+@dataclass
+class WhatsAppSendResult:
+    ok: bool
+    message_id: str = ""
+    error: str = ""
+    skipped: bool = False
+    raw_response: dict | None = None
+
+
+def whatsapp_sending_enabled() -> bool:
+    return bool(getattr(settings, "WHATSAPP_SENDING_ENABLED", False))
+
+
+def normalize_whatsapp_number(number: str | None) -> str:
+    """
+    WhatsApp Cloud API expects country-code format without +.
+    Example:
+    +919999999999 -> 919999999999
+    9999999999    -> 919999999999, assuming India.
+    """
+
+    if not number:
+        return ""
+
+    number = str(number).strip()
+    number = number.replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
+
+    if number.startswith("+"):
+        number = number[1:]
+
+    # Simple India fallback
+    if len(number) == 10:
+        number = "91" + number
+
+    return number
+
+
+def render_template_string(template_str: str, context: Dict[str, Any]) -> str:
+    if not template_str:
+        return ""
+    return Template(template_str).render(Context(context))
+
+
+def resolve_context_value(context: Dict[str, Any], path: str) -> str:
+    """
+    Resolves paths like:
+    event.name
+    event.date
+    venue.name
+    client.name
+    """
+
+    current: Any = context
+
+    for part in path.split("."):
+        if current is None:
+            return ""
+
+        if isinstance(current, dict):
+            current = current.get(part)
+        else:
+            current = getattr(current, part, None)
+
+        if callable(current):
+            current = current()
+
+    if current is None:
+        return ""
+
+    return str(current)
+
+
+def get_active_whatsapp_template(
+    template_type: str,
+    provider: str | None = None,
+    language_code: str | None = None,
+) -> WhatsAppTemplate:
+    provider = provider or getattr(settings, "WHATSAPP_PROVIDER", "meta")
+
+    qs = WhatsAppTemplate.objects.filter(
+        type=template_type,
+        provider=provider,
+        is_active=True,
+        is_default_for_type=True,
+    )
+
+    if language_code:
+        qs = qs.filter(language_code=language_code)
+
+    template = qs.first()
+
+    if not template:
+        raise WhatsAppSendError(
+            f"No active WhatsApp template found for type '{template_type}' and provider '{provider}'."
+        )
+
+    return template
+
+
+def build_meta_template_components(
+    *,
+    template: WhatsAppTemplate,
+    context: Dict[str, Any],
+) -> list[dict]:
+    """
+    For simple BODY variables.
+    Example Meta format:
+    components: [
+      {
+        "type": "body",
+        "parameters": [
+          {"type": "text", "text": "Event Name"},
+          {"type": "text", "text": "2026-05-07"}
+        ]
+      }
+    ]
+    """
+
+    parameters = []
+
+    for variable_path in template.variable_order or []:
+        value = resolve_context_value(context, variable_path)
+        parameters.append({
+            "type": "text",
+            "text": value,
+        })
+
+    if not parameters:
+        return []
+
+    return [
+        {
+            "type": "body",
+            "parameters": parameters,
+        }
+    ]
+
+
+def send_meta_whatsapp_template(
+    *,
+    to_number: str,
+    template: WhatsAppTemplate,
+    context: Dict[str, Any],
+) -> WhatsAppSendResult:
+    if not whatsapp_sending_enabled():
+        return WhatsAppSendResult(
+            ok=False,
+            skipped=True,
+            error="WhatsApp sending is disabled in settings.",
+        )
+
+    access_token = getattr(settings, "META_WHATSAPP_ACCESS_TOKEN", "")
+    phone_number_id = getattr(settings, "META_WHATSAPP_PHONE_NUMBER_ID", "")
+    api_version = getattr(settings, "META_WHATSAPP_API_VERSION", "v22.0")
+
+    if not access_token:
+        return WhatsAppSendResult(ok=False, error="META_WHATSAPP_ACCESS_TOKEN is not configured.")
+
+    if not phone_number_id:
+        return WhatsAppSendResult(ok=False, error="META_WHATSAPP_PHONE_NUMBER_ID is not configured.")
+
+    to_number = normalize_whatsapp_number(to_number)
+
+    if not to_number:
+        return WhatsAppSendResult(ok=False, error="No WhatsApp number provided.")
+
+    url = f"https://graph.facebook.com/{api_version}/{phone_number_id}/messages"
+
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": to_number,
+        "type": "template",
+        "template": {
+            "name": template.provider_template_name,
+            "language": {
+                "code": template.language_code,
+            },
+        },
+    }
+
+    components = build_meta_template_components(
+        template=template,
+        context=context,
+    )
+
+    if components:
+        payload["template"]["components"] = components
+
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json",
+    }
+
+    try:
+        response = requests.post(
+            url,
+            json=payload,
+            headers=headers,
+            timeout=30,
+        )
+
+        try:
+            data = response.json()
+        except Exception:
+            data = {"raw": response.text}
+
+        if response.status_code >= 400:
+            return WhatsAppSendResult(
+                ok=False,
+                error=str(data),
+                raw_response=data,
+            )
+
+        messages = data.get("messages") or []
+        message_id = ""
+
+        if messages:
+            message_id = messages[0].get("id", "")
+
+        return WhatsAppSendResult(
+            ok=True,
+            message_id=message_id,
+            raw_response=data,
+        )
+
+    except requests.RequestException as exc:
+        return WhatsAppSendResult(ok=False, error=str(exc))
+
+
+def send_msg91_whatsapp_template(
+    *,
+    to_number: str,
+    template: WhatsAppTemplate,
+    context: Dict[str, Any],
+) -> WhatsAppSendResult:
+    """
+    Placeholder for MSG91.
+
+    MSG91 setup depends on your MSG91 WhatsApp flow/template configuration.
+    Keep this function here so your project can switch provider later.
+    """
+
+    return WhatsAppSendResult(
+        ok=False,
+        skipped=True,
+        error="MSG91 WhatsApp provider is not implemented yet. Use Meta provider first.",
+    )
+
+
+def send_templated_whatsapp(
+    *,
+    template_type: str,
+    to_number: str,
+    context: Dict[str, Any],
+    related_object=None,
+    provider: str | None = None,
+    language_code: str | None = None,
+) -> WhatsAppSendResult:
+    provider = provider or getattr(settings, "WHATSAPP_PROVIDER", "meta")
+
+    log = WhatsAppSendLog(
+        template_type=template_type,
+        provider=provider,
+        to_number=normalize_whatsapp_number(to_number),
+        related_model=related_object.__class__.__name__ if related_object else "",
+        related_object_id=getattr(related_object, "pk", None),
+    )
+
+    try:
+        template = get_active_whatsapp_template(
+            template_type=template_type,
+            provider=provider,
+            language_code=language_code,
+        )
+
+        log.template = template
+
+        preview_context = dict(context or {})
+        preview_context.setdefault("now", timezone.now())
+        preview_context.setdefault("today", timezone.localdate())
+
+        log.rendered_message = render_template_string(
+            template.body_text,
+            preview_context,
+        )
+        log.save()
+
+        if provider == WhatsAppTemplate.Provider.META:
+            result = send_meta_whatsapp_template(
+                to_number=to_number,
+                template=template,
+                context=preview_context,
+            )
+        elif provider == WhatsAppTemplate.Provider.MSG91:
+            result = send_msg91_whatsapp_template(
+                to_number=to_number,
+                template=template,
+                context=preview_context,
+            )
+        else:
+            result = WhatsAppSendResult(
+                ok=False,
+                error=f"Unknown WhatsApp provider: {provider}",
+            )
+
+        if result.ok:
+            log.mark_sent(
+                message_id=result.message_id,
+                raw_response=result.raw_response,
+            )
+        else:
+            if result.skipped:
+                log.status = WhatsAppSendLog.Status.SKIPPED
+                log.error_message = result.error
+                log.raw_response = result.raw_response or {}
+                log.save(update_fields=["status", "error_message", "raw_response"])
+            else:
+                log.mark_failed(
+                    result.error,
+                    raw_response=result.raw_response,
+                )
+
+        return result
+
+    except Exception as exc:
+        log.status = WhatsAppSendLog.Status.FAILED
+        log.error_message = str(exc)
+        log.save()
+        return WhatsAppSendResult(ok=False, error=str(exc))
