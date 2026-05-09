@@ -100,18 +100,26 @@
                     </span>
 
                     <span class="badge bg-light text-dark border">
-                      {{ d.get_type_display }}
-                    </span>
-
-                    <span class="badge bg-light text-dark border">
                       {{ d.get_department_display }}
                     </span>
-
                     {% if d.version %}
                       <span class="badge bg-light text-muted border">
                         v{{ d.version }}
                       </span>
                     {% endif %}
+                    <span class="badge
+                      {% if d.priority == 'critical' %}
+                        bg-danger
+                      {% elif d.priority == 'high' %}
+                        bg-warning text-dark
+                      {% elif d.priority == 'medium' %}
+                        bg-info text-dark
+                      {% else %}
+                        bg-light text-muted border
+                      {% endif %}
+                    ">
+                      {{ d.get_priority_display }}
+                    </span>
                   </div>
 
                   {% if d.directory %}

@@ -248,7 +248,6 @@ class TaskAdmin(admin.ModelAdmin):
                 "priority",
                 "due_date",
                 "estimated_minutes",
-                "sort_order",
                 "first_started_at",
                 "completed_at",
             )

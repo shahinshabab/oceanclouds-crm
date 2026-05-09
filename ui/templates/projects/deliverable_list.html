@@ -43,16 +43,16 @@
   <!-- Search + Filters -->
   <form method="get" class="row g-2 align-items-end mb-3">
 
-    <div class="col-lg-6 col-md-6">
+    <div class="col-lg-3 col-md-6">
       <label class="form-label small text-muted text-uppercase mb-1">Search</label>
       <input type="text"
-             name="q"
-             value="{{ q }}"
-             class="form-control"
-             placeholder="Search by deliverable or project">
+            name="q"
+            value="{{ q }}"
+            class="form-control"
+            placeholder="Search by deliverable or project">
     </div>
 
-    <div class="col-lg-3 col-md-3">
+    <div class="col-lg-2 col-md-3">
       <label class="form-label small text-muted text-uppercase mb-1">Status</label>
       <select name="status" class="form-select">
         <option value="">All statuses</option>
@@ -64,7 +64,7 @@
       </select>
     </div>
 
-    <div class="col-lg-3 col-md-3">
+    <div class="col-lg-2 col-md-3">
       <label class="form-label small text-muted text-uppercase mb-1">Type</label>
       <select name="type" class="form-select">
         <option value="">All types</option>
@@ -76,13 +76,42 @@
       </select>
     </div>
 
-    <div class="col-12 d-flex justify-content-end gap-2">
+    <div class="col-lg-2 col-md-3">
+      <label class="form-label small text-muted text-uppercase mb-1">Priority</label>
+      <select name="priority" class="form-select">
+        <option value="">All priorities</option>
+        {% for value, label in priority_choices %}
+          <option value="{{ value }}" {% if priority_filter == value %}selected{% endif %}>
+            {{ label }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    {% if is_admin or is_project_manager %}
+      <div class="col-lg-2 col-md-3">
+        <label class="form-label small text-muted text-uppercase mb-1">Employee</label>
+        <select name="employee" class="form-select">
+          <option value="">All employees</option>
+          {% for employee in employee_choices %}
+            <option value="{{ employee.id }}" {% if employee_filter|add:'' == employee.id|add:'' %}selected{% endif %}>
+              {{ employee.get_full_name|default:employee.username }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+    {% endif %}
+
+    <div class="col-lg-1 col-md-12 d-flex gap-2">
+      <button class="btn btn-primary w-100" type="submit">
+        Apply
+      </button>
+    </div>
+
+    <div class="col-12 d-flex justify-content-end">
       <a href="{% url 'projects:deliverable_list' %}" class="btn btn-outline-secondary">
         Reset
       </a>
-      <button class="btn btn-primary" type="submit">
-        Apply Filters
-      </button>
     </div>
 
   </form>
@@ -99,6 +128,7 @@
               <th>Category</th>
               <th>Assigned To</th>
               <th>Status</th>
+              <th>Priority</th>
               <th>Due</th>
               <th class="text-end">Tasks</th>
               <th class="text-end">Work</th>
@@ -211,7 +241,18 @@
                     <span class="badge bg-secondary">{{ d.get_status_display }}</span>
                   {% endif %}
                 </td>
-
+                <!-- Priority -->
+                <td>
+                  {% if d.priority == "critical" %}
+                    <span class="badge bg-danger">{{ d.get_priority_display }}</span>
+                  {% elif d.priority == "high" %}
+                    <span class="badge bg-warning text-dark">{{ d.get_priority_display }}</span>
+                  {% elif d.priority == "medium" %}
+                    <span class="badge bg-info text-dark">{{ d.get_priority_display }}</span>
+                  {% else %}
+                    <span class="badge bg-light text-muted border">{{ d.get_priority_display }}</span>
+                  {% endif %}
+                </td>
                 <!-- Due -->
                 <td>
                   {% if d.due_date %}
@@ -265,7 +306,7 @@
               </tr>
             {% empty %}
               <tr>
-                <td colspan="9" class="text-center text-muted py-4">
+                <td colspan="10" class="text-center text-muted py-4">
                   No deliverables found.
                 </td>
               </tr>
@@ -285,7 +326,7 @@
         {% if page_obj.has_previous %}
           <li class="page-item">
             <a class="page-link"
-               href="?page={{ page_obj.previous_page_number }}&q={{ q }}&status={{ status_filter }}&type={{ type_filter }}">
+               href="?page={{ page_obj.previous_page_number }}&q={{ q }}&status={{ status_filter }}&type={{ type_filter }}&priority={{ priority_filter }}&employee={{ employee_filter }}">
               Previous
             </a>
           </li>
@@ -300,7 +341,7 @@
         {% if page_obj.has_next %}
           <li class="page-item">
             <a class="page-link"
-               href="?page={{ page_obj.next_page_number }}&q={{ q }}&status={{ status_filter }}&type={{ type_filter }}">
+               href="?page={{ page_obj.next_page_number }}&q={{ q }}&status={{ status_filter }}&type={{ type_filter }}&priority={{ priority_filter }}&employee={{ employee_filter }}">
               Next
             </a>
           </li>

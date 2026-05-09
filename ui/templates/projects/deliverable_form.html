@@ -89,6 +89,8 @@
               <div class="form-control-plaintext border rounded px-2 bg-light">
                 {{ object.project.name }}
               </div>
+
+              <input type="hidden" name="project" value="{{ object.project.id }}">
             {% else %}
               {{ form.project }}
             {% endif %}
@@ -120,7 +122,7 @@
             <div class="text-danger small">{{ form.department.errors }}</div>
           </div>
 
-          <div class="col-md-4">
+          <div class="col-md-3">
             <label class="form-label">
               {{ form.assigned_to.label }}{% if form.assigned_to.field.required %} *{% endif %}
             </label>
@@ -128,7 +130,7 @@
             <div class="text-danger small">{{ form.assigned_to.errors }}</div>
           </div>
 
-          <div class="col-md-4">
+          <div class="col-md-3">
             <label class="form-label">
               {{ form.status.label }}{% if form.status.field.required %} *{% endif %}
             </label>
@@ -136,7 +138,15 @@
             <div class="text-danger small">{{ form.status.errors }}</div>
           </div>
 
-          <div class="col-md-4">
+          <div class="col-md-3">
+            <label class="form-label">
+              {{ form.priority.label }}{% if form.priority.field.required %} *{% endif %}
+            </label>
+            {{ form.priority }}
+            <div class="text-danger small">{{ form.priority.errors }}</div>
+          </div>
+
+          <div class="col-md-3">
             <label class="form-label">
               {{ form.due_date.label }}{% if form.due_date.field.required %} *{% endif %}
             </label>

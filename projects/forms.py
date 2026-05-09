@@ -3,7 +3,7 @@
 from django import forms
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
-from django.db.models import Q
+from django.db.models import Q, F
 
 from common.roles import (
     ROLE_ADMIN,
@@ -106,7 +106,6 @@ class TaskForm(BootstrapModelForm):
             "priority",
             "due_date",
             "estimated_minutes",
-            "sort_order",
         ]
         widgets = {
             "directory": forms.TextInput(attrs={"placeholder": "e.g. Wedding/RAW/Photos"}),
@@ -128,6 +127,7 @@ class TaskForm(BootstrapModelForm):
         self.fields["project"].queryset = qs
 
         if project:
+            self.fields["project"].required = False
             self.fields["project"].initial = project
             self.fields["project"].queryset = Project.objects.filter(pk=project.pk)
 
@@ -165,53 +165,53 @@ class DeliverableForm(BootstrapModelForm):
             "category",
             "type",
             "department",
-            "directory",
-            "description",
             "assigned_to",
             "status",
+            "priority",
+            "due_date",
+            "directory",
+            "version",
+            "revision_count",
+            "description",
             "tasks",
             "preview_link",
             "file_link",
             "file",
-            "version",
-            "revision_count",
             "delivery_medium",
             "quantity",
             "handed_over_to",
-            "due_date",
         ]
         widgets = {
-            "directory": forms.TextInput(attrs={"placeholder": "Final output folder/path"}),
-            "description": forms.Textarea(attrs={"rows": 3}),
             "due_date": DateInput(),
-            "tasks": forms.SelectMultiple(attrs={"size": 8}),
+            "description": forms.Textarea(attrs={"rows": 3}),
+            "tasks": forms.SelectMultiple(attrs={"class": "form-select", "size": 6}),
         }
 
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop("user", None)
-        project = kwargs.pop("project", None)
+        self.fixed_project = kwargs.pop("project", None)
+
         super().__init__(*args, **kwargs)
 
-        project_qs = Project.objects.all().order_by("-created_at")
+        self.fields["project"].queryset = Project.objects.all()
+        self.fields["assigned_to"].queryset = User.objects.filter(
+            is_active=True,
+            groups__name=ROLE_EMPLOYEE,
+        ).order_by("first_name", "last_name", "username")
 
-        if self.user and user_has_role(self.user, ROLE_PROJECT_MANAGER):
-            project_qs = project_qs.filter(manager=self.user)
-
-        self.fields["project"].queryset = project_qs
-
-        if project:
-            self.fields["project"].initial = project
-            self.fields["project"].queryset = Project.objects.filter(pk=project.pk)
-            self.fields["tasks"].queryset = project.tasks.all().order_by("sort_order", "name")
-        elif self.instance and self.instance.pk:
-            self.fields["tasks"].queryset = self.instance.project.tasks.all().order_by("sort_order", "name")
+        if self.fixed_project:
+            self.fields["project"].required = False
+            self.fields["project"].initial = self.fixed_project
+            self.fields["tasks"].queryset = Task.objects.filter(
+                project=self.fixed_project
+            ).order_by(F("due_date").asc(nulls_last=True), "status", "priority", "created_at")
         else:
             self.fields["tasks"].queryset = Task.objects.none()
 
-        self.fields["assigned_to"].queryset = users_in_roles(
-            ROLE_PROJECT_MANAGER,
-            ROLE_EMPLOYEE,
-        )
+        if self.instance and self.instance.pk:
+            self.fields["tasks"].queryset = Task.objects.filter(
+                project=self.instance.project
+            ).order_by(F("due_date").asc(nulls_last=True), "status", "priority", "created_at")
 
     def clean(self):
         cleaned = super().clean()

@@ -41,13 +41,13 @@
   <!-- Search + Two Filters Only -->
   <form method="get" class="row g-2 align-items-end mb-3">
 
-    <div class="col-lg-6 col-md-6">
+    <div class="col-lg-4 col-md-6">
       <label class="form-label small text-muted text-uppercase mb-1">Search</label>
       <input type="text"
-             name="q"
-             value="{{ q }}"
-             class="form-control"
-             placeholder="Search by task or project">
+            name="q"
+            value="{{ q }}"
+            class="form-control"
+            placeholder="Search by task or project">
     </div>
 
     <div class="col-lg-2 col-md-3">
@@ -72,6 +72,20 @@
         <option value="no_due" {% if due_filter == "no_due" %}selected{% endif %}>No due date</option>
       </select>
     </div>
+
+    {% if is_admin or is_project_manager %}
+      <div class="col-lg-2 col-md-3">
+        <label class="form-label small text-muted text-uppercase mb-1">Employee</label>
+        <select name="employee" class="form-select">
+          <option value="">All employees</option>
+          {% for employee in employee_choices %}
+            <option value="{{ employee.id }}" {% if employee_filter|add:'' == employee.id|add:'' %}selected{% endif %}>
+              {{ employee.get_full_name|default:employee.username }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+    {% endif %}
 
     <div class="col-lg-2 col-md-12 d-flex gap-2">
       <button class="btn btn-primary w-100" type="submit">
@@ -251,7 +265,7 @@
         {% if page_obj.has_previous %}
           <li class="page-item">
             <a class="page-link"
-               href="?page={{ page_obj.previous_page_number }}&q={{ q }}&status={{ status_filter }}&due={{ due_filter }}">
+               href="?page={{ page_obj.previous_page_number }}&q={{ q }}&status={{ status_filter }}&due={{ due_filter }}&employee={{ employee_filter }}">
               Previous
             </a>
           </li>
@@ -266,7 +280,7 @@
         {% if page_obj.has_next %}
           <li class="page-item">
             <a class="page-link"
-               href="?page={{ page_obj.next_page_number }}&q={{ q }}&status={{ status_filter }}&due={{ due_filter }}">
+               href="?page={{ page_obj.next_page_number }}&q={{ q }}&status={{ status_filter }}&due={{ due_filter }}&employee={{ employee_filter }}">
               Next
             </a>
           </li>

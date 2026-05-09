@@ -352,13 +352,12 @@ class Task(TimeStamped, Owned):
         help_text="Optional estimated time in minutes.",
     )
 
-    sort_order = models.PositiveIntegerField(default=0)
 
     first_started_at = models.DateTimeField(null=True, blank=True, db_index=True)
     completed_at = models.DateTimeField(null=True, blank=True, db_index=True)
 
     class Meta:
-        ordering = ["sort_order", "due_date", "status", "priority", "created_at"]
+        ordering = ["due_date", "status", "priority", "created_at"]
         indexes = [
             models.Index(fields=["project", "status"]),
             models.Index(fields=["assigned_to", "status"]),
@@ -471,6 +470,13 @@ class Deliverable(TimeStamped, Owned):
         help_text="Tasks required before this deliverable can start/deliver.",
     )
 
+    priority = models.CharField(
+        max_length=20,
+        choices=Priority.choices,
+        default=Priority.MEDIUM,
+        db_index=True,
+    )
+
     file_link = models.URLField(blank=True)
     file = models.FileField(upload_to="deliverables/", blank=True, null=True)
 
@@ -499,6 +505,7 @@ class Deliverable(TimeStamped, Owned):
             models.Index(fields=["assigned_to", "status"]),
             models.Index(fields=["department", "category"]),
             models.Index(fields=["type", "status"]),
+            models.Index(fields=["priority"]),
             models.Index(fields=["due_date"]),
             models.Index(fields=["delivered_at"]),
         ]

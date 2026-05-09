@@ -88,6 +88,8 @@
               <div class="form-control-plaintext border rounded px-2 bg-light">
                 {{ object.project.name }}
               </div>
+
+              <input type="hidden" name="project" value="{{ object.project.id }}">
             {% else %}
               {{ form.project }}
             {% endif %}
@@ -172,16 +174,8 @@
             <div class="text-danger small">{{ form.estimated_minutes.errors }}</div>
           </div>
 
-          <div class="col-md-3">
-            <label class="form-label">
-              {{ form.sort_order.label }}{% if form.sort_order.field.required %} *{% endif %}
-            </label>
-            {{ form.sort_order }}
-            <div class="form-text">Lower number appears first.</div>
-            <div class="text-danger small">{{ form.sort_order.errors }}</div>
-          </div>
 
-          <div class="col-md-9">
+          <div class="col-md-12">
             <label class="form-label">
               {{ form.description.label }}{% if form.description.field.required %} *{% endif %}
             </label>

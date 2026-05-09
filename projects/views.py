@@ -5,7 +5,7 @@ from decimal import Decimal
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
-from django.db.models import Q, Sum, Count, Avg
+from django.db.models import Q, Sum, Count, Avg, F
 from django.db.models.functions import Coalesce
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect
@@ -213,9 +213,7 @@ class ProjectDetailView(ProjectAccessMixin, DetailView):
         context = super().get_context_data(**kwargs)
         project = self.object
 
-        context["tasks"] = project.tasks.select_related("assigned_to").order_by(
-            "sort_order", "due_date", "status"
-        )
+        context["tasks"] = project.tasks.select_related("assigned_to").order_by(F("due_date").asc(nulls_last=True), "status", "priority", "created_at")
         context["deliverables"] = project.deliverables.select_related("assigned_to").prefetch_related(
             "tasks"
         ).order_by("due_date", "status")
@@ -407,8 +405,8 @@ class TaskListView(ProjectWorkAccessMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        qs = visible_tasks_for(self.request.user).exclude(
-            project__status=ProjectStatus.COMPLETED
+        qs = visible_tasks_for(self.request.user).filter(
+            project__status=ProjectStatus.ACTIVE
         )
 
         q = self.request.GET.get("q")
@@ -417,6 +415,7 @@ class TaskListView(ProjectWorkAccessMixin, ListView):
         category = self.request.GET.get("category")
         department = self.request.GET.get("department")
         due = self.request.GET.get("due")
+        employee_id = self.request.GET.get("employee")
         today = timezone.localdate()
 
         if q:
@@ -434,6 +433,9 @@ class TaskListView(ProjectWorkAccessMixin, ListView):
         if department:
             qs = qs.filter(department=department)
 
+        if employee_id and is_admin_or_project_manager(self.request.user):
+            qs = qs.filter(assigned_to_id=employee_id)
+
         if due == "overdue":
             qs = qs.filter(due_date__lt=today).exclude(status=TaskStatus.COMPLETED)
         elif due == "today":
@@ -443,7 +445,7 @@ class TaskListView(ProjectWorkAccessMixin, ListView):
         elif due == "no_due":
             qs = qs.filter(due_date__isnull=True)
 
-        return qs.order_by("due_date", "sort_order", "status")
+        return qs.order_by(F("due_date").asc(nulls_last=True), "status", "priority", "created_at")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -454,11 +456,22 @@ class TaskListView(ProjectWorkAccessMixin, ListView):
         context["priority_choices"] = Priority.choices
         context["category_choices"] = TaskCategory.choices
         context["department_choices"] = ProductionDepartment.choices
+
         context["status_filter"] = self.request.GET.get("status", "")
         context["priority_filter"] = self.request.GET.get("priority", "")
         context["category_filter"] = self.request.GET.get("category", "")
         context["department_filter"] = self.request.GET.get("department", "")
         context["due_filter"] = self.request.GET.get("due", "")
+        context["employee_filter"] = self.request.GET.get("employee", "")
+
+        if is_admin_or_project_manager(self.request.user):
+            context["employee_choices"] = User.objects.filter(
+                is_active=True,
+                groups__name=ROLE_EMPLOYEE,
+            ).order_by("first_name", "last_name", "username")
+        else:
+            context["employee_choices"] = User.objects.none()
+
         return context
 
 
@@ -525,8 +538,15 @@ class TaskUpdateView(ProjectAccessMixin, UpdateView):
         old = self.get_object()
         task = form.save(commit=False)
 
+        # Keep original project during edit.
+        # This prevents project from becoming empty when the project field is readonly/hidden in template.
+        task.project = old.project
+
         if old.status == TaskStatus.IN_PROGRESS and task.status != TaskStatus.IN_PROGRESS:
-            close_active_work_for_target(task.assigned_to or self.request.user, task=task)
+            close_active_work_for_target(
+                task.assigned_to or self.request.user,
+                task=task,
+            )
 
         if task.status == TaskStatus.COMPLETED and not task.completed_at:
             task.completed_at = timezone.now()
@@ -562,7 +582,7 @@ class TaskKanbanView(ProjectWorkAccessMixin, TemplateView):
     def get_queryset(self):
         return (
             visible_tasks_for(self.request.user)
-            .exclude(project__status=ProjectStatus.COMPLETED)
+            .filter(project__status=ProjectStatus.ACTIVE)
             .select_related("project", "assigned_to")
             .prefetch_related("deliverables")
         )
@@ -571,15 +591,28 @@ class TaskKanbanView(ProjectWorkAccessMixin, TemplateView):
         context = super().get_context_data(**kwargs)
         qs = self.get_queryset()
 
+        pending_tasks = qs.filter(
+            status=TaskStatus.PENDING
+        ).order_by(F("due_date").asc(nulls_last=True), "status", "priority", "created_at")
+
+        in_progress_tasks = qs.filter(
+            status__in=[
+                TaskStatus.IN_PROGRESS,
+                TaskStatus.PAUSED,
+            ]
+        ).order_by(F("due_date").asc(nulls_last=True), "status", "priority", "created_at")
+
+        completed_tasks = qs.filter(
+            status=TaskStatus.COMPLETED
+        ).order_by(
+            F("completed_at").desc(nulls_last=True),
+            "-created_at",
+        )
+
         context["tasks_by_status"] = {
-            "pending": qs.filter(status=TaskStatus.PENDING),
-            "in_progress": qs.filter(
-                status__in=[
-                    TaskStatus.IN_PROGRESS,
-                    TaskStatus.PAUSED,
-                ]
-            ),
-            "completed": qs.filter(status=TaskStatus.COMPLETED),
+            "pending": pending_tasks,
+            "in_progress": in_progress_tasks,
+            "completed": completed_tasks,
         }
 
         context["kanban_status_choices"] = [
@@ -712,14 +745,16 @@ class DeliverableListView(ProjectWorkAccessMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        qs = visible_deliverables_for(self.request.user).exclude(
-            project__status=ProjectStatus.COMPLETED
+        qs = visible_deliverables_for(self.request.user).filter(
+            project__status=ProjectStatus.ACTIVE
         )
 
         q = self.request.GET.get("q")
         status = self.request.GET.get("status")
         category = self.request.GET.get("category")
         d_type = self.request.GET.get("type")
+        priority = self.request.GET.get("priority")
+        employee_id = self.request.GET.get("employee")
 
         if q:
             qs = qs.filter(Q(name__icontains=q) | Q(project__name__icontains=q))
@@ -733,7 +768,13 @@ class DeliverableListView(ProjectWorkAccessMixin, ListView):
         if d_type:
             qs = qs.filter(type=d_type)
 
-        return qs.order_by("due_date", "status", "created_at")
+        if priority:
+            qs = qs.filter(priority=priority)
+
+        if employee_id and is_admin_or_project_manager(self.request.user):
+            qs = qs.filter(assigned_to_id=employee_id)
+
+        return qs.order_by(F("due_date").asc(nulls_last=True), "status", "priority", "created_at")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -743,9 +784,22 @@ class DeliverableListView(ProjectWorkAccessMixin, ListView):
         context["status_choices"] = DeliverableStatus.choices
         context["category_choices"] = DeliverableCategory.choices
         context["type_choices"] = DeliverableType.choices
+        context["priority_choices"] = Priority.choices
+
         context["status_filter"] = self.request.GET.get("status", "")
         context["category_filter"] = self.request.GET.get("category", "")
         context["type_filter"] = self.request.GET.get("type", "")
+        context["priority_filter"] = self.request.GET.get("priority", "")
+        context["employee_filter"] = self.request.GET.get("employee", "")
+
+        if is_admin_or_project_manager(self.request.user):
+            context["employee_choices"] = User.objects.filter(
+                is_active=True,
+                groups__name=ROLE_EMPLOYEE,
+            ).order_by("first_name", "last_name", "username")
+        else:
+            context["employee_choices"] = User.objects.none()
+
         return context
 
 
@@ -816,8 +870,15 @@ class DeliverableUpdateView(ProjectAccessMixin, UpdateView):
         old = self.get_object()
         deliverable = form.save(commit=False)
 
+        # Keep original project during edit.
+        # This prevents project from becoming empty when the field is displayed as readonly.
+        deliverable.project = old.project
+
         if old.status == DeliverableStatus.IN_PROGRESS and deliverable.status != DeliverableStatus.IN_PROGRESS:
-            close_active_work_for_target(deliverable.assigned_to or self.request.user, deliverable=deliverable)
+            close_active_work_for_target(
+                deliverable.assigned_to or self.request.user,
+                deliverable=deliverable,
+            )
 
         if deliverable.status == DeliverableStatus.READY_TO_DELIVER and not deliverable.ready_at:
             deliverable.ready_at = timezone.now()
@@ -856,7 +917,7 @@ class DeliverableKanbanView(ProjectWorkAccessMixin, TemplateView):
     def get_queryset(self):
         return (
             visible_deliverables_for(self.request.user)
-            .exclude(project__status=ProjectStatus.COMPLETED)
+            .filter(project__status=ProjectStatus.ACTIVE)
             .select_related("project", "assigned_to")
             .prefetch_related("tasks")
         )
@@ -865,20 +926,39 @@ class DeliverableKanbanView(ProjectWorkAccessMixin, TemplateView):
         context = super().get_context_data(**kwargs)
         qs = self.get_queryset()
 
+        pending_deliverables = qs.filter(
+            status__in=[
+                DeliverableStatus.PENDING,
+                DeliverableStatus.WAITING_FOR_TASKS,
+            ]
+        ).order_by(
+            F("due_date").asc(nulls_last=True),
+            "priority",
+            "created_at",
+        )
+
+        in_progress_deliverables = qs.filter(
+            status__in=[
+                DeliverableStatus.IN_PROGRESS,
+                DeliverableStatus.PAUSED,
+            ]
+        ).order_by(
+            F("due_date").asc(nulls_last=True),
+            "priority",
+            "created_at",
+        )
+
+        delivered_deliverables = qs.filter(
+            status=DeliverableStatus.DELIVERED
+        ).order_by(
+            F("delivered_at").desc(nulls_last=True),
+            "-created_at",
+        )
+
         context["deliverables_by_status"] = {
-            "pending": qs.filter(
-                status__in=[
-                    DeliverableStatus.PENDING,
-                    DeliverableStatus.WAITING_FOR_TASKS,
-                ]
-            ),
-            "in_progress": qs.filter(
-                status__in=[
-                    DeliverableStatus.IN_PROGRESS,
-                    DeliverableStatus.PAUSED,
-                ]
-            ),
-            "delivered": qs.filter(status=DeliverableStatus.DELIVERED),
+            "pending": pending_deliverables,
+            "in_progress": in_progress_deliverables,
+            "delivered": delivered_deliverables,
         }
 
         context["kanban_status_choices"] = [
@@ -1196,7 +1276,7 @@ def ajax_load_tasks(request):
     qs = Task.objects.none()
 
     if project_id:
-        qs = visible_tasks_for(request.user).filter(project_id=project_id).order_by("sort_order", "name")
+        qs = visible_tasks_for(request.user).filter(project_id=project_id).order_by(F("due_date").asc(nulls_last=True), "status", "priority", "created_at")
 
     data = [
         {
