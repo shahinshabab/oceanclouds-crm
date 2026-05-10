@@ -35,7 +35,7 @@ class SendResult:
 
 
 def email_sending_enabled() -> bool:
-    return bool(getattr(settings, "EMAIL_SENDING_ENABLED", False))
+    return bool(getattr(settings, "EMAIL_SENDING_ENABLED", True))
 
 
 def normalize_emails(emails: Union[str, Sequence[str], None]) -> list[str]:

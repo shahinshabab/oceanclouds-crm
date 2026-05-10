@@ -39,7 +39,7 @@ env = environ.Env(
     AWS_S3_ENABLED=(bool, False),
     AWS_STORAGE_BUCKET_NAME=(str, ""),
     AWS_S3_REGION_NAME=(str, "ap-south-1"),
-    EMAIL_SENDING_ENABLED=(bool, False),
+    EMAIL_SENDING_ENABLED=(bool, True),
     EMAIL_DEFAULT_FROM=(str, ""),
     EMAIL_DEFAULT_REPLY_TO=(str, ""),
 
