@@ -1,0 +1,194 @@
+{% extends "ui/base.html" %}
+
+{% block title %}To-Do Detail{% endblock %}
+
+{% block content %}
+<div class="container py-3">
+
+  <div class="d-flex justify-content-between align-items-start mb-3">
+    <div>
+      <h2 class="fw-semibold mb-1">{{ todo.title }}</h2>
+      <div class="text-muted small">
+        Created {{ todo.created_at|date:"d M Y H:i" }}
+      </div>
+    </div>
+
+    <div class="d-flex gap-2">
+      <a href="{% url 'todos:todo_list' %}" class="btn btn-outline-secondary btn-sm">
+        Back
+      </a>
+
+      <a href="{% url 'todos:todo_update' todo.pk %}" class="btn btn-primary btn-sm">
+        Edit
+      </a>
+
+      <a href="{% url 'todos:todo_delete' todo.pk %}" class="btn btn-outline-danger btn-sm">
+        Delete
+      </a>
+    </div>
+  </div>
+
+  <div class="row g-3">
+
+    <div class="col-md-8">
+      <div class="card shadow-sm border-0 mb-3">
+        <div class="card-header bg-white fw-semibold">
+          Details
+        </div>
+
+        <div class="card-body">
+          <div class="mb-3">
+            <div class="text-muted small">Description</div>
+            <div>{{ todo.description|linebreaksbr|default:"-" }}</div>
+          </div>
+
+          <div class="row g-3">
+            <div class="col-md-4">
+              <div class="text-muted small">Status</div>
+              <div class="fw-semibold">{{ todo.get_status_display }}</div>
+            </div>
+
+            <div class="col-md-4">
+              <div class="text-muted small">Priority</div>
+              <div class="fw-semibold">{{ todo.get_priority_display }}</div>
+            </div>
+
+            <div class="col-md-4">
+              <div class="text-muted small">Due Date</div>
+              <div class="fw-semibold">
+                {{ todo.due_date|date:"d M Y"|default:"-" }}
+
+                {% if todo.is_overdue %}
+                  <span class="badge bg-danger-subtle text-danger-emphasis ms-1">
+                    Overdue
+                  </span>
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="col-md-4">
+              <div class="text-muted small">Assigned To</div>
+              <div class="fw-semibold">{{ todo.assigned_to|default:"-" }}</div>
+            </div>
+
+            <div class="col-md-4">
+              <div class="text-muted small">Owner</div>
+              <div class="fw-semibold">{{ todo.owner|default:"-" }}</div>
+            </div>
+
+            <div class="col-md-4">
+              <div class="text-muted small">Completed At</div>
+              <div class="fw-semibold">
+                {{ todo.completed_at|date:"d M Y H:i"|default:"-" }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card shadow-sm border-0">
+        <div class="card-header bg-white fw-semibold">
+          Linked Records
+        </div>
+
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <div class="text-muted small">Project</div>
+              <div>{{ todo.project|default:"-" }}</div>
+            </div>
+
+            <div class="col-md-6">
+              <div class="text-muted small">Task</div>
+              <div>{{ todo.task|default:"-" }}</div>
+            </div>
+
+            <div class="col-md-6">
+              <div class="text-muted small">Deliverable</div>
+              <div>{{ todo.deliverable|default:"-" }}</div>
+            </div>
+
+            <div class="col-md-6">
+              <div class="text-muted small">Client</div>
+              <div>{{ todo.client|default:"-" }}</div>
+            </div>
+
+            <div class="col-md-6">
+              <div class="text-muted small">Lead</div>
+              <div>{{ todo.lead|default:"-" }}</div>
+            </div>
+
+            <div class="col-md-6">
+              <div class="text-muted small">Deal</div>
+              <div>{{ todo.deal|default:"-" }}</div>
+            </div>
+
+            <div class="col-md-6">
+              <div class="text-muted small">Proposal</div>
+              <div>{{ todo.proposal|default:"-" }}</div>
+            </div>
+
+            <div class="col-md-6">
+              <div class="text-muted small">Contract</div>
+              <div>{{ todo.contract|default:"-" }}</div>
+            </div>
+
+            <div class="col-md-6">
+              <div class="text-muted small">Invoice</div>
+              <div>{{ todo.invoice|default:"-" }}</div>
+            </div>
+            <div class="col-md-6">
+              <div class="text-muted small">Event</div>
+              <div>{{ todo.event|default:"-" }}</div>
+            </div>
+
+            <div class="col-md-6">
+              <div class="text-muted small">Checklist Item</div>
+              <div>{{ todo.checklist_item|default:"-" }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="card shadow-sm border-0">
+        <div class="card-header bg-white fw-semibold">
+          Quick Actions
+        </div>
+
+        <div class="card-body d-grid gap-2">
+
+          {% if todo.status != "completed" %}
+            <form method="post" action="{% url 'todos:todo_complete' todo.pk %}">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-success w-100">
+                Mark Completed
+              </button>
+            </form>
+          {% else %}
+            <form method="post" action="{% url 'todos:todo_reopen' todo.pk %}">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-outline-secondary w-100">
+                Reopen
+              </button>
+            </form>
+          {% endif %}
+
+          {% if todo.status != "cancelled" %}
+            <form method="post" action="{% url 'todos:todo_cancel' todo.pk %}">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-outline-warning w-100">
+                Cancel
+              </button>
+            </form>
+          {% endif %}
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+{% endblock %}

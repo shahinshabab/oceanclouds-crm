@@ -401,7 +401,7 @@ class Notification(models.Model):
 
 
 
-
+# common/models.py
 class UserSessionEndReason(models.TextChoices):
     LOGOUT = "logout", "Manual Logout"
     AUTO_TIMEOUT = "auto_timeout", "Auto Timeout"

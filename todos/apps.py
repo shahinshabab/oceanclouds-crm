@@ -1,11 +1,11 @@
-# projects/apps.py
+# todos/apps.py
 
 from django.apps import AppConfig
 
 
-class ProjectsConfig(AppConfig):
+class TodosConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
-    name = "projects"
+    name = "todos"
 
     def ready(self):
-        import projects.signals
+        import todos.signals

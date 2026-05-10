@@ -46,6 +46,7 @@ urlpatterns = [
     path("common/", include("common.urls", namespace="common")),  
     path("messaging/", include("messaging.urls", namespace="messaging")),
     path("reports/", include("reports.urls")),
+    path("todos/", include("todos.urls")),
 ]
 
 

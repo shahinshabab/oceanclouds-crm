@@ -5,8 +5,72 @@
 {% block content %}
 <div class="container py-3">
 
-  {% include "reports/partials/report_filter_bar.html" with report_title="Project Report" user_label="Project Manager" user_options=project_managers %}
+  <!-- Header + Filter -->
+  <div class="d-flex justify-content-between align-items-start mb-3">
+    <div>
+      <a href="{{ pdf_download_url }}" class="btn btn-outline-danger btn-sm">
+        <i class="bi bi-file-earmark-pdf"></i>
+        Download PDF
+      </a>
+    </div>
 
+    <div class="text-end">
+      <h2 class="fw-semibold mb-1">Project Report</h2>
+      <div class="text-muted small">
+        {{ date_from }} to {{ date_to }}
+      </div>
+    </div>
+  </div>
+
+  <form method="get" class="card shadow-sm border-0 mb-4">
+    <div class="card-body">
+      <div class="row g-2 align-items-end">
+
+        <div class="col-md-4">
+          <label class="form-label small text-muted mb-1">Project Manager</label>
+          <select name="user" class="form-select form-select-sm">
+            <option value="">All</option>
+
+            {% for person in project_managers %}
+              <option value="{{ person.id }}"
+                {% if selected_user and selected_user.id == person.id %}selected{% endif %}>
+                {{ person.get_full_name|default:person.username }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label small text-muted mb-1">From Date</label>
+          <input
+            type="date"
+            name="date_from"
+            value="{{ date_from|date:'Y-m-d' }}"
+            class="form-control form-control-sm"
+          >
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label small text-muted mb-1">To Date</label>
+          <input
+            type="date"
+            name="date_to"
+            value="{{ date_to|date:'Y-m-d' }}"
+            class="form-control form-control-sm"
+          >
+        </div>
+
+        <div class="col-md-2 d-grid">
+          <button type="submit" class="btn btn-primary btn-sm">
+            Apply
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </form>
+
+  <!-- Summary Row 1 -->
   <div class="row g-3 mb-4">
     <div class="col-md-3">
       <div class="card shadow-sm border-0">
@@ -45,6 +109,7 @@
     </div>
   </div>
 
+  <!-- Summary Row 2 -->
   <div class="row g-3 mb-4">
     <div class="col-md-3">
       <div class="card shadow-sm border-0">
@@ -83,6 +148,7 @@
     </div>
   </div>
 
+  <!-- Summary Row 3 -->
   <div class="row g-3 mb-4">
     <div class="col-md-4">
       <div class="card shadow-sm border-0">
@@ -112,6 +178,64 @@
     </div>
   </div>
 
+  <!-- Project Status -->
+  <div class="row g-3 mb-4">
+    <div class="col-md-4">
+      <div class="card shadow-sm border-0 h-100">
+        <div class="card-header bg-white fw-semibold">
+          Project Status
+        </div>
+        <div class="card-body">
+          {% for row in project_status_counts %}
+            <div class="d-flex justify-content-between border-bottom py-1">
+              <span>{{ row.status|default:"-" }}</span>
+              <strong>{{ row.count }}</strong>
+            </div>
+          {% empty %}
+            <div class="text-muted small">No project status data.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="card shadow-sm border-0 h-100">
+        <div class="card-header bg-white fw-semibold">
+          Task Status
+        </div>
+        <div class="card-body">
+          {% for row in task_status_counts %}
+            <div class="d-flex justify-content-between border-bottom py-1">
+              <span>{{ row.status|default:"-" }}</span>
+              <strong>{{ row.count }}</strong>
+            </div>
+          {% empty %}
+            <div class="text-muted small">No task status data.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="card shadow-sm border-0 h-100">
+        <div class="card-header bg-white fw-semibold">
+          Deliverable Status
+        </div>
+        <div class="card-body">
+          {% for row in deliverable_status_counts %}
+            <div class="d-flex justify-content-between border-bottom py-1">
+              <span>{{ row.status|default:"-" }}</span>
+              <strong>{{ row.count }}</strong>
+            </div>
+          {% empty %}
+            <div class="text-muted small">No deliverable status data.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recent Projects -->
   <div class="card shadow-sm border-0 mb-4">
     <div class="card-header bg-white fw-semibold">
       Recent Projects
@@ -130,6 +254,7 @@
             <th>Progress</th>
           </tr>
         </thead>
+
         <tbody>
           {% for project in recent_projects %}
             <tr>
@@ -153,7 +278,47 @@
     </div>
   </div>
 
-  <div class="card shadow-sm border-0">
+  <!-- Overdue Projects -->
+  <div class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-white fw-semibold">
+      Overdue Projects
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-sm align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Project</th>
+            <th>Client</th>
+            <th>Manager</th>
+            <th>Status</th>
+            <th>Due Date</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for project in overdue_projects %}
+            <tr>
+              <td>{{ project.name }}</td>
+              <td>{{ project.client|default:"-" }}</td>
+              <td>{{ project.manager|default:"-" }}</td>
+              <td>{{ project.get_status_display }}</td>
+              <td>{{ project.due_date|date:"d M Y" }}</td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="5" class="text-center text-muted py-3">
+                No overdue projects.
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Overdue Tasks -->
+  <div class="card shadow-sm border-0 mb-4">
     <div class="card-header bg-white fw-semibold">
       Overdue Tasks
     </div>
@@ -169,6 +334,7 @@
             <th>Due Date</th>
           </tr>
         </thead>
+
         <tbody>
           {% for task in overdue_tasks %}
             <tr>
@@ -182,6 +348,45 @@
             <tr>
               <td colspan="5" class="text-center text-muted py-3">
                 No overdue tasks.
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Overdue Deliverables -->
+  <div class="card shadow-sm border-0">
+    <div class="card-header bg-white fw-semibold">
+      Overdue Deliverables
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-sm align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Deliverable</th>
+            <th>Project</th>
+            <th>Assigned To</th>
+            <th>Status</th>
+            <th>Due Date</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for deliverable in overdue_deliverables %}
+            <tr>
+              <td>{{ deliverable.name }}</td>
+              <td>{{ deliverable.project }}</td>
+              <td>{{ deliverable.assigned_to|default:"-" }}</td>
+              <td>{{ deliverable.get_status_display }}</td>
+              <td>{{ deliverable.due_date|date:"d M Y" }}</td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="5" class="text-center text-muted py-3">
+                No overdue deliverables.
               </td>
             </tr>
           {% endfor %}

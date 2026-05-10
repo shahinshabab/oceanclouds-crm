@@ -110,6 +110,7 @@ LOCAL_APPS = [
     "messaging",
     "projects.apps.ProjectsConfig",
     "reports",
+    "todos.apps.TodosConfig",
     "ui",
 ]
 
@@ -250,13 +251,12 @@ LOGIN_URL = "ui:login"
 # ------------------------------------------------------------------------------
 # This will run your `notify_overdue` management command every day at midnight.
 CRONJOBS = [
-    # minute hour day month weekday
-    ("0 0 * * *", "django.core.management.call_command", ["notify_due_items"]),
+    ("0 0 * * *", "django.core.management.call_command", ["generate_due_todos"]),
 ]
-"""CRONJOBS = [
-    ("0 0 * * *", "django.core.management.call_command", ["notify_due_items"]),
-    ("0 7 * * *", "django.core.management.call_command", ["send_anniversary_wishes"]),
-]"""
+#CRONJOBS = [
+    #("0 0 * * *", "django.core.management.call_command", ["notify_due_items"]),
+    #("0 0 * * *", "django.core.management.call_command", ["generate_due_todos"]),
+#]
 
 SESSION_COOKIE_AGE = 10 * 60 * 60      # 10 hours
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False

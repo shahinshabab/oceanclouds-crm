@@ -5,18 +5,13 @@ from django.dispatch import receiver
 
 from common.models import Notification
 from common.notifications import notify_user
+from todos.models import TodoPriority
+from todos.services import create_todo_once
 from crm.models import Inquiry
 
 
 @receiver(pre_save, sender=Inquiry)
 def cache_old_inquiry_handler(sender, instance, **kwargs):
-    """
-    Store old handled_by before saving.
-
-    This lets us notify only when:
-    - inquiry is newly created with handled_by
-    - handled_by changed during update
-    """
     if not instance.pk:
         instance._old_handled_by_id = None
         return
@@ -26,9 +21,11 @@ def cache_old_inquiry_handler(sender, instance, **kwargs):
 
 
 @receiver(post_save, sender=Inquiry)
-def notify_inquiry_assigned(sender, instance, created, **kwargs):
+def notify_and_todo_inquiry_assigned(sender, instance, created, **kwargs):
     """
-    Notify CRM person when inquiry is assigned or reassigned.
+    Inquiry assignment:
+    - Notify assigned CRM person instantly.
+    - Create todo for assigned CRM person.
     """
 
     if not instance.handled_by_id:
@@ -39,10 +36,26 @@ def notify_inquiry_assigned(sender, instance, created, **kwargs):
     if not created and old_handled_by_id == instance.handled_by_id:
         return
 
+    actor = getattr(instance, "owner", None)
+
     notify_user(
         recipient=instance.handled_by,
-        actor=getattr(instance, "owner", None),
+        actor=actor,
         notif_type=Notification.Type.INQUIRY_ASSIGNED,
         target=instance,
         message=f"New inquiry assigned for follow-up: {instance}",
+    )
+
+    create_todo_once(
+        title=f"Follow up inquiry: {instance}",
+        description=(
+            "This inquiry has been assigned to you. "
+            "Please contact the client and update the inquiry status."
+        ),
+        owner=actor or instance.handled_by,
+        assigned_to=instance.handled_by,
+        priority=TodoPriority.HIGH,
+        due_date=None,
+        client=instance.client,
+        lead=instance.lead,
     )

@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Project Report</title>
+
+  <style>
+    @page {
+      size: A4;
+      margin: 18mm;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      font-size: 12px;
+      color: #222;
+    }
+
+    h1 {
+      font-size: 22px;
+      margin: 0 0 4px 0;
+      text-align: right;
+    }
+
+    .meta {
+      text-align: right;
+      color: #666;
+      margin-bottom: 20px;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .card {
+      border: 1px solid #ddd;
+      padding: 10px;
+      border-radius: 6px;
+    }
+
+    .label {
+      color: #666;
+      font-size: 11px;
+      margin-bottom: 4px;
+    }
+
+    .value {
+      font-size: 16px;
+      font-weight: bold;
+    }
+
+    .section-title {
+      font-size: 15px;
+      font-weight: bold;
+      margin-top: 18px;
+      margin-bottom: 6px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      margin-bottom: 20px;
+    }
+
+    th,
+    td {
+      border: 1px solid #ddd;
+      padding: 6px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #f3f3f3;
+    }
+  </style>
+</head>
+
+<body>
+
+  <h1>Project Report</h1>
+
+  <div class="meta">
+    {{ date_from }} to {{ date_to }}<br>
+    Project Manager: {{ selected_user_name }}
+  </div>
+
+  <div class="summary-grid">
+    <div class="card">
+      <div class="label">Projects</div>
+      <div class="value">{{ summary.project_count }}</div>
+    </div>
+
+    <div class="card">
+      <div class="label">Active</div>
+      <div class="value">{{ summary.active_project_count }}</div>
+    </div>
+
+    <div class="card">
+      <div class="label">Completed</div>
+      <div class="value">{{ summary.completed_project_count }}</div>
+    </div>
+
+    <div class="card">
+      <div class="label">Overdue</div>
+      <div class="value">{{ summary.overdue_project_count }}</div>
+    </div>
+  </div>
+
+  <div class="summary-grid">
+    <div class="card">
+      <div class="label">Tasks</div>
+      <div class="value">{{ summary.task_count }}</div>
+    </div>
+
+    <div class="card">
+      <div class="label">Deliverables</div>
+      <div class="value">{{ summary.deliverable_count }}</div>
+    </div>
+
+    <div class="card">
+      <div class="label">Completion Rate</div>
+      <div class="value">{{ summary.completion_rate }}%</div>
+    </div>
+
+    <div class="card">
+      <div class="label">Work Hours</div>
+      <div class="value">{{ summary.total_work_hours }}</div>
+    </div>
+  </div>
+
+  <div class="summary-grid">
+    <div class="card">
+      <div class="label">Completed Tasks</div>
+      <div class="value">{{ summary.completed_task_count }}</div>
+    </div>
+
+    <div class="card">
+      <div class="label">Delivered</div>
+      <div class="value">{{ summary.delivered_count }}</div>
+    </div>
+
+    <div class="card">
+      <div class="label">Overdue Tasks</div>
+      <div class="value">{{ summary.overdue_task_count }}</div>
+    </div>
+
+    <div class="card">
+      <div class="label">Overdue Deliverables</div>
+      <div class="value">{{ summary.overdue_deliverable_count }}</div>
+    </div>
+  </div>
+
+  <div class="section-title">Recent Projects</div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Project</th>
+        <th>Client</th>
+        <th>Manager</th>
+        <th>Status</th>
+        <th>Priority</th>
+        <th>Due Date</th>
+        <th>Progress</th>
+      </tr>
+    </thead>
+
+    <tbody>
+      {% for project in recent_projects %}
+        <tr>
+          <td>{{ project.name }}</td>
+          <td>{{ project.client|default:"-" }}</td>
+          <td>{{ project.manager|default:"-" }}</td>
+          <td>{{ project.get_status_display }}</td>
+          <td>{{ project.get_priority_display }}</td>
+          <td>{{ project.due_date|date:"d M Y"|default:"-" }}</td>
+          <td>{{ project.progress_percent }}%</td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="7">No projects found.</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="section-title">Overdue Projects</div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Project</th>
+        <th>Client</th>
+        <th>Manager</th>
+        <th>Status</th>
+        <th>Due Date</th>
+      </tr>
+    </thead>
+
+    <tbody>
+      {% for project in overdue_projects %}
+        <tr>
+          <td>{{ project.name }}</td>
+          <td>{{ project.client|default:"-" }}</td>
+          <td>{{ project.manager|default:"-" }}</td>
+          <td>{{ project.get_status_display }}</td>
+          <td>{{ project.due_date|date:"d M Y" }}</td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="5">No overdue projects.</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="section-title">Overdue Tasks</div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Task</th>
+        <th>Project</th>
+        <th>Assigned To</th>
+        <th>Status</th>
+        <th>Due Date</th>
+      </tr>
+    </thead>
+
+    <tbody>
+      {% for task in overdue_tasks %}
+        <tr>
+          <td>{{ task.name }}</td>
+          <td>{{ task.project }}</td>
+          <td>{{ task.assigned_to|default:"-" }}</td>
+          <td>{{ task.get_status_display }}</td>
+          <td>{{ task.due_date|date:"d M Y" }}</td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="5">No overdue tasks.</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="section-title">Overdue Deliverables</div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Deliverable</th>
+        <th>Project</th>
+        <th>Assigned To</th>
+        <th>Status</th>
+        <th>Due Date</th>
+      </tr>
+    </thead>
+
+    <tbody>
+      {% for deliverable in overdue_deliverables %}
+        <tr>
+          <td>{{ deliverable.name }}</td>
+          <td>{{ deliverable.project }}</td>
+          <td>{{ deliverable.assigned_to|default:"-" }}</td>
+          <td>{{ deliverable.get_status_display }}</td>
+          <td>{{ deliverable.due_date|date:"d M Y" }}</td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="5">No overdue deliverables.</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+</body>
+</html>

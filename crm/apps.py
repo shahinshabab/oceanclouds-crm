@@ -8,4 +8,4 @@ class CrmConfig(AppConfig):
     name = "crm"
 
     def ready(self):
-        import crm.signals  # noqa
+        import crm.signals

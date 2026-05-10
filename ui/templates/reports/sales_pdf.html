@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Sales Report</title>
+
+  <style>
+    @page {
+      size: A4;
+      margin: 18mm;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      font-size: 12px;
+      color: #222;
+    }
+
+    h1 {
+      font-size: 22px;
+      margin: 0 0 4px 0;
+      text-align: right;
+    }
+
+    .meta {
+      text-align: right;
+      color: #666;
+      margin-bottom: 20px;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .card {
+      border: 1px solid #ddd;
+      padding: 10px;
+      border-radius: 6px;
+    }
+
+    .label {
+      color: #666;
+      font-size: 11px;
+      margin-bottom: 4px;
+    }
+
+    .value {
+      font-size: 16px;
+      font-weight: bold;
+    }
+
+    .section-title {
+      font-size: 15px;
+      font-weight: bold;
+      margin-top: 18px;
+      margin-bottom: 6px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      margin-bottom: 20px;
+    }
+
+    th,
+    td {
+      border: 1px solid #ddd;
+      padding: 6px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #f3f3f3;
+    }
+  </style>
+</head>
+
+<body>
+
+  <h1>Sales Report</h1>
+
+  <div class="meta">
+    {{ date_from }} to {{ date_to }}<br>
+    User: {{ selected_user_name }}
+  </div>
+
+  <div class="summary-grid">
+    <div class="card">
+      <div class="label">Inquiries</div>
+      <div class="value">{{ summary.inquiry_count }}</div>
+    </div>
+
+    <div class="card">
+      <div class="label">Leads</div>
+      <div class="value">{{ summary.lead_count }}</div>
+    </div>
+
+    <div class="card">
+      <div class="label">Deals</div>
+      <div class="value">{{ summary.deal_count }}</div>
+    </div>
+
+    <div class="card">
+      <div class="label">Contracts</div>
+      <div class="value">{{ summary.contract_count }}</div>
+    </div>
+  </div>
+
+  <div class="summary-grid">
+    <div class="card">
+      <div class="label">Inquiry to Lead</div>
+      <div class="value">{{ summary.inquiry_to_lead_count }}</div>
+    </div>
+
+    <div class="card">
+      <div class="label">Lead to Deal</div>
+      <div class="value">{{ summary.lead_to_deal_count }}</div>
+    </div>
+
+    <div class="card">
+      <div class="label">Deal to Contract</div>
+      <div class="value">{{ summary.deal_to_contract_count }}</div>
+    </div>
+
+    <div class="card">
+      <div class="label">Deal to Invoice</div>
+      <div class="value">{{ summary.deal_to_invoice_count }}</div>
+    </div>
+  </div>
+
+  <div class="summary-grid">
+    <div class="card">
+      <div class="label">Invoice Total</div>
+      <div class="value">Rs. {{ summary.invoice_total }}</div>
+    </div>
+
+    <div class="card">
+      <div class="label">Amount Paid</div>
+      <div class="value">Rs. {{ summary.amount_paid_total }}</div>
+    </div>
+
+    <div class="card">
+      <div class="label">Payment Received</div>
+      <div class="value">Rs. {{ summary.payment_received_total }}</div>
+    </div>
+
+    <div class="card">
+      <div class="label">Outstanding</div>
+      <div class="value">Rs. {{ summary.outstanding_total }}</div>
+    </div>
+  </div>
+
+  <div class="summary-grid">
+    <div class="card">
+      <div class="label">Clients</div>
+      <div class="value">{{ summary.client_count }}</div>
+    </div>
+
+    <div class="card">
+      <div class="label">Proposals</div>
+      <div class="value">{{ summary.proposal_count }}</div>
+    </div>
+
+    <div class="card">
+      <div class="label">Invoices</div>
+      <div class="value">{{ summary.invoice_count }}</div>
+    </div>
+
+    <div class="card">
+      <div class="label">Payments</div>
+      <div class="value">{{ summary.payment_count }}</div>
+    </div>
+  </div>
+
+  <div class="section-title">Recent Inquiries</div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Channel</th>
+        <th>Status</th>
+        <th>Owner</th>
+        <th>Created</th>
+      </tr>
+    </thead>
+
+    <tbody>
+      {% for inquiry in recent_inquiries %}
+        <tr>
+          <td>{{ inquiry.name|default:"-" }}</td>
+          <td>{{ inquiry.get_channel_display }}</td>
+          <td>{{ inquiry.get_status_display }}</td>
+          <td>{{ inquiry.owner|default:"-" }}</td>
+          <td>{{ inquiry.created_at|date:"d M Y" }}</td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="5">No inquiries found.</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="section-title">Recent Leads</div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Lead</th>
+        <th>Client</th>
+        <th>Status</th>
+        <th>Owner</th>
+        <th>Created</th>
+      </tr>
+    </thead>
+
+    <tbody>
+      {% for lead in recent_leads %}
+        <tr>
+          <td>{{ lead.name|default:"-" }}</td>
+          <td>{{ lead.client|default:"-" }}</td>
+          <td>{{ lead.get_status_display }}</td>
+          <td>{{ lead.owner|default:"-" }}</td>
+          <td>{{ lead.created_at|date:"d M Y" }}</td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="5">No leads found.</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="section-title">Recent Deals</div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Deal</th>
+        <th>Client</th>
+        <th>Stage</th>
+        <th>Amount</th>
+        <th>Owner</th>
+        <th>Created</th>
+      </tr>
+    </thead>
+
+    <tbody>
+      {% for deal in recent_deals %}
+        <tr>
+          <td>{{ deal.name }}</td>
+          <td>{{ deal.client|default:"-" }}</td>
+          <td>{{ deal.get_stage_display }}</td>
+          <td>Rs. {{ deal.amount|default:"0.00" }}</td>
+          <td>{{ deal.owner|default:"-" }}</td>
+          <td>{{ deal.created_at|date:"d M Y" }}</td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="6">No deals found.</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="section-title">Recent Invoices</div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Invoice</th>
+        <th>Client / Deal</th>
+        <th>Status</th>
+        <th>Total</th>
+        <th>Paid</th>
+        <th>Created</th>
+      </tr>
+    </thead>
+
+    <tbody>
+      {% for invoice in recent_invoices %}
+        <tr>
+          <td>{{ invoice.invoice_number|default:invoice.id }}</td>
+          <td>
+            {% if invoice.deal %}
+              {{ invoice.deal.client|default:invoice.deal }}
+            {% else %}
+              -
+            {% endif %}
+          </td>
+          <td>{{ invoice.get_status_display }}</td>
+          <td>Rs. {{ invoice.total|default:"0.00" }}</td>
+          <td>Rs. {{ invoice.amount_paid|default:"0.00" }}</td>
+          <td>{{ invoice.created_at|date:"d M Y" }}</td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="6">No invoices found.</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="section-title">Recent Payments</div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Invoice</th>
+        <th>Amount</th>
+        <th>Received By</th>
+        <th>Created</th>
+      </tr>
+    </thead>
+
+    <tbody>
+      {% for payment in recent_payments %}
+        <tr>
+          <td>{{ payment.invoice }}</td>
+          <td>Rs. {{ payment.amount|default:"0.00" }}</td>
+          <td>{{ payment.received_by|default:payment.owner|default:"-" }}</td>
+          <td>{{ payment.created_at|date:"d M Y" }}</td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="4">No payments found.</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+</body>
+</html>
