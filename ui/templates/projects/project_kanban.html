@@ -149,21 +149,58 @@
 <script>
 function getCookie(name) {
   let cookieValue = null;
+
   if (document.cookie && document.cookie !== "") {
     const cookies = document.cookie.split(";");
+
     for (let i = 0; i < cookies.length; i++) {
       const cookie = cookies[i].trim();
+
       if (cookie.substring(0, name.length + 1) === (name + "=")) {
         cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
         break;
       }
     }
   }
+
   return cookieValue;
 }
 
 const csrftoken = getCookie("csrftoken");
-let draggedCard = null;
+let draggedProjectCard = null;
+
+function postProjectStatus(updateUrl, newStatus) {
+  const formData = new URLSearchParams();
+  formData.append("status", newStatus);
+
+  return fetch(updateUrl, {
+    method: "POST",
+    headers: {
+      "X-CSRFToken": csrftoken,
+      "X-Requested-With": "XMLHttpRequest",
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: formData.toString(),
+  }).then(async (response) => {
+    let data = {};
+
+    try {
+      data = await response.json();
+    } catch (e) {
+      data = {
+        success: false,
+        error: "Server returned an invalid response.",
+      };
+    }
+
+    if (!response.ok && data.success !== false) {
+      data.success = false;
+      data.error = data.error || "Request failed.";
+    }
+
+    return data;
+  });
+}
 
 document.querySelectorAll(".kanban-card").forEach((card) => {
   card.addEventListener("dragstart", (e) => {
@@ -172,13 +209,13 @@ document.querySelectorAll(".kanban-card").forEach((card) => {
       return;
     }
 
-    draggedCard = card;
+    draggedProjectCard = card;
     e.dataTransfer.effectAllowed = "move";
     card.classList.add("opacity-50");
   });
 
   card.addEventListener("dragend", () => {
-    draggedCard = null;
+    draggedProjectCard = null;
     card.classList.remove("opacity-50");
   });
 });
@@ -198,41 +235,31 @@ document.querySelectorAll("[data-kanban-column]").forEach((column) => {
     e.preventDefault();
     column.classList.remove("bg-light");
 
-    if (!draggedCard) return;
+    if (!draggedProjectCard) return;
 
-    const oldParent = draggedCard.parentNode;
+    const card = draggedProjectCard;
+    const oldParent = card.parentNode;
     const newStatus = column.dataset.status;
-    const updateUrl = draggedCard.dataset.updateUrl;
+    const updateUrl = card.dataset.updateUrl;
 
     if (!updateUrl) return;
 
-    column.appendChild(draggedCard);
+    column.appendChild(card);
 
-    const formData = new URLSearchParams();
-    formData.append("status", newStatus);
-
-    fetch(updateUrl, {
-      method: "POST",
-      headers: {
-        "X-CSRFToken": csrftoken,
-        "X-Requested-With": "XMLHttpRequest",
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: formData.toString(),
-    })
-      .then((response) => response.json())
+    postProjectStatus(updateUrl, newStatus)
       .then((data) => {
         if (!data.success) {
-          oldParent.appendChild(draggedCard);
+          oldParent.appendChild(card);
           alert(data.error || "Could not update project status.");
-          window.location.reload();
+          return;
         }
+
+        window.location.reload();
       })
       .catch((error) => {
         console.error(error);
-        oldParent.appendChild(draggedCard);
+        oldParent.appendChild(card);
         alert("Error updating project status.");
-        window.location.reload();
       });
   });
 });

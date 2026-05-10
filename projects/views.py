@@ -371,19 +371,31 @@ class ProjectStatusUpdateView(ProjectAccessMixin, View):
         project = get_object_or_404(visible_projects_for(request.user), pk=pk)
         new_status = request.POST.get("status")
 
-        valid = {key for key, _ in ProjectStatus.choices}
-        if new_status not in valid:
-            return JsonResponse({"success": False, "error": "Invalid status."}, status=400)
+        kanban_statuses = {
+            ProjectStatus.PLANNED,
+            ProjectStatus.ACTIVE,
+            ProjectStatus.COMPLETED,
+        }
+
+        if new_status not in kanban_statuses:
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error": "Invalid project status.",
+                },
+                status=400,
+            )
+
+        if new_status == ProjectStatus.COMPLETED and not project.can_be_completed:
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error": "This project cannot be completed yet. Complete all project tasks and deliver all deliverables first.",
+                },
+                status=400,
+            )
 
         if new_status == ProjectStatus.COMPLETED:
-            if not project.can_be_completed:
-                return JsonResponse(
-                    {
-                        "success": False,
-                        "error": "Complete all tasks and deliver all deliverables before closing the project.",
-                    },
-                    status=400,
-                )
             project.completed_at = timezone.now()
         else:
             project.completed_at = None
@@ -391,7 +403,13 @@ class ProjectStatusUpdateView(ProjectAccessMixin, View):
         project.status = new_status
         project.save(update_fields=["status", "completed_at"])
 
-        return JsonResponse({"success": True, "status": new_status})
+        return JsonResponse(
+            {
+                "success": True,
+                "status": new_status,
+                "status_display": project.get_status_display(),
+            }
+        )
 
 
 # ============================================================
