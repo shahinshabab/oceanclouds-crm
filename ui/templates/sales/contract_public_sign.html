@@ -1,0 +1,198 @@
+{% extends "base_public.html" %}
+
+{% block title %}Sign Contract{% endblock %}
+
+{% block content %}
+<div class="container py-4 py-lg-5">
+  <div class="row justify-content-center">
+    <div class="col-lg-9 col-xl-8">
+
+      {% if messages %}
+        {% for message in messages %}
+          <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+
+      <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body p-4 p-lg-5">
+
+          <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4">
+            <div>
+              <h1 class="h3 mb-1">Service Contract Agreement</h1>
+              <div class="text-muted">
+                Contract No: <strong>{{ contract.number }}</strong>
+              </div>
+            </div>
+
+            <div>
+              {% if already_signed %}
+                <span class="badge bg-success fs-6">Signed</span>
+              {% else %}
+                <span class="badge bg-warning text-dark fs-6">Pending Signature</span>
+              {% endif %}
+            </div>
+          </div>
+
+          <hr>
+
+          <h2 class="h5 mb-3">Client Details</h2>
+
+          <div class="row mb-4">
+            <div class="col-md-6">
+              <div class="text-muted small">Client</div>
+              <div class="fw-semibold">
+                {{ client.name|default:client|default:"-" }}
+              </div>
+            </div>
+
+            <div class="col-md-6">
+              <div class="text-muted small">Contract Date</div>
+              <div class="fw-semibold">
+                {{ contract.created_at|date:"d M Y" }}
+              </div>
+            </div>
+          </div>
+
+          <h2 class="h5 mb-3">Service Details</h2>
+
+          <div class="table-responsive mb-4">
+            <table class="table table-bordered align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th>Service / Package</th>
+                  <th class="text-center">Qty</th>
+                  <th class="text-end">Unit Price</th>
+                  <th class="text-end">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for item in items %}
+                  <tr>
+                    <td>
+                      <div class="fw-semibold">
+                        {% if item.service %}
+                          {{ item.service }}
+                        {% elif item.package %}
+                          {{ item.package }}
+                        {% else %}
+                          Service
+                        {% endif %}
+                      </div>
+                      {% if item.description %}
+                        <div class="text-muted small">{{ item.description }}</div>
+                      {% endif %}
+                    </td>
+                    <td class="text-center">{{ item.quantity }}</td>
+                    <td class="text-end">{{ item.unit_price }}</td>
+                    <td class="text-end">{{ item.line_total }}</td>
+                  </tr>
+                {% empty %}
+                  <tr>
+                    <td colspan="4" class="text-center text-muted">
+                      No contract items found.
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+          <h2 class="h5 mb-3">Agreement Terms</h2>
+
+          <div class="border rounded p-3 bg-light mb-4">
+            {% if contract.terms %}
+              <div style="white-space: pre-line;">{{ contract.terms }}</div>
+            {% else %}
+              <p>
+                This agreement confirms the services agreed between the client and Ocean Clouds.
+                The client agrees to the service details, pricing, payment terms, delivery schedule,
+                and responsibilities mentioned in this contract and related proposal.
+              </p>
+
+              <p>
+                Any additional service, date change, location change, or special request may require
+                written confirmation and may be subject to additional charges.
+              </p>
+
+              <p>
+                Ocean Clouds will provide the agreed services professionally, based on the confirmed
+                scope of work. The client agrees to provide accurate event/service information and
+                make payments as agreed.
+              </p>
+            {% endif %}
+          </div>
+
+          {% if already_signed %}
+            <div class="alert alert-success">
+              <h2 class="h6 mb-2">Contract Signed</h2>
+              <p class="mb-1">
+                This contract was signed by
+                <strong>{{ contract.signed_by_name }}</strong>.
+              </p>
+              <p class="mb-0">
+                Signed on:
+                <strong>{{ contract.signed_at|date:"d M Y, h:i A" }}</strong>
+              </p>
+            </div>
+          {% else %}
+            <div class="card border-primary">
+              <div class="card-body">
+                <h2 class="h5 mb-3">Sign Contract</h2>
+
+                <p class="text-muted">
+                  Please scroll through and review the agreement above. By signing below,
+                  you confirm that you have read and accepted this contract.
+                </p>
+
+                <form method="post">
+                  {% csrf_token %}
+
+                  <div class="mb-3">
+                    <label for="signed_by_name" class="form-label">
+                      Full Name <span class="text-danger">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="signed_by_name"
+                      id="signed_by_name"
+                      class="form-control"
+                      placeholder="Enter your full name"
+                      required
+                    >
+                  </div>
+
+                  <div class="form-check mb-3">
+                    <input
+                      class="form-check-input"
+                      type="checkbox"
+                      name="accepted_terms"
+                      id="accepted_terms"
+                      required
+                    >
+                    <label class="form-check-label" for="accepted_terms">
+                      I have read and accepted the contract terms.
+                    </label>
+                  </div>
+
+                  <button type="submit" class="btn btn-primary">
+                    Sign Contract
+                  </button>
+                </form>
+              </div>
+            </div>
+          {% endif %}
+
+        </div>
+      </div>
+
+      <div class="text-center text-muted small">
+        This is a secure contract signing page generated by Ocean Clouds.
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}

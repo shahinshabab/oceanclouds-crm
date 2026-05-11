@@ -11,6 +11,7 @@ from django.utils.translation import gettext_lazy as _
 from common.models import TimeStamped, Owned
 from crm.models import Client, Lead
 from services.models import Service, Package
+import uuid
 
 
 class DealStage(models.TextChoices):
@@ -255,6 +256,21 @@ class Contract(TimeStamped, Owned):
     )
 
     signed_date = models.DateField(null=True, blank=True)
+
+    # New public signing fields
+    signing_token = models.UUIDField(
+        unique=True,
+        editable=False,
+        null=True,
+        blank=True,
+        help_text="Secure public token used for client signing link.",
+    )
+
+    signed_at = models.DateTimeField(null=True, blank=True)
+    signed_by_name = models.CharField(max_length=255, blank=True)
+    signed_ip_address = models.GenericIPAddressField(null=True, blank=True)
+    signed_user_agent = models.TextField(blank=True)
+
     start_date = models.DateField(null=True, blank=True)
     end_date = models.DateField(null=True, blank=True)
     terms = models.TextField(blank=True)
@@ -268,6 +284,14 @@ class Contract(TimeStamped, Owned):
 
     def get_absolute_url(self):
         return reverse("sales:contract_detail", args=[self.pk])
+
+    def get_public_sign_path(self):
+        return reverse("sales:contract_public_sign", args=[self.signing_token])
+
+    def ensure_signing_token(self):
+        if not self.signing_token:
+            self.signing_token = uuid.uuid4()
+            self.save(update_fields=["signing_token", "updated_at"])
 
     @classmethod
     def _generate_next_number(cls):
@@ -286,6 +310,9 @@ class Contract(TimeStamped, Owned):
             old = type(self).objects.only("number").get(pk=self.pk)
             if old.number:
                 self.number = old.number
+
+        if not self.signing_token:
+            self.signing_token = uuid.uuid4()
 
         if self.number:
             return super().save(*args, **kwargs)

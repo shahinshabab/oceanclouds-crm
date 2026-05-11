@@ -9,7 +9,7 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Q
 from django.http import HttpResponse, Http404
-from django.shortcuts import redirect, get_object_or_404
+from django.shortcuts import redirect, get_object_or_404, render
 from django.template.loader import render_to_string
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
@@ -1743,7 +1743,11 @@ class ProposalSendEmailView(AdminManagerMixin, View):
 class ContractSendEmailView(AdminManagerMixin, View):
     def post(self, request, pk):
         contract = get_object_or_404(
-            Contract.objects.select_related("deal", "deal__client", "proposal"),
+            Contract.objects.select_related(
+                "deal",
+                "deal__client",
+                "proposal",
+            ),
             pk=pk,
         )
 
@@ -1763,14 +1767,23 @@ class ContractSendEmailView(AdminManagerMixin, View):
         if blocked:
             return blocked
 
+        # Make sure public signing token exists before creating the email link
+        contract.ensure_signing_token()
+
+        contract_signature_url = request.build_absolute_uri(
+            contract.get_public_sign_path()
+        )
+
         context = _build_common_email_context(
             client=client,
             contact=contact,
             deal=deal,
         )
+
         context.update({
             "contract": contract,
             "proposal": contract.proposal,
+            "contract_signature_url": contract_signature_url,
         })
 
         try:
@@ -1778,6 +1791,7 @@ class ContractSendEmailView(AdminManagerMixin, View):
                 template_type=EmailTemplate.TemplateType.CONTRACT,
                 to_emails=to_email,
                 context=context,
+                related_object=contract,
             )
         except EmailSendError as exc:
             messages.error(
@@ -1788,8 +1802,9 @@ class ContractSendEmailView(AdminManagerMixin, View):
             return redirect("sales:contract_detail", pk=contract.pk)
 
         if getattr(result, "ok", False):
-            contract.status = ContractStatus.PENDING_SIGNATURE
-            contract.save(update_fields=["status", "updated_at"])
+            if contract.status != ContractStatus.SIGNED:
+                contract.status = ContractStatus.PENDING_SIGNATURE
+                contract.save(update_fields=["status", "updated_at"])
 
         _flash_send_result(
             request,
@@ -1929,3 +1944,98 @@ class PaymentSendEmailView(AdminManagerMixin, View):
         )
 
         return redirect("sales:payment_detail", pk=payment.pk)
+    
+def get_client_ip(request):
+    forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
+
+    if forwarded_for:
+        return forwarded_for.split(",")[0].strip()
+
+    return request.META.get("REMOTE_ADDR")
+
+
+class ContractPublicSignView(View):
+    template_name = "sales/contract_public_sign.html"
+
+    def get_contract(self, token):
+        return get_object_or_404(
+            Contract.objects.select_related(
+                "deal",
+                "deal__client",
+                "proposal",
+            ).prefetch_related(
+                "items",
+                "items__service",
+                "items__package",
+            ),
+            signing_token=token,
+        )
+
+    def get(self, request, token):
+        contract = self.get_contract(token)
+
+        client = contract.deal.client if contract.deal else None
+
+        if contract.status == ContractStatus.CANCELLED:
+            return render(
+                request,
+                "sales/contract_sign_unavailable.html",
+                {
+                    "title": "Contract unavailable",
+                    "message": "This contract is no longer available for signing.",
+                    "contract": contract,
+                },
+                status=403,
+            )
+
+        context = {
+            "contract": contract,
+            "client": client,
+            "items": contract.items.all(),
+            "already_signed": contract.status == ContractStatus.SIGNED,
+        }
+
+        return render(request, self.template_name, context)
+
+    def post(self, request, token):
+        contract = self.get_contract(token)
+
+        if contract.status == ContractStatus.CANCELLED:
+            messages.error(request, "This contract is no longer available for signing.")
+            return redirect("sales:contract_public_sign", token=token)
+
+        if contract.status == ContractStatus.SIGNED:
+            messages.info(request, "This contract has already been signed.")
+            return redirect("sales:contract_public_sign", token=token)
+
+        signed_by_name = (request.POST.get("signed_by_name") or "").strip()
+        accepted_terms = request.POST.get("accepted_terms") == "on"
+
+        if not signed_by_name:
+            messages.error(request, "Please enter your full name before signing.")
+            return redirect("sales:contract_public_sign", token=token)
+
+        if not accepted_terms:
+            messages.error(request, "Please confirm that you have read and accepted the contract terms.")
+            return redirect("sales:contract_public_sign", token=token)
+
+        contract.status = ContractStatus.SIGNED
+        contract.signed_date = timezone.localdate()
+        contract.signed_at = timezone.now()
+        contract.signed_by_name = signed_by_name
+        contract.signed_ip_address = get_client_ip(request)
+        contract.signed_user_agent = request.META.get("HTTP_USER_AGENT", "")[:1000]
+
+        contract.save(update_fields=[
+            "status",
+            "signed_date",
+            "signed_at",
+            "signed_by_name",
+            "signed_ip_address",
+            "signed_user_agent",
+            "updated_at",
+        ])
+
+        messages.success(request, "Contract signed successfully. Thank you.")
+
+        return redirect("sales:contract_public_sign", token=token)

@@ -107,7 +107,7 @@ LOCAL_APPS = [
     "sales.apps.SalesConfig",
     "events",
     "services",
-    "messaging",
+    "messaging.apps.MessagingConfig",
     "projects.apps.ProjectsConfig",
     "reports",
     "todos.apps.TodosConfig",
