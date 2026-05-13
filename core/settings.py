@@ -105,6 +105,7 @@ LOCAL_APPS = [
     "common.apps.CommonConfig",
     "crm.apps.CrmConfig",
     "sales.apps.SalesConfig",
+    "adminpanel",
     "events",
     "services",
     "messaging.apps.MessagingConfig",

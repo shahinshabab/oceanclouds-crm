@@ -22,7 +22,9 @@ from django.conf.urls.static import static
 urlpatterns = [
     path("admin/", admin.site.urls),
 
-    path("admin-panel/", include("common.urls_admin", namespace="adminpanel")),
+    # Custom internal admin panel
+    path("adminpanel/", include("adminpanel.urls")),
+
 
     # Landing + Dashboard + Layout
     path("", include("ui.urls")),              
