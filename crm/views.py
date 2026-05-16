@@ -10,7 +10,7 @@ from django.views.generic import ListView, CreateView, UpdateView, DetailView, D
 from .forms import ClientForm, ContactForm, InquiryForm, LeadForm, ReviewForm
 from .models import Client, Contact, Inquiry, Lead, Review
 
-from common.mixins import AdminCRMManagerMixin, InquiryManagerMixin, StaffAllMixin
+from common.mixins import AdminCRMManagerMixin, InquiryManagerMixin, StaffAllMixin ,SalesReadOnlyAccessMixin
 
 
 class OwnerAssignMixin:
@@ -286,7 +286,7 @@ class ClientListView(AdminCRMManagerMixin, ListView):
         return qs
 
 
-class ClientDetailView(AdminCRMManagerMixin, DetailView):
+class ClientDetailView(SalesReadOnlyAccessMixin, DetailView):
     model = Client
     template_name = "crm/client_detail.html"
     context_object_name = "client"

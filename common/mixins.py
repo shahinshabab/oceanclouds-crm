@@ -1,9 +1,10 @@
 # common/mixins.py
 
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
-
-
+ 
 from .roles import (
+    ROLE_ADMIN,
+    ROLE_PROJECT_MANAGER,
     CRM_ACCESS_ROLES,
     SALES_ACCESS_ROLES,
     PROJECT_ACCESS_ROLES,
@@ -61,6 +62,31 @@ class SalesAccessMixin(RolesRequiredMixin):
     """
     allowed_roles = SALES_ACCESS_ROLES
 
+class SalesReadOnlyAccessMixin(RolesRequiredMixin):
+    """
+    Sales read-only detail pages:
+    - Admin
+    - CRM Manager
+    - Project Manager
+
+    Used only when Project Manager needs to view linked sales details
+    from Project Overview.
+
+    Do not use this for create, update, delete, send email,
+    accept proposal, convert proposal, generate invoice, or payment creation.
+    """
+    allowed_roles = SALES_ACCESS_ROLES + [ROLE_PROJECT_MANAGER]
+
+
+class ProjectAdminOnlyMixin(RolesRequiredMixin):
+    """
+    Project create/edit pages:
+    - Admin only
+
+    Project Manager can view projects and update project status,
+    but cannot edit due date, manager, client, deal, or project details.
+    """
+    allowed_roles = [ROLE_ADMIN]
 
 class ProjectAccessMixin(RolesRequiredMixin):
     """

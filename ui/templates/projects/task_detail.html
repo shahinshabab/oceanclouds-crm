@@ -34,6 +34,15 @@
           Edit Task
         </a>
       {% endif %}
+      {% if request.GET.next %}
+        <a href="{{ request.GET.next }}" class="btn btn-outline-secondary btn-sm">
+          Back
+        </a>
+      {% else %}
+        <a href="{% url 'projects:task_list' %}" class="btn btn-outline-secondary btn-sm">
+          Back
+        </a>
+      {% endif %}
     </div>
   </div>
 
@@ -88,10 +97,10 @@
     </div>
   {% endif %}
 
-  <!-- Main Info -->
+    <!-- Main Info -->
   <div class="row g-3 mb-4">
 
-    <div class="col-lg-3 col-md-6">
+    <div class="col-xl-2 col-lg-4 col-md-6">
       <div class="card h-100 border-0 shadow-sm">
         <div class="card-body">
           <div class="small text-uppercase text-muted mb-1">Assigned To</div>
@@ -106,10 +115,11 @@
       </div>
     </div>
 
-    <div class="col-lg-3 col-md-6">
+    <div class="col-xl-2 col-lg-4 col-md-6">
       <div class="card h-100 border-0 shadow-sm">
         <div class="card-body">
           <div class="small text-uppercase text-muted mb-1">Status</div>
+
           {% if task.status == "completed" %}
             <span class="badge bg-success">{{ task.get_status_display }}</span>
           {% elif task.status == "in_progress" %}
@@ -131,10 +141,11 @@
       </div>
     </div>
 
-    <div class="col-lg-3 col-md-6">
+    <div class="col-xl-2 col-lg-4 col-md-6">
       <div class="card h-100 border-0 shadow-sm">
         <div class="card-body">
           <div class="small text-uppercase text-muted mb-1">Priority</div>
+
           {% if task.priority == "critical" %}
             <span class="badge bg-danger">{{ task.get_priority_display }}</span>
           {% elif task.priority == "high" %}
@@ -148,7 +159,18 @@
       </div>
     </div>
 
-    <div class="col-lg-3 col-md-6">
+    <div class="col-xl-3 col-lg-6 col-md-6">
+      <div class="card h-100 border-0 shadow-sm">
+        <div class="card-body">
+          <div class="small text-uppercase text-muted mb-1">Start Date</div>
+          <div class="fw-semibold">
+            {{ task.start_date|default:"—" }}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-xl-3 col-lg-6 col-md-6">
       <div class="card h-100 border-0 shadow-sm">
         <div class="card-body">
           <div class="small text-uppercase text-muted mb-1">Due Date</div>
@@ -157,6 +179,7 @@
               <span class="{% if task.is_overdue %}text-danger{% endif %}">
                 {{ task.due_date }}
               </span>
+
               {% if task.is_overdue %}
                 <span class="badge bg-danger ms-1">Overdue</span>
               {% endif %}
@@ -246,17 +269,20 @@
     </div>
   </div>
 
-  <!-- Description -->
-  {% if task.description %}
-    <div class="card border-0 shadow-sm mb-4">
-      <div class="card-header bg-body border-bottom">
-        <strong>Description</strong>
-      </div>
-      <div class="card-body">
-        {{ task.description|linebreaksbr }}
-      </div>
+  <!-- Description Card -->
+  <div class="card mb-4 border-0 shadow-sm">
+    <div class="card-header bg-body border-bottom">
+      <strong>Description</strong>
     </div>
-  {% endif %}
+
+    <div class="card-body">
+      {% if task.description %}
+        <div>{{ task.description|linebreaksbr }}</div>
+      {% else %}
+        <div class="text-muted">No description added for this task.</div>
+      {% endif %}
+    </div>
+  </div>
 
   <!-- Related Deliverables -->
   <div class="card border-0 shadow-sm mb-4">
@@ -374,21 +400,5 @@
       {% endif %}
     </div>
   </div>
-
-  <!-- Actions -->
-  <div class="text-center mt-3">
-    {% if is_admin or is_project_manager %}
-      <a href="{% url 'projects:task_update' task.pk %}" class="btn btn-primary me-2">
-        Edit Task
-      </a>
-      <a href="{% url 'projects:project_detail' task.project.pk %}" class="btn btn-secondary me-2">
-        Back to Project
-      </a>
-    {% endif %}
-    <a href="{% url 'projects:task_list' %}" class="btn btn-outline-secondary">
-      Back to Tasks
-    </a>
-  </div>
-
 </div>
 {% endblock %}

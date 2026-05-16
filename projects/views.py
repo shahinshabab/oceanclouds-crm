@@ -20,7 +20,7 @@ from django.views.generic import (
     TemplateView,
 )
 
-from common.mixins import ProjectAccessMixin, ProjectWorkAccessMixin
+from common.mixins import ProjectAccessMixin, ProjectWorkAccessMixin, ProjectAdminOnlyMixin
 from common.roles import (
     ROLE_ADMIN,
     ROLE_PROJECT_MANAGER,
@@ -239,11 +239,15 @@ class ProjectOverviewView(ProjectAccessMixin, DetailView):
         contracts_qs = []
         invoices_qs = []
         payments_qs = []
+        proposals_qs = []
         invoice_total = Decimal("0.00")
         payments_total = Decimal("0.00")
         amount_due = Decimal("0.00")
 
         if deal:
+            if hasattr(deal, "proposals"):
+                proposals_qs = deal.proposals.all().order_by("-created_at")
+
             if hasattr(deal, "contracts"):
                 contracts_qs = deal.contracts.all().annotate(
                     total_amount=Coalesce(Sum("items__line_total"), Decimal("0.00"))
@@ -276,6 +280,7 @@ class ProjectOverviewView(ProjectAccessMixin, DetailView):
             {
                 "client": project.client,
                 "deal": deal,
+                "proposals": proposals_qs,
                 "contracts": contracts_qs,
                 "invoices": invoices_qs,
                 "payments": payments_qs,
@@ -290,7 +295,7 @@ class ProjectOverviewView(ProjectAccessMixin, DetailView):
         return context
 
 
-class ProjectCreateView(ProjectAccessMixin, CreateView):
+class ProjectCreateView(ProjectAdminOnlyMixin, CreateView):
     model = Project
     form_class = ProjectForm
     template_name = "projects/project_form.html"
@@ -310,20 +315,13 @@ class ProjectCreateView(ProjectAccessMixin, CreateView):
         return reverse("projects:project_detail", args=[self.object.pk])
 
 
-class ProjectUpdateView(ProjectAccessMixin, UpdateView):
+class ProjectUpdateView(ProjectAdminOnlyMixin, UpdateView):
     model = Project
     form_class = ProjectForm
     template_name = "projects/project_form.html"
 
     def get_queryset(self):
-        user = self.request.user
-        qs = Project.objects.all()
-
-        if is_admin(user):
-            return qs
-        if is_project_manager(user):
-            return qs.filter(manager=user)
-        return Project.objects.none()
+        return Project.objects.all()
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
@@ -331,9 +329,7 @@ class ProjectUpdateView(ProjectAccessMixin, UpdateView):
         return kwargs
 
     def form_valid(self, form):
-
         response = super().form_valid(form)
-
         messages.success(self.request, "Project updated successfully.")
         return response
 

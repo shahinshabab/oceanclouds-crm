@@ -83,10 +83,15 @@
 
       {% endif %}
 
-      <a href="{% url 'sales:invoice_list' %}"
-         class="btn btn-secondary btn-sm">
-        Back
-      </a>
+      {% if request.GET.next %}
+        <a href="{{ request.GET.next }}" class="btn btn-secondary btn-sm">
+          Back
+        </a>
+      {% else %}
+        <a href="{% url 'sales:invoice_list' %}" class="btn btn-secondary btn-sm">
+          Back
+        </a>
+      {% endif %}
     </div>
   </div>
 

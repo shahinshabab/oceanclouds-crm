@@ -148,6 +148,14 @@
 
           <div class="col-md-3">
             <label class="form-label">
+              {{ form.start_date.label }}{% if form.start_date.field.required %} *{% endif %}
+            </label>
+            {{ form.start_date }}
+            <div class="text-danger small">{{ form.start_date.errors }}</div>
+          </div>
+
+          <div class="col-md-3">
+            <label class="form-label">
               {{ form.due_date.label }}{% if form.due_date.field.required %} *{% endif %}
             </label>
             {{ form.due_date }}

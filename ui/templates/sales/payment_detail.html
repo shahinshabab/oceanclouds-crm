@@ -71,15 +71,15 @@
 
       {% endif %}
 
-      <a href="{% url 'sales:invoice_detail' invoice.pk %}"
-         class="btn btn-secondary btn-sm">
-        Back
-      </a>
-
-      <a href="{% url 'sales:payment_list' %}"
-         class="btn btn-outline-secondary btn-sm">
-        All Payments
-      </a>
+      {% if request.GET.next %}
+        <a href="{{ request.GET.next }}" class="btn btn-secondary btn-sm">
+          Back
+        </a>
+      {% else %}
+        <a href="{% url 'sales:payment_list' %}" class="btn btn-secondary btn-sm">
+          Back
+        </a>
+      {% endif %}
     </div>
   </div>
 

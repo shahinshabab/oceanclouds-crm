@@ -25,6 +25,7 @@
         {% if project.deal %}
           · Deal: {{ project.deal }}
         {% endif %}
+
         {% if project.project_directory %}
           · Directory: {{ project.project_directory }}
         {% endif %}
@@ -40,23 +41,32 @@
         Full Overview
       </a>
 
-      {% if is_admin or is_project_manager %}
+      {% if is_admin %}
         <a href="{% url 'projects:project_update' project.pk %}" class="btn btn-primary btn-sm">
           Edit Project
         </a>
       {% endif %}
+
+      <a href="{% url 'projects:project_list' %}" class="btn btn-outline-secondary btn-sm">
+        Back
+      </a>
     </div>
   </div>
 
   <!-- Summary Cards -->
   <div class="row g-3 mb-4">
+
+    <!-- Status -->
     <div class="col-md-3">
       <div class="card h-100 border-0 shadow-sm">
         <div class="card-body">
           <div class="small text-uppercase text-muted mb-1">Status</div>
+
           <div>
             {% if project.status == "completed" %}
               <span class="badge bg-success">{{ project.get_status_display }}</span>
+            {% elif project.status == "closed" %}
+              <span class="badge bg-dark">{{ project.get_status_display }}</span>
             {% elif project.status == "active" %}
               <span class="badge bg-primary">{{ project.get_status_display }}</span>
             {% elif project.status == "on_hold" %}
@@ -76,10 +86,12 @@
       </div>
     </div>
 
+    <!-- Manager -->
     <div class="col-md-3">
       <div class="card h-100 border-0 shadow-sm">
         <div class="card-body">
           <div class="small text-uppercase text-muted mb-1">Manager</div>
+
           <div class="fw-semibold">
             {% if project.manager %}
               {{ project.manager.get_full_name|default:project.manager.username }}
@@ -93,6 +105,7 @@
               Event: {{ project.event }}
             </div>
           {% endif %}
+
           <div class="small text-muted mt-2">
             Directory:
             <span class="fw-semibold">
@@ -107,19 +120,23 @@
       </div>
     </div>
 
+    <!-- Project Schedule -->
     <div class="col-md-3">
       <div class="card h-100 border-0 shadow-sm">
         <div class="card-body">
-          <div class="small text-uppercase text-muted mb-1">Schedule</div>
+          <div class="small text-uppercase text-muted mb-1">Project Schedule</div>
+
           <div class="small">
             Start:
             <span class="fw-semibold">{{ project.start_date|default:"—" }}</span>
           </div>
+
           <div class="small">
             Due:
             <span class="fw-semibold {% if project.is_overdue %}text-danger{% endif %}">
               {{ project.due_date|default:"—" }}
             </span>
+
             {% if project.is_overdue %}
               <span class="badge bg-danger ms-1">Overdue</span>
             {% endif %}
@@ -128,6 +145,7 @@
       </div>
     </div>
 
+    <!-- Progress -->
     <div class="col-md-3">
       <div class="card h-100 border-0 shadow-sm">
         <div class="card-body">
@@ -158,17 +176,23 @@
         </div>
       </div>
     </div>
+
   </div>
 
-  <!-- Description -->
-  {% if project.description %}
-    <div class="card mb-4 border-0 shadow-sm">
-      <div class="card-body">
-        <div class="small text-uppercase text-muted mb-2">Description</div>
-        <div>{{ project.description|linebreaksbr }}</div>
-      </div>
+  <!-- Description Card -->
+  <div class="card mb-4 border-0 shadow-sm">
+    <div class="card-header bg-body border-bottom">
+      <strong>Description</strong>
     </div>
-  {% endif %}
+
+    <div class="card-body">
+      {% if project.description %}
+        <div>{{ project.description|linebreaksbr }}</div>
+      {% else %}
+        <div class="text-muted">No description added for this project.</div>
+      {% endif %}
+    </div>
+  </div>
 
   <div class="row g-3">
 
@@ -199,17 +223,19 @@
                     <th>Category</th>
                     <th>Assignee</th>
                     <th>Status</th>
-                    <th>Due</th>
+                    <th>Start</th>
                   </tr>
                 </thead>
+
                 <tbody>
                   {% for task in tasks %}
                     <tr>
                       <td>
-                        <a href="{% url 'projects:task_detail' task.pk %}"
-                           class="fw-semibold text-decoration-none">
+                        <a href="{% url 'projects:task_detail' task.pk %}?next={{ request.get_full_path|urlencode }}"
+                          class="fw-semibold text-decoration-none">
                           {{ task.name }}
                         </a>
+
                         {% if task.directory %}
                           <div class="small text-muted text-truncate">
                             {{ task.directory }}
@@ -239,18 +265,22 @@
                           <span class="badge bg-primary">{{ task.get_status_display }}</span>
                         {% elif task.status == "paused" %}
                           <span class="badge bg-warning text-dark">{{ task.get_status_display }}</span>
+                        {% elif task.status == "review" %}
+                          <span class="badge bg-info text-dark">{{ task.get_status_display }}</span>
+                        {% elif task.status == "revision" %}
+                          <span class="badge bg-warning text-dark">{{ task.get_status_display }}</span>
                         {% elif task.status == "blocked" %}
                           <span class="badge bg-danger">{{ task.get_status_display }}</span>
+                        {% elif task.status == "cancelled" %}
+                          <span class="badge bg-dark">{{ task.get_status_display }}</span>
                         {% else %}
                           <span class="badge bg-secondary">{{ task.get_status_display }}</span>
                         {% endif %}
                       </td>
 
                       <td>
-                        {% if task.due_date %}
-                          <span class="{% if task.is_overdue %}text-danger fw-semibold{% endif %}">
-                            {{ task.due_date }}
-                          </span>
+                        {% if task.start_date %}
+                          {{ task.start_date }}
                         {% else %}
                           —
                         {% endif %}
@@ -296,17 +326,19 @@
                     <th>Category</th>
                     <th>Tasks</th>
                     <th>Status</th>
-                    <th>Due</th>
+                    <th>Start</th>
                   </tr>
                 </thead>
+
                 <tbody>
                   {% for d in deliverables %}
                     <tr>
                       <td>
-                        <a href="{% url 'projects:deliverable_detail' d.pk %}"
-                           class="fw-semibold text-decoration-none">
+                        <a href="{% url 'projects:deliverable_detail' d.pk %}?next={{ request.get_full_path|urlencode }}"
+                          class="fw-semibold text-decoration-none">
                           {{ d.name }}
                         </a>
+
                         {% if d.file_link %}
                           <div class="small">
                             <a href="{{ d.file_link }}" target="_blank" class="text-decoration-none">
@@ -328,6 +360,7 @@
                           <div class="small text-muted">
                             {{ d.completed_task_count }}/{{ d.linked_task_count }}
                           </div>
+
                           <div class="progress" style="height: 4px; min-width: 70px;">
                             <div class="progress-bar"
                                  style="width: {{ d.task_progress_percent }}%;">
@@ -345,18 +378,24 @@
                           <span class="badge bg-primary">{{ d.get_status_display }}</span>
                         {% elif d.status == "paused" %}
                           <span class="badge bg-warning text-dark">{{ d.get_status_display }}</span>
+                        {% elif d.status == "ready_to_deliver" %}
+                          <span class="badge bg-info text-dark">{{ d.get_status_display }}</span>
+                        {% elif d.status == "client_review" or d.status == "internal_review" %}
+                          <span class="badge bg-info text-dark">{{ d.get_status_display }}</span>
                         {% elif d.status == "revision_requested" %}
                           <span class="badge bg-warning text-dark">{{ d.get_status_display }}</span>
+                        {% elif d.status == "waiting_for_tasks" %}
+                          <span class="badge bg-secondary">{{ d.get_status_display }}</span>
+                        {% elif d.status == "cancelled" %}
+                          <span class="badge bg-dark">{{ d.get_status_display }}</span>
                         {% else %}
                           <span class="badge bg-secondary">{{ d.get_status_display }}</span>
                         {% endif %}
                       </td>
 
                       <td>
-                        {% if d.due_date %}
-                          <span class="{% if d.is_overdue %}text-danger fw-semibold{% endif %}">
-                            {{ d.due_date }}
-                          </span>
+                        {% if d.start_date %}
+                          {{ d.start_date }}
                         {% else %}
                           —
                         {% endif %}
@@ -377,7 +416,7 @@
 
   </div>
 
-  <!-- Active Work Sessions -->
+  <!-- Recent Work Sessions -->
   {% if work_sessions %}
     <div class="card border-0 shadow-sm mt-4">
       <div class="card-header bg-body border-bottom">
@@ -396,10 +435,12 @@
                 <th class="text-end">Work Hours</th>
               </tr>
             </thead>
+
             <tbody>
               {% for session in work_sessions %}
                 <tr>
                   <td>{{ session.user.get_full_name|default:session.user.username }}</td>
+
                   <td>
                     {% if session.task %}
                       Task: {{ session.task.name }}
@@ -409,6 +450,7 @@
                       —
                     {% endif %}
                   </td>
+
                   <td>{{ session.get_status_display }}</td>
                   <td>{{ session.started_at }}</td>
                   <td class="text-end">{{ session.live_work_hours }} hrs</td>
@@ -420,12 +462,6 @@
       </div>
     </div>
   {% endif %}
-
-  <div class="text-center mt-4">
-    <a href="{% url 'projects:project_list' %}" class="btn btn-secondary">
-      Back to Projects
-    </a>
-  </div>
 
 </div>
 {% endblock %}

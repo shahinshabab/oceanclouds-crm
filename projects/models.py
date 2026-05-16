@@ -19,6 +19,7 @@ class ProjectStatus(models.TextChoices):
     ACTIVE = "active", "Active"
     ON_HOLD = "on_hold", "On Hold"
     COMPLETED = "completed", "Completed"
+    CLOSED = "closed", "Closed / Payment Collected"
     CANCELLED = "cancelled", "Cancelled"
 
 
@@ -203,7 +204,11 @@ class Project(TimeStamped, Owned):
     def is_overdue(self):
         if not self.due_date:
             return False
-        if self.status in [ProjectStatus.COMPLETED, ProjectStatus.CANCELLED]:
+        if self.status in [
+            ProjectStatus.COMPLETED,
+            ProjectStatus.CLOSED,
+            ProjectStatus.CANCELLED,
+        ]:
             return False
         return timezone.localdate() > self.due_date
 
@@ -344,6 +349,7 @@ class Task(TimeStamped, Owned):
         db_index=True,
     )
 
+    start_date = models.DateField(null=True, blank=True, db_index=True)
     due_date = models.DateField(null=True, blank=True, db_index=True)
 
     estimated_minutes = models.PositiveIntegerField(
@@ -357,11 +363,12 @@ class Task(TimeStamped, Owned):
     completed_at = models.DateTimeField(null=True, blank=True, db_index=True)
 
     class Meta:
-        ordering = ["due_date", "status", "priority", "created_at"]
+        ordering = ["start_date", "due_date", "status", "priority", "created_at"]
         indexes = [
             models.Index(fields=["project", "status"]),
             models.Index(fields=["assigned_to", "status"]),
             models.Index(fields=["department", "category"]),
+            models.Index(fields=["start_date"]),
             models.Index(fields=["due_date"]),
             models.Index(fields=["completed_at"]),
         ]
@@ -492,6 +499,7 @@ class Deliverable(TimeStamped, Owned):
     quantity = models.PositiveIntegerField(null=True, blank=True)
     handed_over_to = models.CharField(max_length=255, blank=True)
 
+    start_date = models.DateField(null=True, blank=True, db_index=True)
     due_date = models.DateField(null=True, blank=True, db_index=True)
 
     first_started_at = models.DateTimeField(null=True, blank=True, db_index=True)
@@ -499,13 +507,14 @@ class Deliverable(TimeStamped, Owned):
     delivered_at = models.DateTimeField(null=True, blank=True, db_index=True)
 
     class Meta:
-        ordering = ["due_date", "status", "created_at"]
+        ordering = ["start_date", "due_date", "status", "created_at"]
         indexes = [
             models.Index(fields=["project", "status"]),
             models.Index(fields=["assigned_to", "status"]),
             models.Index(fields=["department", "category"]),
             models.Index(fields=["type", "status"]),
             models.Index(fields=["priority"]),
+            models.Index(fields=["start_date"]),
             models.Index(fields=["due_date"]),
             models.Index(fields=["delivered_at"]),
         ]

@@ -88,13 +88,25 @@
            class="btn btn-outline-danger btn-sm">
           Delete
         </a>
-
+        <a href="{% url 'sales:contract_list' %}"
+          class="btn btn-secondary btn-sm">
+          Back
+        </a>
       {% endif %}
-
-      <a href="{% url 'sales:contract_list' %}"
-         class="btn btn-secondary btn-sm">
-        Back
-      </a>
+      
+      {% if is_project_manager %}
+        {% if request.GET.next %}
+          <a href="{{ request.GET.next }}" class="btn btn-secondary btn-sm">
+            Back to Project Overview
+          </a>
+        {% else %}
+          <button type="button"
+                  class="btn btn-secondary btn-sm"
+                  onclick="window.history.length > 1 ? window.history.back() : window.location.href='{% url 'projects:project_list' %}'">
+            Back
+          </button>
+        {% endif %}
+      {% endif %}
     </div>
   </div>
 

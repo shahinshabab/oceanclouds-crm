@@ -104,13 +104,14 @@ class TaskForm(BootstrapModelForm):
             "assigned_to",
             "status",
             "priority",
+            "start_date",
             "due_date",
             "estimated_minutes",
         ]
+
         widgets = {
-            "directory": forms.TextInput(attrs={"placeholder": "e.g. Wedding/RAW/Photos"}),
-            "count": forms.TextInput(attrs={"placeholder": "e.g. 1500 RAW photos"}),
             "description": forms.Textarea(attrs={"rows": 3}),
+            "start_date": DateInput(),
             "due_date": DateInput(),
         }
 
@@ -165,26 +166,27 @@ class DeliverableForm(BootstrapModelForm):
             "category",
             "type",
             "department",
+            "directory",
+            "description",
             "assigned_to",
             "status",
-            "priority",
-            "due_date",
-            "directory",
-            "version",
-            "revision_count",
-            "description",
             "tasks",
-            "preview_link",
+            "priority",
+            "start_date",
+            "due_date",
             "file_link",
             "file",
+            "preview_link",
+            "version",
             "delivery_medium",
             "quantity",
             "handed_over_to",
         ]
+
         widgets = {
-            "due_date": DateInput(),
             "description": forms.Textarea(attrs={"rows": 3}),
-            "tasks": forms.SelectMultiple(attrs={"class": "form-select", "size": 6}),
+            "start_date": DateInput(),
+            "due_date": DateInput(),
         }
 
     def __init__(self, *args, **kwargs):

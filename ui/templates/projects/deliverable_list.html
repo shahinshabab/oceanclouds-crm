@@ -129,7 +129,7 @@
               <th>Assigned To</th>
               <th>Status</th>
               <th>Priority</th>
-              <th>Due</th>
+              <th>Start</th>
               <th class="text-end">Tasks</th>
               <th class="text-end">Work</th>
               <th class="text-end">Actions</th>
@@ -255,15 +255,10 @@
                 </td>
                 <!-- Due -->
                 <td>
-                  {% if d.due_date %}
-                    <span class="{% if d.is_overdue %}text-danger fw-semibold{% endif %}">
-                      {{ d.due_date }}
-                    </span>
-                    {% if d.is_overdue %}
-                      <div class="small text-danger">Overdue</div>
-                    {% endif %}
+                  {% if d.start_date %}
+                    {{ d.start_date }}
                   {% else %}
-                    <span class="text-muted">—</span>
+                    —
                   {% endif %}
                 </td>
 

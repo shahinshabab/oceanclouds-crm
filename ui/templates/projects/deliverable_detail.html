@@ -45,6 +45,16 @@
           Edit Deliverable
         </a>
       {% endif %}
+
+      {% if request.GET.next %}
+        <a href="{{ request.GET.next }}" class="btn btn-outline-secondary btn-sm">
+          Back
+        </a>
+      {% else %}
+        <a href="{% url 'projects:deliverable_list' %}" class="btn btn-outline-secondary btn-sm">
+          Back
+        </a>
+      {% endif %}
     </div>
   </div>
 
@@ -99,10 +109,10 @@
     </div>
   {% endif %}
 
-  <!-- Summary Cards -->
+    <!-- Summary Cards -->
   <div class="row g-3 mb-4">
 
-    <div class="col-lg-3 col-md-6">
+    <div class="col-xl-2 col-lg-4 col-md-6">
       <div class="card h-100 border-0 shadow-sm">
         <div class="card-body">
           <div class="small text-uppercase text-muted mb-1">Assigned To</div>
@@ -117,7 +127,7 @@
       </div>
     </div>
 
-    <div class="col-lg-3 col-md-6">
+    <div class="col-xl-2 col-lg-4 col-md-6">
       <div class="card h-100 border-0 shadow-sm">
         <div class="card-body">
           <div class="small text-uppercase text-muted mb-1">Status</div>
@@ -145,7 +155,7 @@
       </div>
     </div>
 
-    <div class="col-lg-3 col-md-6">
+    <div class="col-xl-2 col-lg-4 col-md-6">
       <div class="card h-100 border-0 shadow-sm">
         <div class="card-body">
           <div class="small text-uppercase text-muted mb-1">Category</div>
@@ -157,7 +167,18 @@
       </div>
     </div>
 
-    <div class="col-lg-3 col-md-6">
+    <div class="col-xl-3 col-lg-6 col-md-6">
+      <div class="card h-100 border-0 shadow-sm">
+        <div class="card-body">
+          <div class="small text-uppercase text-muted mb-1">Start Date</div>
+          <div class="fw-semibold">
+            {{ deliverable.start_date|default:"—" }}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-xl-3 col-lg-6 col-md-6">
       <div class="card h-100 border-0 shadow-sm">
         <div class="card-body">
           <div class="small text-uppercase text-muted mb-1">Due Date</div>
@@ -166,6 +187,7 @@
               <span class="{% if deliverable.is_overdue %}text-danger{% endif %}">
                 {{ deliverable.due_date }}
               </span>
+
               {% if deliverable.is_overdue %}
                 <span class="badge bg-danger ms-1">Overdue</span>
               {% endif %}
@@ -281,17 +303,20 @@
     </div>
   </div>
 
-  <!-- Description -->
-  {% if deliverable.description %}
-    <div class="card border-0 shadow-sm mb-4">
-      <div class="card-header bg-body border-bottom">
-        <strong>Description</strong>
-      </div>
-      <div class="card-body">
-        {{ deliverable.description|linebreaksbr }}
-      </div>
+    <!-- Description Card -->
+  <div class="card mb-4 border-0 shadow-sm">
+    <div class="card-header bg-body border-bottom">
+      <strong>Description</strong>
     </div>
-  {% endif %}
+
+    <div class="card-body">
+      {% if deliverable.description %}
+        <div>{{ deliverable.description|linebreaksbr }}</div>
+      {% else %}
+        <div class="text-muted">No description added for this deliverable.</div>
+      {% endif %}
+    </div>
+  </div>
 
   <!-- Files -->
   {% if deliverable.preview_link or deliverable.file_link or deliverable.file %}
@@ -483,25 +508,6 @@
         </div>
       {% endif %}
     </div>
-  </div>
-
-  <!-- Actions -->
-  <div class="text-center mt-3">
-    {% if is_admin or is_project_manager %}
-      <a href="{% url 'projects:deliverable_update' deliverable.pk %}"
-         class="btn btn-primary me-2">
-        Edit Deliverable
-      </a>
-
-      <a href="{% url 'projects:project_detail' deliverable.project.pk %}"
-         class="btn btn-secondary me-2">
-        Back to Project
-      </a>
-    {% endif %}
-
-    <a href="{% url 'projects:deliverable_list' %}" class="btn btn-outline-secondary">
-      Back to Deliverables
-    </a>
   </div>
 
 </div>

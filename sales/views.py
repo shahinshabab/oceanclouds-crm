@@ -25,7 +25,7 @@ from django.views.generic import (
     DeleteView
 )
 
-from common.mixins import AdminManagerMixin
+from common.mixins import AdminManagerMixin, SalesReadOnlyAccessMixin
 from crm.models import Client, Contact, Lead
 from messaging.models import EmailTemplate
 from services.models import Service, Package
@@ -273,7 +273,7 @@ class DealListView(AdminManagerMixin, ListView):
         return context
 
 
-class DealDetailView(AdminManagerMixin, DetailView):
+class DealDetailView(SalesReadOnlyAccessMixin, DetailView):
     model = Deal
     template_name = "sales/deal_detail.html"
     context_object_name = "deal"
@@ -493,7 +493,7 @@ class ProposalListView(AdminManagerMixin, ListView):
         return context
 
 
-class ProposalDetailView(AdminManagerMixin, DetailView):
+class ProposalDetailView(SalesReadOnlyAccessMixin, DetailView):
     model = Proposal
     template_name = "sales/proposal_detail.html"
     context_object_name = "proposal"
@@ -986,7 +986,7 @@ class ContractListView(AdminManagerMixin, ListView):
         return context
 
 
-class ContractDetailView(AdminManagerMixin, DetailView):
+class ContractDetailView(SalesReadOnlyAccessMixin, DetailView):
     model = Contract
     template_name = "sales/contract_detail.html"
     context_object_name = "contract"
@@ -1247,7 +1247,7 @@ class InvoiceListView(AdminManagerMixin, ListView):
         return context
 
 
-class InvoiceDetailView(AdminManagerMixin, DetailView):
+class InvoiceDetailView(SalesReadOnlyAccessMixin, DetailView):
     model = Invoice
     template_name = "sales/invoice_detail.html"
     context_object_name = "invoice"
@@ -1429,7 +1429,7 @@ class PaymentListView(AdminManagerMixin, ListView):
         return qs
 
 
-class PaymentDetailView(AdminManagerMixin, DetailView):
+class PaymentDetailView(SalesReadOnlyAccessMixin, DetailView):
     model = Payment
     template_name = "sales/payment_detail.html"
     context_object_name = "payment"

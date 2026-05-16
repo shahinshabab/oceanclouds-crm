@@ -11,6 +11,7 @@
   <div class="d-flex justify-content-between align-items-start mb-3">
     <div>
       <h1 class="h3 mb-1">Project Overview – {{ project.name }}</h1>
+
       <div class="text-muted">
         Client:
         {% if client %}
@@ -22,6 +23,7 @@
         {% if deal %}
           · Deal: {{ deal }}
         {% endif %}
+
         {% if project.project_directory %}
           · Directory: {{ project.project_directory }}
         {% endif %}
@@ -34,7 +36,7 @@
         Operational View
       </a>
 
-      {% if is_admin or is_project_manager %}
+      {% if is_admin %}
         <a href="{% url 'projects:project_update' project.pk %}"
            class="btn btn-primary btn-sm">
           Edit Project
@@ -45,6 +47,7 @@
 
   <!-- Top summary row -->
   <div class="row g-3 mb-4">
+
     <div class="col-lg-3 col-md-6">
       <div class="card h-100 border-0 shadow-sm">
         <div class="card-body">
@@ -77,6 +80,7 @@
               {% endif %}
             </span>
           </div>
+
           <div class="small mt-2">
             <span class="text-muted">Directory:</span>
             <span class="fw-semibold">
@@ -95,7 +99,7 @@
       <div class="card h-100 border-0 shadow-sm">
         <div class="card-body">
           <div class="small text-uppercase text-muted mb-1">Schedule</div>
-        
+
           <div class="small mb-1">
             <span class="text-muted">Start:</span>
             <span class="fw-semibold">{{ project.start_date|default:"—" }}</span>
@@ -106,6 +110,7 @@
             <span class="fw-semibold {% if project.is_overdue %}text-danger{% endif %}">
               {{ project.due_date|default:"—" }}
             </span>
+
             {% if project.is_overdue %}
               <span class="badge bg-danger ms-1">Overdue</span>
             {% endif %}
@@ -178,12 +183,20 @@
         </div>
       </div>
     </div>
+
   </div>
 
   <!-- Client Details -->
   <div class="card border-0 shadow-sm mb-3">
-    <div class="card-header bg-body border-bottom">
+    <div class="card-header bg-body border-bottom d-flex justify-content-between align-items-center">
       <strong>Client Details</strong>
+
+      {% if client %}
+        <a href="{% url 'crm:client_detail' client.pk %}?next={{ request.get_full_path|urlencode }}"
+           class="btn btn-sm btn-outline-secondary">
+          View Client
+        </a>
+      {% endif %}
     </div>
 
     <div class="card-body">
@@ -212,50 +225,51 @@
     </div>
   </div>
 
-  <!-- Deal & Contracts -->
+  <!-- Contracts -->
   <div class="card border-0 shadow-sm mb-3">
     <div class="card-header bg-body border-bottom">
-      <strong>Deal & Contract</strong>
+      <strong>Contracts</strong>
     </div>
 
     <div class="card-body">
-      {% if deal %}
-        <div class="mb-3">
-          <div class="small text-uppercase text-muted mb-1">Deal</div>
-          <div class="fw-semibold">{{ deal }}</div>
-        </div>
+      {% if contracts %}
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Number</th>
+                <th>Status</th>
+                <th class="text-end">Total</th>
+                <th class="text-end">Action</th>
+              </tr>
+            </thead>
 
-        {% if contracts %}
-          <div class="table-responsive">
-            <table class="table table-sm align-middle mb-0">
-              <thead class="table-light">
+            <tbody>
+              {% for c in contracts %}
                 <tr>
-                  <th>Number</th>
-                  <th>Status</th>
-                  <th class="text-end">Total</th>
+                  <td>{{ c.number|default:c.pk }}</td>
+                  <td>{{ c.get_status_display|default:c.status }}</td>
+                  <td class="text-end">
+                    {% if c.total_amount %}
+                      ₹ {{ c.total_amount }}
+                    {% else %}
+                      —
+                    {% endif %}
+                  </td>
+                  <td class="text-end">
+                    <a href="{% url 'sales:contract_detail' c.pk %}?next={{ request.get_full_path|urlencode }}"
+                       class="btn btn-sm btn-outline-secondary">
+                      View Contract
+                    </a>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {% for c in contracts %}
-                  <tr>
-                    <td>{{ c.number|default:c.pk }}</td>
-                    <td>{{ c.get_status_display|default:c.status }}</td>
-                    <td class="text-end">
-                      {% if c.total_amount %}₹ {{ c.total_amount }}{% else %}—{% endif %}
-                    </td>
-                  </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-        {% else %}
-          <div class="text-muted small">
-            No contracts found for this deal.
-          </div>
-        {% endif %}
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
       {% else %}
         <div class="text-muted">
-          No deal linked to this project.
+          No contracts found for this project.
         </div>
       {% endif %}
     </div>
@@ -279,6 +293,7 @@
                 <th>Status</th>
                 <th class="text-end">Total</th>
                 <th class="text-end">Paid</th>
+                <th class="text-end">Action</th>
               </tr>
             </thead>
 
@@ -291,6 +306,12 @@
                   <td>{{ inv.get_status_display|default:inv.status }}</td>
                   <td class="text-end">₹ {{ inv.total|default:"0.00" }}</td>
                   <td class="text-end">₹ {{ inv.amount_paid|default:"0.00" }}</td>
+                  <td class="text-end">
+                    <a href="{% url 'sales:invoice_detail' inv.pk %}?next={{ request.get_full_path|urlencode }}"
+                       class="btn btn-sm btn-outline-secondary">
+                      View Invoice
+                    </a>
+                  </td>
                 </tr>
               {% endfor %}
             </tbody>
@@ -320,6 +341,7 @@
                 <th>Invoice</th>
                 <th>Method</th>
                 <th class="text-end">Amount</th>
+                <th class="text-end">Action</th>
               </tr>
             </thead>
 
@@ -330,6 +352,12 @@
                   <td>{{ p.invoice.number|default:p.invoice }}</td>
                   <td>{{ p.method|default:"—" }}</td>
                   <td class="text-end">₹ {{ p.amount|default:"0.00" }}</td>
+                  <td class="text-end">
+                    <a href="{% url 'sales:payment_detail' p.pk %}?next={{ request.get_full_path|urlencode }}"
+                       class="btn btn-sm btn-outline-secondary">
+                      View Payment
+                    </a>
+                  </td>
                 </tr>
               {% endfor %}
             </tbody>
@@ -345,6 +373,7 @@
 
   <!-- Tasks & Deliverables -->
   <div class="row g-3">
+
     <div class="col-lg-6">
       <div class="card h-100 border-0 shadow-sm">
         <div class="card-header bg-body border-bottom d-flex justify-content-between align-items-center">
@@ -377,12 +406,14 @@
                   {% for t in tasks %}
                     <tr>
                       <td>
-                        <a href="{% url 'projects:task_detail' t.pk %}"
+                        <a href="{% url 'projects:task_detail' t.pk %}?next={{ request.get_full_path|urlencode }}"
                            class="text-decoration-none">
                           {{ t.name }}
                         </a>
                       </td>
+
                       <td>{{ t.get_category_display }}</td>
+
                       <td>
                         {% if t.assigned_to %}
                           {{ t.assigned_to.get_full_name|default:t.assigned_to.username }}
@@ -390,6 +421,7 @@
                           Unassigned
                         {% endif %}
                       </td>
+
                       <td>{{ t.get_status_display }}</td>
                       <td>{{ t.due_date|default:"—" }}</td>
                       <td class="text-end">{{ t.total_work_hours }}h</td>
@@ -439,12 +471,14 @@
                   {% for d in deliverables %}
                     <tr>
                       <td>
-                        <a href="{% url 'projects:deliverable_detail' d.pk %}"
+                        <a href="{% url 'projects:deliverable_detail' d.pk %}?next={{ request.get_full_path|urlencode }}"
                            class="text-decoration-none">
                           {{ d.name }}
                         </a>
                       </td>
+
                       <td>{{ d.get_category_display }}</td>
+
                       <td>
                         {% if d.linked_task_count %}
                           {{ d.completed_task_count }}/{{ d.linked_task_count }}
@@ -452,6 +486,7 @@
                           —
                         {% endif %}
                       </td>
+
                       <td>{{ d.get_status_display }}</td>
                       <td>{{ d.due_date|default:"—" }}</td>
                       <td class="text-end">{{ d.total_work_hours }}h</td>
@@ -468,6 +503,7 @@
         </div>
       </div>
     </div>
+
   </div>
 
   <div class="text-center mt-4">

@@ -25,7 +25,7 @@
         Table View
       </a>
 
-      {% if is_admin or is_project_manager %}
+      {% if is_admin %}
         <a href="{% url 'projects:project_create' %}" class="btn btn-primary btn-sm">
           + New Project
         </a>
