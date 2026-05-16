@@ -6,7 +6,7 @@ from django.db.models import Q
 from django.urls import reverse_lazy
 from django.views.generic import ListView, CreateView, UpdateView
 
-from common.models import SystemSetting
+from .models import SystemSetting
 
 from .forms import (
     UserCreateForm,
