@@ -220,6 +220,54 @@ def _get_price_maps():
 
     return services_price_map, packages_price_map
 
+class DetailMessageScopeMixin:
+    """
+    Adds one message scope to every detail page.
+
+    Example:
+    detail_message_scope = "scope:contract"
+
+    Then the template can show only messages that match:
+    - scope:contract
+    - scope:email
+    - scope:global
+    """
+
+    detail_message_scope = ""
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["detail_message_scope"] = self.detail_message_scope
+        return context
+
+
+def _scope_tags(*scopes):
+    """
+    Usage:
+        _scope_tags("contract", "email")
+        returns: "scope:contract scope:email"
+
+    Also accepts already-prefixed values:
+        _scope_tags("scope:contract", "scope:email")
+    """
+
+    tags = []
+
+    for scope in scopes:
+        if not scope:
+            continue
+
+        scope = str(scope).strip()
+
+        if not scope:
+            continue
+
+        if scope.startswith("scope:"):
+            tags.append(scope)
+        else:
+            tags.append(f"scope:{scope}")
+
+    return " ".join(tags)
 
 # ============================================================
 # Deals
@@ -273,10 +321,11 @@ class DealListView(AdminManagerMixin, ListView):
         return context
 
 
-class DealDetailView(SalesReadOnlyAccessMixin, DetailView):
+class DealDetailView(SalesReadOnlyAccessMixin, DetailMessageScopeMixin, DetailView):
     model = Deal
     template_name = "sales/deal_detail.html"
     context_object_name = "deal"
+    detail_message_scope = "scope:deal"
 
     def get_queryset(self):
         return (
@@ -347,7 +396,11 @@ class DealCreateView(AdminManagerMixin, OwnerAssignMixin, CreateView):
             lead.status = _lead_status("STATUS_CONVERTED_TO_DEAL", "converted_to_deal")
             lead.save(update_fields=["status", "updated_at"])
 
-        messages.success(self.request, "Deal created successfully.")
+        messages.success(
+            self.request,
+            "Deal created successfully.",
+            extra_tags=_scope_tags("deal"),
+        )
 
         return response
 
@@ -363,6 +416,17 @@ class DealUpdateView(AdminManagerMixin, OwnerAssignMixin, UpdateView):
     def get_queryset(self):
         return super().get_queryset().select_related("client", "lead", "owner")
 
+    def form_valid(self, form):
+        response = super().form_valid(form)
+
+        messages.success(
+            self.request,
+            "Deal updated successfully.",
+            extra_tags=_scope_tags("deal"),
+        )
+
+        return response
+
     def get_success_url(self):
         return reverse_lazy("sales:deal_detail", kwargs={"pk": self.object.pk})
     
@@ -373,6 +437,14 @@ class DealDeleteView(AdminManagerMixin, DeleteView):
 
     def get_queryset(self):
         return super().get_queryset().select_related("client", "lead", "owner")
+
+    def form_valid(self, form):
+        messages.success(
+            self.request,
+            "Deal deleted successfully.",
+            extra_tags=_scope_tags("deal"),
+        )
+        return super().form_valid(form)
 
 
 class LeadConvertToDealView(AdminManagerMixin, OwnerAssignMixin, CreateView):
@@ -398,7 +470,11 @@ class LeadConvertToDealView(AdminManagerMixin, OwnerAssignMixin, CreateView):
 
         existing_deal = self.lead.deals.order_by("-created_at").first()
         if existing_deal:
-            messages.info(request, "This lead already has a deal.")
+            messages.info(
+                request,
+                "This lead already has a deal.",
+                extra_tags=_scope_tags("deal"),
+            )
             return redirect("sales:deal_detail", pk=existing_deal.pk)
 
         return super().dispatch(request, *args, **kwargs)
@@ -442,7 +518,11 @@ class LeadConvertToDealView(AdminManagerMixin, OwnerAssignMixin, CreateView):
         self.lead.status = _lead_status("STATUS_CONVERTED_TO_DEAL", "converted_to_deal")
         self.lead.save(update_fields=["status", "updated_at"])
 
-        messages.success(self.request, "Lead converted to deal successfully.")
+        messages.success(
+            self.request,
+            "Lead converted to deal successfully.",
+            extra_tags=_scope_tags("deal"),
+        )
 
         return response
 
@@ -493,10 +573,11 @@ class ProposalListView(AdminManagerMixin, ListView):
         return context
 
 
-class ProposalDetailView(SalesReadOnlyAccessMixin, DetailView):
+class ProposalDetailView(SalesReadOnlyAccessMixin, DetailMessageScopeMixin, DetailView):
     model = Proposal
     template_name = "sales/proposal_detail.html"
     context_object_name = "proposal"
+    detail_message_scope = "scope:proposal"
 
     def get_queryset(self):
         return (
@@ -508,9 +589,12 @@ class ProposalDetailView(SalesReadOnlyAccessMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+
         context["has_contract"] = self.object.contracts.exists()
         context["contract"] = self.object.contracts.order_by("-created_at").first()
+
         return context
+
 
 
 class ProposalCreateView(AdminManagerMixin, OwnerAssignMixin, CreateView):
@@ -586,7 +670,11 @@ class ProposalCreateView(AdminManagerMixin, OwnerAssignMixin, CreateView):
             lead = deal.lead
             _set_lead_status(lead, "STATUS_PROPOSAL_SENT", "proposal_sent")
 
-        messages.success(self.request, "Proposal created successfully.")
+        messages.success(
+            self.request,
+            "Proposal created successfully.",
+            extra_tags=_scope_tags("proposal"),
+        )
 
         return redirect(self.get_success_url())
 
@@ -640,7 +728,11 @@ class ProposalUpdateView(AdminManagerMixin, OwnerAssignMixin, UpdateView):
 
         self.object.recalculate_totals(save=True)
 
-        messages.success(self.request, "Proposal updated successfully.")
+        messages.success(
+            self.request,
+            "Proposal updated successfully.",
+            extra_tags=_scope_tags("proposal"),
+        )
 
         return redirect(self.get_success_url())
 
@@ -654,6 +746,14 @@ class ProposalDeleteView(AdminManagerMixin, DeleteView):
 
     def get_queryset(self):
         return super().get_queryset().select_related("deal", "deal__client", "owner")
+
+    def form_valid(self, form):
+        messages.success(
+            self.request,
+            "Proposal deleted successfully.",
+            extra_tags=_scope_tags("proposal"),
+        )
+        return super().form_valid(form)
 
 @method_decorator(require_POST, name="dispatch")
 class ProposalAcceptView(AdminManagerMixin, View):
@@ -691,6 +791,7 @@ class ProposalAcceptView(AdminManagerMixin, View):
         messages.success(
             request,
             "Proposal accepted. You can now create the client using the Create Client button.",
+            extra_tags=_scope_tags("proposal"),
         )
 
         return redirect("sales:proposal_detail", pk=proposal.pk)
@@ -725,6 +826,7 @@ class ProposalConvertToContractView(AdminManagerMixin, OwnerAssignMixin, CreateV
             messages.error(
                 request,
                 "Please accept the proposal before creating a contract.",
+                extra_tags=_scope_tags("proposal"),
             )
             return redirect("sales:proposal_detail", pk=self.proposal.pk)
 
@@ -733,13 +835,18 @@ class ProposalConvertToContractView(AdminManagerMixin, OwnerAssignMixin, CreateV
             messages.error(
                 request,
                 "Please create the client from the accepted proposal before creating a contract.",
+                extra_tags=_scope_tags("proposal"),
             )
             return redirect("sales:proposal_detail", pk=self.proposal.pk)
 
         # 3. Prevent duplicate contract
         existing_contract = self.proposal.contracts.order_by("-created_at").first()
         if existing_contract:
-            messages.info(request, "This proposal already has a contract.")
+            messages.info(
+                request,
+                "This proposal already has a contract.",
+                extra_tags=_scope_tags("contract"),
+            )
             return redirect("sales:contract_detail", pk=existing_contract.pk)
 
         return super().dispatch(request, *args, **kwargs)
@@ -792,6 +899,7 @@ class ProposalConvertToContractView(AdminManagerMixin, OwnerAssignMixin, CreateV
         messages.success(
             self.request,
             "Contract created from proposal successfully.",
+            extra_tags=_scope_tags("contract"),
         )
 
         return response
@@ -833,7 +941,7 @@ class ProposalCreateClientView(AdminManagerMixin, View):
             messages.error(
                 request,
                 "Please accept the proposal before creating a client.",
-                extra_tags="scope:proposal scope:client",
+                extra_tags=_scope_tags("proposal", "client"),
             )
             return redirect("sales:proposal_detail", pk=proposal.pk)
 
@@ -854,7 +962,7 @@ class ProposalCreateClientView(AdminManagerMixin, View):
             messages.info(
                 request,
                 "Client already exists. Proposal marked as accepted.",
-                extra_tags="scope:proposal scope:client",
+                extra_tags=_scope_tags("proposal", "client"),
             )
 
             return redirect("crm:client_detail", pk=client.pk)
@@ -986,10 +1094,11 @@ class ContractListView(AdminManagerMixin, ListView):
         return context
 
 
-class ContractDetailView(SalesReadOnlyAccessMixin, DetailView):
+class ContractDetailView(SalesReadOnlyAccessMixin, DetailMessageScopeMixin, DetailView):
     model = Contract
     template_name = "sales/contract_detail.html"
     context_object_name = "contract"
+    detail_message_scope = "scope:contract"
 
     def get_queryset(self):
         return (
@@ -1045,7 +1154,11 @@ class ContractCreateView(AdminManagerMixin, OwnerAssignMixin, CreateView):
         if contract.proposal_id and not contract.items.exists():
             contract.populate_from_proposal(contract.proposal, clear_existing=True)
 
-        messages.success(self.request, "Contract created successfully.")
+        messages.success(
+            self.request,
+            "Contract created successfully.",
+            extra_tags=_scope_tags("contract"),
+        )
 
         return response
 
@@ -1070,7 +1183,11 @@ class ContractUpdateView(AdminManagerMixin, OwnerAssignMixin, UpdateView):
         if contract.proposal_id and not contract.items.exists():
             contract.populate_from_proposal(contract.proposal, clear_existing=True)
 
-        messages.success(self.request, "Contract updated successfully.")
+        messages.success(
+            self.request,
+            "Contract updated successfully.",
+            extra_tags=_scope_tags("contract"),
+        )
 
         return response
 
@@ -1088,6 +1205,14 @@ class ContractDeleteView(AdminManagerMixin, DeleteView):
             .get_queryset()
             .select_related("deal", "deal__client", "proposal", "owner")
         )
+
+    def form_valid(self, form):
+        messages.success(
+            self.request,
+            "Contract deleted successfully.",
+            extra_tags=_scope_tags("contract"),
+        )
+        return super().form_valid(form)
     
 
 class ContractGenerateInvoiceView(AdminManagerMixin, OwnerAssignMixin, CreateView):
@@ -1108,7 +1233,11 @@ class ContractGenerateInvoiceView(AdminManagerMixin, OwnerAssignMixin, CreateVie
 
         existing_invoice = self.contract.invoices.order_by("-issue_date", "-created_at").first()
         if existing_invoice:
-            messages.info(request, "This contract already has an invoice.")
+            messages.info(
+                request,
+                "This contract already has an invoice.",
+                extra_tags=_scope_tags("invoice"),
+            )
             return redirect("sales:invoice_detail", pk=existing_invoice.pk)
 
         return super().dispatch(request, *args, **kwargs)
@@ -1148,7 +1277,11 @@ class ContractGenerateInvoiceView(AdminManagerMixin, OwnerAssignMixin, CreateVie
 
         self.object.populate_from_contract(self.contract, clear_existing=True)
 
-        messages.success(self.request, "Invoice generated from contract successfully.")
+        messages.success(
+            self.request,
+            "Invoice generated from contract successfully.",
+            extra_tags=_scope_tags("invoice"),
+        )
 
         return response
 
@@ -1247,10 +1380,11 @@ class InvoiceListView(AdminManagerMixin, ListView):
         return context
 
 
-class InvoiceDetailView(SalesReadOnlyAccessMixin, DetailView):
+class InvoiceDetailView(SalesReadOnlyAccessMixin, DetailMessageScopeMixin, DetailView):
     model = Invoice
     template_name = "sales/invoice_detail.html"
     context_object_name = "invoice"
+    detail_message_scope = "scope:invoice"
 
     def get_queryset(self):
         return (
@@ -1269,9 +1403,11 @@ class InvoiceDetailView(SalesReadOnlyAccessMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+
         context["pdf_download_url"] = reverse("sales:invoice_download", args=[self.object.pk])
         context["payments"] = self.object.payments.all().order_by("-date", "-created_at")
         context["client"] = self.object.deal.client if self.object.deal_id else None
+
         return context
 
 
@@ -1325,7 +1461,11 @@ class InvoiceCreateView(AdminManagerMixin, OwnerAssignMixin, CreateView):
         if contract:
             self.object.populate_from_contract(contract, clear_existing=True)
 
-        messages.success(self.request, "Invoice created successfully.")
+        messages.success(
+            self.request,
+            "Invoice created successfully.",
+            extra_tags=_scope_tags("invoice"),
+        )
 
         return response
 
@@ -1340,6 +1480,17 @@ class InvoiceUpdateView(AdminManagerMixin, OwnerAssignMixin, UpdateView):
 
     def get_queryset(self):
         return super().get_queryset().select_related("deal", "contract", "owner")
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+
+        messages.success(
+            self.request,
+            "Invoice updated successfully.",
+            extra_tags=_scope_tags("invoice"),
+        )
+
+        return response
 
     def get_success_url(self):
         return reverse_lazy("sales:invoice_detail", kwargs={"pk": self.object.pk})
@@ -1356,6 +1507,14 @@ class InvoiceDeleteView(AdminManagerMixin, DeleteView):
             .select_related("deal", "deal__client", "contract", "owner")
             .prefetch_related("payments", "items")
         )
+
+    def form_valid(self, form):
+        messages.success(
+            self.request,
+            "Invoice deleted successfully.",
+            extra_tags=_scope_tags("invoice"),
+        )
+        return super().form_valid(form)
     
 class InvoicePDFDownloadView(AdminManagerMixin, DetailView):
     model = Invoice
@@ -1429,10 +1588,11 @@ class PaymentListView(AdminManagerMixin, ListView):
         return qs
 
 
-class PaymentDetailView(SalesReadOnlyAccessMixin, DetailView):
+class PaymentDetailView(SalesReadOnlyAccessMixin, DetailMessageScopeMixin, DetailView):
     model = Payment
     template_name = "sales/payment_detail.html"
     context_object_name = "payment"
+    detail_message_scope = "scope:payment"
 
     def get_queryset(self):
         return (
@@ -1481,7 +1641,11 @@ class PaymentCreateView(AdminManagerMixin, OwnerAssignMixin, CreateView):
 
         response = super().form_valid(form)
 
-        messages.success(self.request, "Payment added successfully.")
+        messages.success(
+            self.request,
+            "Payment added successfully.",
+            extra_tags=_scope_tags("payment"),
+        )
 
         return response
 
@@ -1499,6 +1663,17 @@ class PaymentUpdateView(AdminManagerMixin, OwnerAssignMixin, UpdateView):
 
     def get_queryset(self):
         return super().get_queryset().select_related("invoice", "received_by", "owner")
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+
+        messages.success(
+            self.request,
+            "Payment updated successfully.",
+            extra_tags=_scope_tags("payment"),
+        )
+
+        return response
 
     def get_success_url(self):
         if self.object.invoice_id:
@@ -1522,6 +1697,14 @@ class PaymentDeleteView(AdminManagerMixin, DeleteView):
                 "owner",
             )
         )
+
+    def form_valid(self, form):
+        messages.success(
+            self.request,
+            "Payment deleted successfully.",
+            extra_tags=_scope_tags("payment"),
+        )
+        return super().form_valid(form)
 
     def get_success_url(self):
         if self.object.invoice_id:
@@ -1613,6 +1796,7 @@ def _flash_send_result(request, label, to_email, result, success_tags=""):
     """
     Shows success, skipped, or failed message after button click.
     """
+
     if getattr(result, "ok", False):
         messages.success(
             request,
@@ -1642,18 +1826,34 @@ def _flash_send_result(request, label, to_email, result, success_tags=""):
             extra_tags=success_tags,
         )
 
-
-def _check_before_send(request, *, template_type, label, to_email, redirect_url_name, redirect_pk):
+def _check_before_send(
+    request,
+    *,
+    template_type,
+    label,
+    to_email,
+    redirect_url_name,
+    redirect_pk,
+    object_scope,
+):
     """
     Common validation before sending email.
     Returns redirect response if blocked, otherwise None.
+
+    object_scope examples:
+        "proposal"
+        "contract"
+        "invoice"
+        "payment"
     """
+
+    message_tags = _scope_tags(object_scope, "email")
 
     if not _email_enabled():
         messages.warning(
             request,
             f"{label} email was not sent because EMAIL_SENDING_ENABLED is False.",
-            extra_tags="scope:email",
+            extra_tags=message_tags,
         )
         return redirect(redirect_url_name, pk=redirect_pk)
 
@@ -1661,7 +1861,7 @@ def _check_before_send(request, *, template_type, label, to_email, redirect_url_
         messages.error(
             request,
             "Client email not found. Please add client email or primary contact email.",
-            extra_tags="scope:email",
+            extra_tags=message_tags,
         )
         return redirect(redirect_url_name, pk=redirect_pk)
 
@@ -1670,7 +1870,7 @@ def _check_before_send(request, *, template_type, label, to_email, redirect_url_
         messages.warning(
             request,
             f"No active {label.lower()} email template found. Please create one in Messaging > Templates.",
-            extra_tags="scope:email",
+            extra_tags=message_tags,
         )
         return redirect(redirect_url_name, pk=redirect_pk)
 
@@ -1697,6 +1897,7 @@ class ProposalSendEmailView(AdminManagerMixin, View):
             to_email=to_email,
             redirect_url_name="sales:proposal_detail",
             redirect_pk=proposal.pk,
+            object_scope="proposal",
         )
         if blocked:
             return blocked
@@ -1720,7 +1921,7 @@ class ProposalSendEmailView(AdminManagerMixin, View):
             messages.error(
                 request,
                 f"Proposal email failed: {exc}",
-                extra_tags="scope:proposal scope:email",
+                extra_tags=_scope_tags("proposal", "email"),
             )
             return redirect("sales:proposal_detail", pk=proposal.pk)
 
@@ -1733,7 +1934,7 @@ class ProposalSendEmailView(AdminManagerMixin, View):
             label="Proposal",
             to_email=to_email,
             result=result,
-            success_tags="scope:proposal scope:email",
+            success_tags=_scope_tags("proposal", "email"),
         )
 
         return redirect("sales:proposal_detail", pk=proposal.pk)
@@ -1763,6 +1964,7 @@ class ContractSendEmailView(AdminManagerMixin, View):
             to_email=to_email,
             redirect_url_name="sales:contract_detail",
             redirect_pk=contract.pk,
+            object_scope="contract",
         )
         if blocked:
             return blocked
@@ -1797,7 +1999,7 @@ class ContractSendEmailView(AdminManagerMixin, View):
             messages.error(
                 request,
                 f"Contract email failed: {exc}",
-                extra_tags="scope:contract scope:email",
+                extra_tags=_scope_tags("contract", "email"),
             )
             return redirect("sales:contract_detail", pk=contract.pk)
 
@@ -1811,7 +2013,7 @@ class ContractSendEmailView(AdminManagerMixin, View):
             label="Contract",
             to_email=to_email,
             result=result,
-            success_tags="scope:contract scope:email",
+            success_tags=_scope_tags("contract", "email"),
         )
 
         return redirect("sales:contract_detail", pk=contract.pk)
@@ -1837,6 +2039,7 @@ class InvoiceSendEmailView(AdminManagerMixin, View):
             to_email=to_email,
             redirect_url_name="sales:invoice_detail",
             redirect_pk=invoice.pk,
+            object_scope="invoice",
         )
         if blocked:
             return blocked
@@ -1861,7 +2064,7 @@ class InvoiceSendEmailView(AdminManagerMixin, View):
             messages.error(
                 request,
                 f"Invoice email failed: {exc}",
-                extra_tags="scope:invoice scope:email",
+                extra_tags=_scope_tags("invoice", "email"),
             )
             return redirect("sales:invoice_detail", pk=invoice.pk)
 
@@ -1875,7 +2078,7 @@ class InvoiceSendEmailView(AdminManagerMixin, View):
             label="Invoice",
             to_email=to_email,
             result=result,
-            success_tags="scope:invoice scope:email",
+            success_tags=_scope_tags("invoice", "email"),
         )
 
         return redirect("sales:invoice_detail", pk=invoice.pk)
@@ -1907,6 +2110,7 @@ class PaymentSendEmailView(AdminManagerMixin, View):
             to_email=to_email,
             redirect_url_name="sales:payment_detail",
             redirect_pk=payment.pk,
+            object_scope="payment",
         )
         if blocked:
             return blocked
@@ -1931,7 +2135,7 @@ class PaymentSendEmailView(AdminManagerMixin, View):
             messages.error(
                 request,
                 f"Payment email failed: {exc}",
-                extra_tags="scope:payment scope:email",
+                extra_tags=_scope_tags("payment", "email"),
             )
             return redirect("sales:payment_detail", pk=payment.pk)
 
@@ -1940,7 +2144,7 @@ class PaymentSendEmailView(AdminManagerMixin, View):
             label="Payment",
             to_email=to_email,
             result=result,
-            success_tags="scope:payment scope:email",
+            success_tags=_scope_tags("payment", "email"),
         )
 
         return redirect("sales:payment_detail", pk=payment.pk)
@@ -2001,22 +2205,38 @@ class ContractPublicSignView(View):
         contract = self.get_contract(token)
 
         if contract.status == ContractStatus.CANCELLED:
-            messages.error(request, "This contract is no longer available for signing.")
+            messages.error(
+                request,
+                "This contract is no longer available for signing.",
+                extra_tags=_scope_tags("contract", "public"),
+            )
             return redirect("sales:contract_public_sign", token=token)
 
         if contract.status == ContractStatus.SIGNED:
-            messages.info(request, "This contract has already been signed.")
+            messages.info(
+                request,
+                "This contract has already been signed.",
+                extra_tags=_scope_tags("contract", "public"),
+            )
             return redirect("sales:contract_public_sign", token=token)
 
         signed_by_name = (request.POST.get("signed_by_name") or "").strip()
         accepted_terms = request.POST.get("accepted_terms") == "on"
 
         if not signed_by_name:
-            messages.error(request, "Please enter your full name before signing.")
+            messages.error(
+                request,
+                "Please enter your full name before signing.",
+                extra_tags=_scope_tags("contract", "public"),
+            )
             return redirect("sales:contract_public_sign", token=token)
 
         if not accepted_terms:
-            messages.error(request, "Please confirm that you have read and accepted the contract terms.")
+            messages.error(
+                request,
+                "Please confirm that you have read and accepted the contract terms.",
+                extra_tags=_scope_tags("contract", "public"),
+            )
             return redirect("sales:contract_public_sign", token=token)
 
         contract.status = ContractStatus.SIGNED
@@ -2036,6 +2256,10 @@ class ContractPublicSignView(View):
             "updated_at",
         ])
 
-        messages.success(request, "Contract signed successfully. Thank you.")
+        messages.success(
+            request,
+            "Contract signed successfully. Thank you.",
+            extra_tags=_scope_tags("contract", "public"),
+        )
 
         return redirect("sales:contract_public_sign", token=token)

@@ -14,7 +14,7 @@ urlpatterns = [
     path("projects/<int:pk>/edit/", views.ProjectUpdateView.as_view(), name="project_update"),
     path("projects/kanban/", views.ProjectKanbanView.as_view(), name="project_kanban"),
     path("projects/<int:pk>/set-status/", views.ProjectStatusUpdateView.as_view(), name="project_set_status"),
-
+    path("projects/<int:pk>/close/", views.ProjectCloseView.as_view(), name="project_close"),
     # Tasks
     path("tasks/", views.TaskListView.as_view(), name="task_list"),
     path("tasks/create/", views.TaskCreateView.as_view(), name="task_create"),

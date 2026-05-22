@@ -27,6 +27,8 @@ class Command(BaseCommand):
         self.generate_invoice_due_todos()
 
         self.generate_admin_project_due_todos()
+        self.generate_project_review_collection_todos()
+        self.generate_project_close_todos()
 
         self.generate_task_due_todos()
         self.generate_deliverable_due_todos()
@@ -349,7 +351,99 @@ class Command(BaseCommand):
                 )
 
                 self.add_count(created)
+    # ------------------------------------------------------------
+    # Project manager/Admin: Collect client review after project completion
+    # ------------------------------------------------------------
 
+    def generate_project_review_collection_todos(self):
+        from projects.models import Project, ProjectStatus
+
+        projects = (
+            Project.objects
+            .select_related("owner", "manager", "client", "deal")
+            .filter(
+                status=ProjectStatus.COMPLETED,
+                client__isnull=False,
+            )
+            .exclude(client__reviews__isnull=False)
+            .distinct()
+        )
+
+        admins = list(self.get_admin_users())
+
+        for project in projects:
+            assigned_user = project.manager or project.owner
+
+            users_to_notify = []
+            if assigned_user:
+                users_to_notify.append(assigned_user)
+            else:
+                users_to_notify.extend(admins)
+
+            for user in users_to_notify:
+                _, created = create_todo_once(
+                    title=f"Collect client review: {project.name}",
+                    description=(
+                        "This project is completed, but the client review has not been collected yet. "
+                        "Please collect and save the client review before closing the project."
+                    ),
+                    owner=user,
+                    assigned_to=user,
+                    priority=TodoPriority.HIGH,
+                    due_date=self.today,
+                    project=project,
+                    client=project.client,
+                    deal=project.deal,
+                )
+
+                self.add_count(created)
+
+    # ------------------------------------------------------------
+    # Project manager/Admin: Close project after review is collected
+    # ------------------------------------------------------------
+
+    def generate_project_close_todos(self):
+        from projects.models import Project, ProjectStatus
+
+        projects = (
+            Project.objects
+            .select_related("owner", "manager", "client", "deal")
+            .filter(
+                status=ProjectStatus.COMPLETED,
+                client__isnull=False,
+                client__reviews__isnull=False,
+            )
+            .distinct()
+        )
+
+        admins = list(self.get_admin_users())
+
+        for project in projects:
+            assigned_user = project.manager or project.owner
+
+            users_to_notify = []
+            if assigned_user:
+                users_to_notify.append(assigned_user)
+            else:
+                users_to_notify.extend(admins)
+
+            for user in users_to_notify:
+                _, created = create_todo_once(
+                    title=f"Close completed project: {project.name}",
+                    description=(
+                        "The project is completed and client review is collected. "
+                        "Please verify final payment/status and close the project."
+                    ),
+                    owner=user,
+                    assigned_to=user,
+                    priority=TodoPriority.MEDIUM,
+                    due_date=self.today,
+                    project=project,
+                    client=project.client,
+                    deal=project.deal,
+                )
+
+                self.add_count(created)
     # ------------------------------------------------------------
     # Employee: Task due date
     # ------------------------------------------------------------

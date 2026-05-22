@@ -10,8 +10,17 @@ from django.views.generic import ListView, CreateView, UpdateView, DetailView, D
 from .forms import ClientForm, ContactForm, InquiryForm, LeadForm, ReviewForm
 from .models import Client, Contact, Inquiry, Lead, Review
 
-from common.mixins import AdminCRMManagerMixin, InquiryManagerMixin, StaffAllMixin ,SalesReadOnlyAccessMixin
+from common.mixins import (
+    AdminCRMManagerMixin,
+    InquiryManagerMixin,
+    StaffAllMixin,
+    SalesReadOnlyAccessMixin,
+)
 
+
+# ============================================================
+# Shared helpers
+# ============================================================
 
 class OwnerAssignMixin:
     def form_valid(self, form):
@@ -20,11 +29,64 @@ class OwnerAssignMixin:
         return super().form_valid(form)
 
 
+class DetailMessageScopeMixin:
+    """
+    Adds one message scope to every detail page.
+
+    Example:
+        detail_message_scope = "scope:client"
+
+    Then the reusable template can show only messages that match:
+    - scope:client
+    - scope:global
+    """
+
+    detail_message_scope = ""
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["detail_message_scope"] = self.detail_message_scope
+        return context
+
+
+def _scope_tags(*scopes):
+    """
+    Usage:
+        _scope_tags("client")
+        returns: "scope:client"
+
+        _scope_tags("proposal", "client")
+        returns: "scope:proposal scope:client"
+
+    Also accepts already-prefixed values:
+        _scope_tags("scope:client")
+    """
+
+    tags = []
+
+    for scope in scopes:
+        if not scope:
+            continue
+
+        scope = str(scope).strip()
+
+        if not scope:
+            continue
+
+        if scope.startswith("scope:"):
+            tags.append(scope)
+        else:
+            tags.append(f"scope:{scope}")
+
+    return " ".join(tags)
+
+
 class CommonDeleteMixin:
     """Use one shared delete confirmation template for all CRM objects."""
 
     template_name = "common/confirm_delete.html"
     object_type = "object"
+    object_scope = "object"
     cancel_url_name = None
     success_url_name = None
     warning_message = "This action cannot be undone."
@@ -39,6 +101,9 @@ class CommonDeleteMixin:
 
     def get_related_counts(self):
         return []
+
+    def get_message_tags(self):
+        return _scope_tags(self.object_scope or self.object_type)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -56,7 +121,11 @@ class CommonDeleteMixin:
     def form_valid(self, form):
         object_label = self.get_object_label()
         response = super().form_valid(form)
-        messages.success(self.request, f"{self.object_type.title()} '{object_label}' deleted successfully.")
+        messages.success(
+            self.request,
+            f"{self.object_type.title()} '{object_label}' deleted successfully.",
+            extra_tags=self.get_message_tags(),
+        )
         return response
 
 
@@ -101,10 +170,11 @@ class ReviewListView(AdminCRMManagerMixin, ListView):
         return qs
 
 
-class ReviewDetailView(AdminCRMManagerMixin, DetailView):
+class ReviewDetailView(AdminCRMManagerMixin, DetailMessageScopeMixin, DetailView):
     model = Review
     template_name = "crm/review_detail.html"
     context_object_name = "review"
+    detail_message_scope = "scope:review"
 
     def get_queryset(self):
         return super().get_queryset().select_related("client", "owner")
@@ -121,6 +191,15 @@ class ReviewCreateView(AdminCRMManagerMixin, OwnerAssignMixin, CreateView):
             initial["client"] = self.request.GET.get("client")
         return initial
 
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        messages.success(
+            self.request,
+            "Review created successfully.",
+            extra_tags=_scope_tags("review", "client") if self.object.client_id else _scope_tags("review"),
+        )
+        return response
+
     def get_success_url(self):
         if self.object.client_id:
             return reverse_lazy("crm:client_detail", kwargs={"pk": self.object.client_id})
@@ -135,6 +214,15 @@ class ReviewUpdateView(AdminCRMManagerMixin, OwnerAssignMixin, UpdateView):
     def get_queryset(self):
         return super().get_queryset().select_related("client", "owner")
 
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        messages.success(
+            self.request,
+            "Review updated successfully.",
+            extra_tags=_scope_tags("review", "client") if self.object.client_id else _scope_tags("review"),
+        )
+        return response
+
     def get_success_url(self):
         if self.object.client_id:
             return reverse_lazy("crm:client_detail", kwargs={"pk": self.object.client_id})
@@ -145,10 +233,16 @@ class ReviewDeleteView(AdminCRMManagerMixin, CommonDeleteMixin, DeleteView):
     model = Review
     context_object_name = "review"
     object_type = "review"
+    object_scope = "review"
     cancel_url_name = "crm:review_detail"
 
     def get_queryset(self):
         return super().get_queryset().select_related("client", "owner")
+
+    def get_message_tags(self):
+        if self.object.client_id:
+            return _scope_tags("review", "client")
+        return _scope_tags("review")
 
     def get_success_url(self):
         if self.object.client_id:
@@ -190,10 +284,11 @@ class ContactListView(AdminCRMManagerMixin, ListView):
         return qs
 
 
-class ContactDetailView(AdminCRMManagerMixin, DetailView):
+class ContactDetailView(AdminCRMManagerMixin, DetailMessageScopeMixin, DetailView):
     model = Contact
     template_name = "crm/contact_detail.html"
     context_object_name = "contact"
+    detail_message_scope = "scope:contact"
 
     def get_queryset(self):
         return super().get_queryset().select_related("client", "owner")
@@ -210,6 +305,15 @@ class ContactCreateView(AdminCRMManagerMixin, OwnerAssignMixin, CreateView):
             initial["client"] = self.request.GET.get("client")
         return initial
 
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        messages.success(
+            self.request,
+            "Contact created successfully.",
+            extra_tags=_scope_tags("contact", "client") if self.object.client_id else _scope_tags("contact"),
+        )
+        return response
+
     def get_success_url(self):
         if self.object.client_id:
             return reverse_lazy("crm:client_detail", kwargs={"pk": self.object.client_id})
@@ -224,6 +328,15 @@ class ContactUpdateView(AdminCRMManagerMixin, OwnerAssignMixin, UpdateView):
     def get_queryset(self):
         return super().get_queryset().select_related("client", "owner")
 
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        messages.success(
+            self.request,
+            "Contact updated successfully.",
+            extra_tags=_scope_tags("contact", "client") if self.object.client_id else _scope_tags("contact"),
+        )
+        return response
+
     def get_success_url(self):
         if self.object.client_id:
             return reverse_lazy("crm:client_detail", kwargs={"pk": self.object.client_id})
@@ -234,6 +347,7 @@ class ContactDeleteView(AdminCRMManagerMixin, CommonDeleteMixin, DeleteView):
     model = Contact
     context_object_name = "contact"
     object_type = "contact"
+    object_scope = "contact"
     cancel_url_name = "crm:contact_detail"
 
     def get_queryset(self):
@@ -241,6 +355,11 @@ class ContactDeleteView(AdminCRMManagerMixin, CommonDeleteMixin, DeleteView):
 
     def get_object_label(self):
         return f"{self.object.first_name} {self.object.last_name}".strip()
+
+    def get_message_tags(self):
+        if self.object.client_id:
+            return _scope_tags("contact", "client")
+        return _scope_tags("contact")
 
     def get_success_url(self):
         if self.object.client_id:
@@ -286,10 +405,11 @@ class ClientListView(AdminCRMManagerMixin, ListView):
         return qs
 
 
-class ClientDetailView(SalesReadOnlyAccessMixin, DetailView):
+class ClientDetailView(SalesReadOnlyAccessMixin, DetailMessageScopeMixin, DetailView):
     model = Client
     template_name = "crm/client_detail.html"
     context_object_name = "client"
+    detail_message_scope = "scope:client"
 
     def get_queryset(self):
         return (
@@ -305,6 +425,15 @@ class ClientCreateView(AdminCRMManagerMixin, OwnerAssignMixin, CreateView):
     form_class = ClientForm
     template_name = "crm/client_form.html"
 
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        messages.success(
+            self.request,
+            "Client created successfully.",
+            extra_tags=_scope_tags("client"),
+        )
+        return response
+
     def get_success_url(self):
         return reverse_lazy("crm:client_detail", kwargs={"pk": self.object.pk})
 
@@ -317,6 +446,15 @@ class ClientUpdateView(AdminCRMManagerMixin, OwnerAssignMixin, UpdateView):
     def get_queryset(self):
         return super().get_queryset().select_related("owner")
 
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        messages.success(
+            self.request,
+            "Client updated successfully.",
+            extra_tags=_scope_tags("client"),
+        )
+        return response
+
     def get_success_url(self):
         return reverse_lazy("crm:client_detail", kwargs={"pk": self.object.pk})
 
@@ -325,6 +463,7 @@ class ClientDeleteView(AdminCRMManagerMixin, CommonDeleteMixin, DeleteView):
     model = Client
     context_object_name = "client"
     object_type = "client"
+    object_scope = "client"
     cancel_url_name = "crm:client_detail"
     success_url = reverse_lazy("crm:client_list")
     warning_message = (
@@ -333,7 +472,9 @@ class ClientDeleteView(AdminCRMManagerMixin, CommonDeleteMixin, DeleteView):
     )
 
     def get_queryset(self):
-        return super().get_queryset().select_related("owner").prefetch_related("contacts", "reviews", "inquiries", "leads", "deals")
+        return super().get_queryset().select_related("owner").prefetch_related(
+            "contacts", "reviews", "inquiries", "leads", "deals"
+        )
 
     def get_object_label(self):
         return self.object.display_name or self.object.name
@@ -382,13 +523,18 @@ class LeadListView(AdminCRMManagerMixin, ListView):
         return qs
 
 
-class LeadDetailView(AdminCRMManagerMixin, DetailView):
+class LeadDetailView(AdminCRMManagerMixin, DetailMessageScopeMixin, DetailView):
     model = Lead
     template_name = "crm/lead_detail.html"
     context_object_name = "lead"
+    detail_message_scope = "scope:lead"
 
     def get_queryset(self):
-        return super().get_queryset().select_related("client", "inquiry", "owner").prefetch_related("source_inquiries", "deals", "deals__proposals")
+        return super().get_queryset().select_related(
+            "client", "inquiry", "owner"
+        ).prefetch_related(
+            "source_inquiries", "deals", "deals__proposals"
+        )
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -418,6 +564,17 @@ class LeadCreateView(AdminCRMManagerMixin, OwnerAssignMixin, CreateView):
             inquiry.lead = self.object
             inquiry.status = Inquiry.STATUS_CONVERTED_TO_LEAD
             inquiry.save(update_fields=["lead", "status", "updated_at"])
+            messages.success(
+                self.request,
+                "Lead created successfully and linked to the inquiry.",
+                extra_tags=_scope_tags("lead", "inquiry"),
+            )
+        else:
+            messages.success(
+                self.request,
+                "Lead created successfully.",
+                extra_tags=_scope_tags("lead"),
+            )
         return response
 
     def get_success_url(self):
@@ -432,6 +589,15 @@ class LeadUpdateView(AdminCRMManagerMixin, OwnerAssignMixin, UpdateView):
     def get_queryset(self):
         return super().get_queryset().select_related("client", "inquiry", "owner")
 
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        messages.success(
+            self.request,
+            "Lead updated successfully.",
+            extra_tags=_scope_tags("lead"),
+        )
+        return response
+
     def get_success_url(self):
         return reverse_lazy("crm:lead_detail", kwargs={"pk": self.object.pk})
 
@@ -440,6 +606,7 @@ class LeadDeleteView(AdminCRMManagerMixin, CommonDeleteMixin, DeleteView):
     model = Lead
     context_object_name = "lead"
     object_type = "lead"
+    object_scope = "lead"
     cancel_url_name = "crm:lead_detail"
     warning_message = "This may also affect related inquiries and deals depending on your model relationships."
 
@@ -448,6 +615,11 @@ class LeadDeleteView(AdminCRMManagerMixin, CommonDeleteMixin, DeleteView):
 
     def get_object_label(self):
         return self.object.name
+
+    def get_message_tags(self):
+        if self.object.client_id:
+            return _scope_tags("lead", "client")
+        return _scope_tags("lead")
 
     def get_success_url(self):
         if self.object.client_id:
@@ -502,10 +674,11 @@ class InquiryListView(StaffAllMixin, ListView):
         return qs
 
 
-class InquiryDetailView(StaffAllMixin, DetailView):
+class InquiryDetailView(StaffAllMixin, DetailMessageScopeMixin, DetailView):
     model = Inquiry
     template_name = "crm/inquiry_detail.html"
     context_object_name = "inquiry"
+    detail_message_scope = "scope:inquiry"
 
     def get_queryset(self):
         return super().get_queryset().select_related("lead", "client", "handled_by", "owner")
@@ -517,6 +690,15 @@ class InquiryCreateView(StaffAllMixin, OwnerAssignMixin, CreateView):
     template_name = "crm/inquiry_form.html"
     success_url = reverse_lazy("crm:inquiry_list")
 
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        messages.success(
+            self.request,
+            "Inquiry created successfully.",
+            extra_tags=_scope_tags("inquiry"),
+        )
+        return response
+
 
 class InquiryUpdateView(InquiryManagerMixin, OwnerAssignMixin, UpdateView):
     model = Inquiry
@@ -526,6 +708,15 @@ class InquiryUpdateView(InquiryManagerMixin, OwnerAssignMixin, UpdateView):
     def get_queryset(self):
         return super().get_queryset().select_related("lead", "client", "handled_by", "owner")
 
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        messages.success(
+            self.request,
+            "Inquiry updated successfully.",
+            extra_tags=_scope_tags("inquiry"),
+        )
+        return response
+
     def get_success_url(self):
         return reverse_lazy("crm:inquiry_detail", kwargs={"pk": self.object.pk})
 
@@ -534,6 +725,7 @@ class InquiryDeleteView(InquiryManagerMixin, CommonDeleteMixin, DeleteView):
     model = Inquiry
     context_object_name = "inquiry"
     object_type = "inquiry"
+    object_scope = "inquiry"
     cancel_url_name = "crm:inquiry_detail"
     success_url = reverse_lazy("crm:inquiry_list")
     warning_message = "This will remove the inquiry record. Existing linked lead/client records will not be deleted if their foreign keys use SET_NULL."
@@ -562,7 +754,11 @@ class InquiryConvertToLeadView(AdminCRMManagerMixin, OwnerAssignMixin, CreateVie
             pk=self.kwargs["pk"],
         )
         if self.inquiry.lead_id:
-            messages.info(request, "This inquiry is already converted to a lead.")
+            messages.info(
+                request,
+                "This inquiry is already converted to a lead.",
+                extra_tags=_scope_tags("inquiry", "lead"),
+            )
             return redirect("crm:lead_detail", pk=self.inquiry.lead_id)
         return super().dispatch(request, *args, **kwargs)
 
@@ -587,7 +783,11 @@ class InquiryConvertToLeadView(AdminCRMManagerMixin, OwnerAssignMixin, CreateVie
         self.inquiry.status = Inquiry.STATUS_CONVERTED_TO_LEAD
         self.inquiry.save(update_fields=["lead", "status", "updated_at"])
 
-        messages.success(self.request, "Inquiry converted to lead successfully.")
+        messages.success(
+            self.request,
+            "Inquiry converted to lead successfully.",
+            extra_tags=_scope_tags("inquiry", "lead"),
+        )
         return response
 
     def get_success_url(self):

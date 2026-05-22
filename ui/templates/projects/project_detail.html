@@ -8,7 +8,7 @@
   {% is_admin request.user as is_admin %}
   {% is_project_manager request.user as is_project_manager %}
   {% is_employee request.user as is_employee %}
-
+  {% include "common/detail_messages.html" %}
   <!-- Header -->
   <div class="mb-3 d-flex justify-content-between align-items-start">
     <div>

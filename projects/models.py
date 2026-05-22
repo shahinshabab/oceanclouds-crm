@@ -276,6 +276,52 @@ class Project(TimeStamped, Owned):
     def total_work_hours(self):
         return round(self.total_work_seconds / 3600, 2)
 
+    @property
+    def has_client_review(self):
+        """
+        True only when this project has a linked client
+        and that client has at least one review.
+        """
+        if not self.client_id:
+            return False
+        return self.client.reviews.exists()
+
+    @property
+    def can_be_closed(self):
+        """
+        Closing rule:
+        - Project should be completed first.
+        - If client is linked, at least one client review is required.
+        - If client is not linked yet, allow closing for now because client is nullable.
+        """
+        if self.status != ProjectStatus.COMPLETED:
+            return False
+
+        if self.client_id and not self.has_client_review:
+            return False
+
+        return True
+
+    def mark_closed(self):
+        """
+        Close project only after review is collected when client exists.
+        """
+        if self.status == ProjectStatus.CLOSED:
+            return
+
+        if self.status != ProjectStatus.COMPLETED:
+            raise ValidationError(
+                "Cannot close project before it is marked as completed."
+            )
+
+        if self.client_id and not self.has_client_review:
+            raise ValidationError(
+                "Cannot close project until a client review is collected."
+            )
+
+        self.status = ProjectStatus.CLOSED
+        self.save(update_fields=["status"])
+
     def mark_completed(self):
         if self.status == ProjectStatus.COMPLETED:
             return
@@ -290,7 +336,29 @@ class Project(TimeStamped, Owned):
         self.completed_at = now
         self.save(update_fields=["status", "completed_at"])
 
+    def clean(self):
+        super().clean()
 
+        if self.status == ProjectStatus.CLOSED:
+            if self.pk:
+                old_project = Project.objects.filter(pk=self.pk).only("status").first()
+                old_status = old_project.status if old_project else None
+            else:
+                old_status = None
+
+            if old_status != ProjectStatus.COMPLETED:
+                raise ValidationError({
+                    "status": "Project must be completed before it can be closed."
+                })
+
+            if self.client_id and not self.has_client_review:
+                raise ValidationError({
+                    "status": "Client review must be collected before closing this project."
+                })
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
 # ============================================================
 # Task
 # ============================================================
