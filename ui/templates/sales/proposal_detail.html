@@ -39,7 +39,6 @@
 
     <div class="text-end d-flex flex-wrap justify-content-end gap-2">
       {% if is_admin or is_crm_manager %}
-
         <form method="post" action="{% url 'sales:proposal_send_email' proposal.pk %}" class="d-inline">
           {% csrf_token %}
           <button type="submit" class="btn btn-outline-secondary btn-sm">
@@ -58,7 +57,7 @@
 
         {% if proposal.deal.client %}
           <a href="{% url 'crm:client_detail' proposal.deal.client.pk %}"
-             class="btn btn-success btn-sm">
+             class="btn btn-outline-secondary btn-sm">
             View Client
           </a>
         {% elif proposal.status == "accepted" %}
@@ -73,20 +72,22 @@
         {% if proposal.contracts.exists %}
           {% with contract=proposal.contracts.first %}
             <a href="{% url 'sales:contract_detail' contract.pk %}"
-               class="btn btn-outline-success btn-sm">
+               class="btn btn-success btn-sm">
               View Contract
             </a>
           {% endwith %}
         {% elif proposal.status == "accepted" and proposal.deal.client %}
           <a href="{% url 'sales:proposal_convert_to_contract' proposal.pk %}"
-             class="btn btn-outline-success btn-sm">
+             class="btn btn-success btn-sm">
             Convert to Contract
           </a>
         {% endif %}
+
         <a href="{% url 'sales:proposal_pdf_download' proposal.pk %}"
-          class="btn btn-outline-dark">
-          Download Proposal PDF
+           class="btn btn-outline-secondary btn-sm">
+          Download PDF
         </a>
+
         <a href="{% url 'sales:proposal_update' proposal.pk %}"
            class="btn btn-primary btn-sm">
           Edit
@@ -98,10 +99,15 @@
         </a>
       {% endif %}
 
-      <a href="{% url 'sales:proposal_list' %}"
-         class="btn btn-secondary btn-sm">
-        Back
-      </a>
+      {% if request.GET.next %}
+        <a href="{{ request.GET.next }}" class="btn btn-secondary btn-sm">
+          Back
+        </a>
+      {% else %}
+        <a href="{% url 'sales:proposal_list' %}" class="btn btn-secondary btn-sm">
+          Back
+        </a>
+      {% endif %}
     </div>
   </div>
 

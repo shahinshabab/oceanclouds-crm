@@ -1,3 +1,107 @@
-from django.test import TestCase
+from django.core.exceptions import ValidationError
+from django.db import IntegrityError
+from django.urls import reverse
 
-# Create your tests here.
+from common.test_helpers import AuthenticatedViewTestMixin
+
+from .forms import InquiryForm, ReviewForm
+from .models import Client, Contact, Inquiry, Lead, Review
+
+
+class CrmTests(AuthenticatedViewTestMixin):
+    list_url_names = [
+        "crm:client_list",
+        "crm:contact_list",
+        "crm:lead_list",
+        "crm:inquiry_list",
+        "crm:review_list",
+    ]
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        cls.client_obj = Client.objects.create(name="Ocean Client")
+
+    def test_client_primary_contact_returns_primary_contact(self):
+        secondary = Contact.objects.create(client=self.client_obj, first_name="Alex")
+        primary = Contact.objects.create(
+            client=self.client_obj,
+            first_name="Riya",
+            is_primary=True,
+        )
+
+        self.assertEqual(self.client_obj.primary_contact, primary)
+        self.assertIn("Alex", str(secondary))
+
+    def test_contact_email_is_unique_per_client_when_present(self):
+        Contact.objects.create(
+            client=self.client_obj,
+            first_name="A",
+            email="same@example.com",
+        )
+
+        with self.assertRaises(IntegrityError):
+            Contact.objects.create(
+                client=self.client_obj,
+                first_name="B",
+                email="same@example.com",
+            )
+
+    def test_inquiry_requires_at_least_one_contact_field(self):
+        inquiry = Inquiry(channel="website")
+
+        with self.assertRaises(ValidationError):
+            inquiry.clean()
+
+    def test_inquiry_and_lead_strings(self):
+        inquiry = Inquiry.objects.create(name="Priya")
+        lead = Lead.objects.create(name="Priya Lead", inquiry=inquiry)
+
+        self.assertIn("Open", str(inquiry))
+        self.assertIn("New", str(lead))
+
+    def test_review_rating_property_and_validation(self):
+        review = Review.objects.create(client=self.client_obj, title="Great", rating=5)
+        form = ReviewForm(
+            data={
+                "client": self.client_obj.pk,
+                "rating": 6,
+                "title": "Too high",
+                "comment": "",
+                "next_action": "",
+                "next_action_date": "",
+            }
+        )
+
+        self.assertTrue(review.has_rating)
+        self.assertFalse(form.is_valid())
+        self.assertIn("rating", form.errors)
+
+    def test_inquiry_form_is_valid_with_name_only(self):
+        form = InquiryForm(
+            data={
+                "channel": "website",
+                "status": Inquiry.STATUS_OPEN,
+                "name": "New Inquiry",
+                "email": "",
+                "phone": "",
+                "whatsapp": "",
+                "wedding_date": "",
+                "wedding_city": "",
+                "wedding_district": "",
+                "wedding_state": "Kerala",
+                "wedding_country": "India",
+                "message": "",
+                "lead": "",
+                "client": "",
+                "handled_by": "",
+            }
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+
+    def test_detail_urls_reverse(self):
+        self.assertEqual(
+            reverse("crm:client_detail", args=[self.client_obj.pk]),
+            f"/crm/clients/{self.client_obj.pk}/",
+        )

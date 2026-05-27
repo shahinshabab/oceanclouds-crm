@@ -5,6 +5,19 @@
   {% if form.instance.pk %}Edit Proposal{% else %}New Proposal{% endif %}
 {% endblock %}
 
+{% block extra_css %}
+<style>
+  .delete-flag,
+  .is-deleted {
+    display: none;
+  }
+
+  .line-total-box {
+    min-height: 38px;
+  }
+</style>
+{% endblock %}
+
 {% block content %}
 {% is_admin request.user as is_admin %}
 {% is_crm_manager request.user as is_crm_manager %}
@@ -333,20 +346,6 @@
     </div>
   </form>
 </div>
-
-<style>
-  .delete-flag {
-    display: none;
-  }
-
-  .is-deleted {
-    display: none;
-  }
-
-  .line-total-box {
-    min-height: 38px;
-  }
-</style>
 
 <script id="price-data" type="application/json">
 {

@@ -1,7 +1,8 @@
 # common/notifications.py
 
+import uuid
+
 from django.contrib.contenttypes.models import ContentType
-from django.db import IntegrityError, transaction
 
 
 from common.models import Notification
@@ -39,6 +40,17 @@ def build_dedupe_key(notif_type, target=None, extra_key=""):
     return base[:180]
 
 
+def build_unique_dedupe_key(notif_type, target=None, extra_key="duplicate"):
+    suffix = uuid.uuid4().hex
+    base = build_dedupe_key(
+        notif_type=notif_type,
+        target=target,
+        extra_key=extra_key,
+    )
+    max_base_length = 180 - len(suffix) - 1
+    return f"{base[:max_base_length]}:{suffix}"
+
+
 def notify_user(
     *,
     recipient,
@@ -69,7 +81,11 @@ def notify_user(
             content_type=content_type,
             object_id=object_id,
             message=message,
-            dedupe_key=None,
+            dedupe_key=dedupe_key or build_unique_dedupe_key(
+                notif_type=notif_type,
+                target=target,
+                extra_key=extra_key or "duplicate",
+            ),
         )
 
     dedupe_key = dedupe_key or build_dedupe_key(

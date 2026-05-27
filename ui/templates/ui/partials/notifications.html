@@ -13,8 +13,7 @@
 
     {% if unread_notification_count %}
       <span id="notificationBadge"
-            class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
-            style="font-size: 0.6rem; min-width: 1.1rem;">
+            class="notification-badge position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
         {{ unread_notification_count }}
       </span>
     {% endif %}
@@ -22,8 +21,7 @@
 
   <!-- Dropdown -->
   <div id="notificationDropdown"
-       class="dropdown-panel d-none shadow-sm border rounded-3 bg-body"
-       style="min-width: 340px; max-width: 380px; right: 0;">
+       class="notification-dropdown dropdown-panel d-none shadow-sm border rounded-3 bg-body">
 
     <!-- Header -->
     <div class="dropdown-header d-flex justify-content-between align-items-center px-3 py-2 border-bottom">
@@ -44,7 +42,7 @@
 
     <!-- Body -->
     {% if notifications %}
-      <div class="notification-list small" style="max-height: 360px; overflow-y: auto;">
+      <div class="notification-list small">
 
         {% for note in notifications %}
           <div class="notification-item border-bottom px-3 py-2 {% if not note.is_read %}bg-light-subtle{% endif %}"

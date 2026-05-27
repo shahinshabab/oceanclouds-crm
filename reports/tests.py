@@ -1,3 +1,10 @@
-from django.test import TestCase
+from common.test_helpers import AuthenticatedViewTestMixin
 
-# Create your tests here.
+
+class ReportsViewTests(AuthenticatedViewTestMixin):
+    list_url_names = [
+        "reports:dashboard",
+        "reports:sales_report",
+        "reports:project_report",
+        "reports:employee_work_report",
+    ]

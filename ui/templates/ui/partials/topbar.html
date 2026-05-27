@@ -1,0 +1,56 @@
+<header class="top-navbar">
+    <div class="nav-actions">
+        {% if request.user.is_authenticated %}
+            {% block notifications %}
+                {% include "ui/partials/notifications.html" %}
+            {% endblock %}
+
+            <div class="position-relative">
+                <button id="profileToggle" class="icon-btn d-flex align-items-center gap-2" type="button" aria-expanded="false" aria-label="Profile menu">
+                    <div class="avatar-circle">
+                        {% if request.user.get_full_name %}
+                            {{ request.user.get_full_name|first|upper }}
+                        {% else %}
+                            {{ request.user.username|first|upper }}
+                        {% endif %}
+                    </div>
+                </button>
+
+                <div id="profileDropdown" class="dropdown-panel d-none">
+                    <div class="d-flex align-items-center mb-2">
+                        <div class="avatar-circle me-2">
+                            {% if request.user.get_full_name %}
+                                {{ request.user.get_full_name|first|upper }}
+                            {% else %}
+                                {{ request.user.username|first|upper }}
+                            {% endif %}
+                        </div>
+
+                        <div>
+                            <div class="fw-semibold small">
+                                {{ request.user.get_full_name|default:request.user.username }}
+                            </div>
+                            <div class="text-muted small">
+                                {{ request.user.email }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <a href="{% url 'ui:profile' %}" class="dropdown-item-custom small">
+                        View Profile
+                    </a>
+
+                    <div class="dropdown-footer">
+                        <a href="{% url 'ui:logout' %}" class="btn btn-sm btn-outline-dark">
+                            Logout
+                        </a>
+                    </div>
+                </div>
+            </div>
+        {% else %}
+            <a href="{% url 'ui:login' %}" class="btn btn-sm btn-dark">
+                Login
+            </a>
+        {% endif %}
+    </div>
+</header>

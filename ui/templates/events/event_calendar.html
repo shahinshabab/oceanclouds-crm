@@ -4,75 +4,77 @@
 
 {% block title %}Event Calendar{% endblock %}
 
+{% block extra_css %}
+<style>
+  .calendar-scroll {
+    max-height: 600px;
+    overflow-x: auto;
+    overflow-y: auto;
+    position: relative;
+  }
+
+  .calendar-table {
+    border-collapse: separate;
+    border-spacing: 0;
+    width: max-content;
+  }
+
+  .calendar-table thead th {
+    position: static !important;
+  }
+
+  .calendar-table .time-col,
+  .calendar-table .time-cell {
+    width: 80px;
+    min-width: 80px;
+    max-width: 80px;
+    text-align: left;
+    background-color: #ffffff;
+    white-space: nowrap;
+  }
+
+  .calendar-table th.time-col,
+  .calendar-table td.time-cell {
+    position: sticky !important;
+    left: 0;
+    z-index: 5;
+    background-color: #ffffff;
+  }
+
+  .calendar-table .corner-cell {
+    z-index: 6;
+    background-color: #ffffff;
+  }
+
+  .calendar-table th.date-col,
+  .calendar-table td.date-cell {
+    min-width: 150px;
+    max-width: 150px;
+  }
+
+  .calendar-table th.date-col {
+    white-space: nowrap;
+    font-size: 0.85rem;
+    text-align: center;
+  }
+
+  .calendar-table .slot-row td {
+    height: 60px;
+    vertical-align: top;
+  }
+
+  .calendar-event-pill {
+    min-height: 40px;
+    border-radius: 0.4rem;
+    font-size: 0.8rem;
+  }
+</style>
+{% endblock %}
+
 {% block content %}
 {% has_event_manage_access request.user as can_manage_events %}
 
 <div class="container-fluid px-3 pt-0 pb-3">
-
-  <style>
-    .calendar-scroll {
-      max-height: 600px;
-      overflow-x: auto;
-      overflow-y: auto;
-      position: relative;
-    }
-
-    .calendar-table {
-      border-collapse: separate;
-      border-spacing: 0;
-      width: max-content;
-    }
-
-    .calendar-table thead th {
-      position: static !important;
-    }
-
-    .calendar-table .time-col,
-    .calendar-table .time-cell {
-      width: 80px;
-      min-width: 80px;
-      max-width: 80px;
-      text-align: left;
-      background-color: #ffffff;
-      white-space: nowrap;
-    }
-
-    .calendar-table th.time-col,
-    .calendar-table td.time-cell {
-      position: sticky !important;
-      left: 0;
-      z-index: 5;
-      background-color: #ffffff;
-    }
-
-    .calendar-table .corner-cell {
-      z-index: 6;
-      background-color: #ffffff;
-    }
-
-    .calendar-table th.date-col,
-    .calendar-table td.date-cell {
-      min-width: 150px;
-      max-width: 150px;
-    }
-
-    .calendar-table th.date-col {
-      white-space: nowrap;
-      font-size: 0.85rem;
-      text-align: center;
-    }
-
-    .calendar-table .slot-row td {
-      height: 60px;
-      vertical-align: top;
-    }
-
-    .calendar-event-pill {
-      min-height: 40px;
-      border-radius: 0.4rem;
-      font-size: 0.8rem;
-    }
-  </style>
 
   <!-- Header -->
   <div class="d-flex justify-content-between align-items-center mb-3">

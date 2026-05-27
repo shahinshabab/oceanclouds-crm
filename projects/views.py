@@ -314,7 +314,11 @@ class ProjectUpdateView(ProjectAdminOnlyMixin, DetailMessageScopeMixin, UpdateVi
         return kwargs
 
     def form_valid(self, form):
-        response = super().form_valid(form)
+        project = form.save(commit=False)
+        project._notification_actor = self.request.user
+        project.save()
+        form.save_m2m()
+        self.object = project
 
         messages.success(
             self.request,
@@ -322,7 +326,7 @@ class ProjectUpdateView(ProjectAdminOnlyMixin, DetailMessageScopeMixin, UpdateVi
             extra_tags=_scope_tags("project"),
         )
 
-        return response
+        return redirect(self.get_success_url())
 
     def form_invalid(self, form):
         messages.error(
@@ -587,6 +591,7 @@ class TaskCreateView(ProjectAccessMixin, DetailMessageScopeMixin, CreateView):
         if self.project:
             task.project = self.project
 
+        task._notification_actor = self.request.user
         task.save()
         form.save_m2m()
 
@@ -654,6 +659,7 @@ class TaskUpdateView(ProjectAccessMixin, DetailMessageScopeMixin, UpdateView):
         if task.status == TaskStatus.COMPLETED and not task.completed_at:
             task.completed_at = timezone.now()
 
+        task._notification_actor = self.request.user
         task.save()
         form.save_m2m()
 
@@ -999,6 +1005,7 @@ class DeliverableCreateView(ProjectAccessMixin, DetailMessageScopeMixin, CreateV
         if not deliverable.assigned_to and deliverable.project.manager:
             deliverable.assigned_to = deliverable.project.manager
 
+        deliverable._notification_actor = self.request.user
         deliverable.save()
         form.save_m2m()
 
@@ -1069,6 +1076,7 @@ class DeliverableUpdateView(ProjectAccessMixin, DetailMessageScopeMixin, UpdateV
         if deliverable.status == DeliverableStatus.DELIVERED and not deliverable.delivered_at:
             deliverable.delivered_at = timezone.now()
 
+        deliverable._notification_actor = self.request.user
         deliverable.save()
         form.save_m2m()
 

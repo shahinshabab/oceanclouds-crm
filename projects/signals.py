@@ -7,7 +7,14 @@ from common.models import Notification
 from common.notifications import notify_user
 from todos.models import TodoPriority
 from todos.services import create_todo_once
-from projects.models import Project, Task, Deliverable, ProjectStatus
+from projects.models import (
+    Project,
+    Task,
+    Deliverable,
+    ProjectStatus,
+    TaskStatus,
+    DeliverableStatus,
+)
 
 
 @receiver(pre_save, sender=Project)
@@ -27,17 +34,16 @@ def cache_old_project_values(sender, instance, **kwargs):
 def notify_and_todo_project_changes(sender, instance, created, **kwargs):
     old_manager_id = getattr(instance, "_old_manager_id", None)
     old_status = getattr(instance, "_old_status", None)
+    actor = getattr(instance, "_notification_actor", None) or getattr(instance, "owner", None)
 
-    # Project assigned to project manager
-    if instance.manager_id and (created or old_manager_id != instance.manager_id):
-        actor = getattr(instance, "owner", None)
-
+    if instance.manager_id and created:
         notify_user(
             recipient=instance.manager,
             actor=actor,
             notif_type=Notification.Type.PROJECT_ASSIGNED,
             target=instance,
             message=f"You have been assigned to project: {instance.name}",
+            allow_duplicate=True,
         )
 
         create_todo_once(
@@ -54,6 +60,33 @@ def notify_and_todo_project_changes(sender, instance, created, **kwargs):
             client=instance.client,
             deal=instance.deal,
         )
+
+    elif instance.manager_id and old_manager_id != instance.manager_id:
+        notify_user(
+            recipient=instance.manager,
+            actor=actor,
+            notif_type=Notification.Type.PROJECT_ASSIGNED,
+            target=instance,
+            message=f"You have been assigned to project: {instance.name}",
+            allow_duplicate=True,
+        )
+
+    elif instance.manager_id and not created:
+        notify_user(
+            recipient=instance.manager,
+            actor=actor,
+            notif_type=Notification.Type.PROJECT_ASSIGNED,
+            target=instance,
+            message=f"Project updated: {instance.name}",
+            allow_duplicate=True,
+        )
+
+    if (
+        not created
+        and old_status != ProjectStatus.ACTIVE
+        and instance.status == ProjectStatus.ACTIVE
+    ):
+        create_active_project_work_todos(instance, actor=actor)
 
     # Project completed -> CRM review pending
     if (
@@ -103,6 +136,54 @@ def _resolve_project_review_recipient(project):
     return getattr(project, "manager", None)
 
 
+def create_task_todo(task, actor=None):
+    if not task.assigned_to_id:
+        return None, False
+
+    return create_todo_once(
+        title=f"Complete assigned task: {task.name}",
+        description=task.description or "Please complete this assigned task.",
+        owner=actor or task.project.manager or task.assigned_to,
+        assigned_to=task.assigned_to,
+        priority=TodoPriority.HIGH,
+        due_date=task.due_date,
+        project=task.project,
+        task=task,
+    )
+
+
+def create_deliverable_todo(deliverable, actor=None):
+    if not deliverable.assigned_to_id:
+        return None, False
+
+    return create_todo_once(
+        title=f"Complete assigned deliverable: {deliverable.name}",
+        description=deliverable.description or "Please complete this assigned deliverable.",
+        owner=actor or deliverable.project.manager or deliverable.assigned_to,
+        assigned_to=deliverable.assigned_to,
+        priority=TodoPriority.HIGH,
+        due_date=deliverable.due_date,
+        project=deliverable.project,
+        deliverable=deliverable,
+    )
+
+
+def create_active_project_work_todos(project, actor=None):
+    tasks = project.tasks.exclude(
+        status__in=[TaskStatus.COMPLETED, TaskStatus.CANCELLED]
+    ).select_related("assigned_to", "project__manager")
+
+    for task in tasks:
+        create_task_todo(task, actor=actor)
+
+    deliverables = project.deliverables.exclude(
+        status__in=[DeliverableStatus.DELIVERED, DeliverableStatus.CANCELLED]
+    ).select_related("assigned_to", "project__manager")
+
+    for deliverable in deliverables:
+        create_deliverable_todo(deliverable, actor=actor)
+
+
 @receiver(pre_save, sender=Task)
 def cache_old_task_assignee(sender, instance, **kwargs):
     if not instance.pk:
@@ -123,7 +204,11 @@ def notify_and_todo_task_assigned(sender, instance, created, **kwargs):
     if not created and old_assigned_to_id == instance.assigned_to_id:
         return
 
-    actor = getattr(instance.project, "manager", None) or getattr(instance, "owner", None)
+    actor = (
+        getattr(instance, "_notification_actor", None)
+        or getattr(instance.project, "manager", None)
+        or getattr(instance, "owner", None)
+    )
 
     notify_user(
         recipient=instance.assigned_to,
@@ -131,18 +216,11 @@ def notify_and_todo_task_assigned(sender, instance, created, **kwargs):
         notif_type=Notification.Type.TASK_ASSIGNED,
         target=instance,
         message=f"You have been assigned a task: {instance.name}",
+        allow_duplicate=True,
     )
 
-    create_todo_once(
-        title=f"Complete assigned task: {instance.name}",
-        description=instance.description or "Please complete this assigned task.",
-        owner=actor or instance.assigned_to,
-        assigned_to=instance.assigned_to,
-        priority=TodoPriority.HIGH,
-        due_date=instance.due_date,
-        project=instance.project,
-        task=instance,
-    )
+    if instance.project.status == ProjectStatus.ACTIVE:
+        create_task_todo(instance, actor=actor)
 
 
 @receiver(pre_save, sender=Deliverable)
@@ -165,7 +243,11 @@ def notify_and_todo_deliverable_assigned(sender, instance, created, **kwargs):
     if not created and old_assigned_to_id == instance.assigned_to_id:
         return
 
-    actor = getattr(instance.project, "manager", None) or getattr(instance, "owner", None)
+    actor = (
+        getattr(instance, "_notification_actor", None)
+        or getattr(instance.project, "manager", None)
+        or getattr(instance, "owner", None)
+    )
 
     notify_user(
         recipient=instance.assigned_to,
@@ -173,15 +255,8 @@ def notify_and_todo_deliverable_assigned(sender, instance, created, **kwargs):
         notif_type=Notification.Type.DELIVERABLE_ASSIGNED,
         target=instance,
         message=f"You have been assigned a deliverable: {instance.name}",
+        allow_duplicate=True,
     )
 
-    create_todo_once(
-        title=f"Complete assigned deliverable: {instance.name}",
-        description=instance.description or "Please complete this assigned deliverable.",
-        owner=actor or instance.assigned_to,
-        assigned_to=instance.assigned_to,
-        priority=TodoPriority.HIGH,
-        due_date=instance.due_date,
-        project=instance.project,
-        deliverable=instance,
-    )
+    if instance.project.status == ProjectStatus.ACTIVE:
+        create_deliverable_todo(instance, actor=actor)

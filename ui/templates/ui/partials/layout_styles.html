@@ -1,0 +1,183 @@
+<style>
+    body {
+        margin: 0;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background-color: #f5f5f5;
+    }
+
+    .sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        width: 240px;
+        background-color: #000;
+        color: #fff;
+        padding: 1.5rem 1rem;
+        overflow-y: auto;
+        z-index: 150;
+    }
+
+    .sidebar .sidebar-title {
+        font-weight: 700;
+        font-size: 1.2rem;
+        margin-bottom: 1.5rem;
+        letter-spacing: 0.08em;
+    }
+
+    .sidebar .nav-link {
+        color: #e5e5e5;
+        padding: 0.45rem 0.75rem;
+        border-radius: 0.5rem;
+        font-size: 0.92rem;
+    }
+
+    .sidebar .nav-link:hover,
+    .sidebar .nav-link.active {
+        background-color: #111;
+        color: #fff;
+    }
+
+    .sidebar-section-title {
+        font-size: 0.75rem;
+        letter-spacing: 0.06em;
+        color: rgba(255, 255, 255, 0.55);
+        text-transform: uppercase;
+        margin-bottom: 0.5rem;
+    }
+
+    .top-navbar {
+        position: fixed;
+        top: 0;
+        left: 240px;
+        right: 0;
+        height: 60px;
+        background-color: #fff;
+        border-bottom: 1px solid #e0e0e0;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        padding: 0 1.5rem;
+        z-index: 100;
+    }
+
+    .top-navbar .nav-actions {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .icon-btn {
+        border: none;
+        background: transparent;
+        padding: 0.25rem;
+        cursor: pointer;
+        position: relative;
+    }
+
+    .icon-btn i {
+        font-size: 1.3rem;
+        color: #000;
+    }
+
+    .icon-btn:focus {
+        outline: none;
+    }
+
+    .avatar-circle {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background-color: #000;
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.9rem;
+        font-weight: 600;
+    }
+
+    .dropdown-panel {
+        position: absolute;
+        top: 115%;
+        right: 0;
+        min-width: 260px;
+        background-color: #fff;
+        border-radius: 0.75rem;
+        border: 1px solid #e0e0e0;
+        padding: 0.75rem;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+        z-index: 200;
+    }
+
+    .dropdown-panel.p-0 {
+        padding: 0;
+    }
+
+    .dropdown-header {
+        font-weight: 600;
+        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .dropdown-item-custom {
+        display: block;
+        padding: 0.45rem 0;
+        font-size: 0.9rem;
+        text-decoration: none;
+        color: #333;
+    }
+
+    .dropdown-item-custom:hover {
+        text-decoration: none;
+        color: #000;
+    }
+
+    .dropdown-footer {
+        border-top: 1px solid #eee;
+        margin-top: 0.5rem;
+        padding-top: 0.5rem;
+        text-align: right;
+    }
+
+    .notification-badge {
+        font-size: 0.6rem;
+        min-width: 1.1rem;
+    }
+
+    .notification-dropdown {
+        min-width: 340px;
+        max-width: 380px;
+        right: 0;
+    }
+
+    .notification-list {
+        max-height: 360px;
+        overflow-y: auto;
+    }
+
+    .content {
+        margin-left: 240px;
+        padding: 80px 24px 24px;
+    }
+
+    .content-inner {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+
+    @media (max-width: 768px) {
+        .sidebar {
+            width: 200px;
+        }
+
+        .top-navbar {
+            left: 200px;
+        }
+
+        .content {
+            margin-left: 200px;
+            padding: 80px 16px 16px;
+        }
+    }
+</style>

@@ -67,7 +67,7 @@
     </div>
 
     <div class="card-body">
-      <div class="mx-auto" style="max-width: 420px;">
+      <div class="col-sm-10 col-md-8 col-lg-6 mx-auto">
         <div class="border rounded-4 p-3 bg-light">
 
           <div class="small text-muted mb-2">
@@ -81,7 +81,7 @@
               </div>
             {% endif %}
 
-            <div style="white-space: pre-line;">{{ preview_text }}</div>
+            <div class="text-break">{{ preview_text|linebreaksbr }}</div>
 
             {% if template.footer_text %}
               <div class="small text-muted mt-2">
@@ -133,7 +133,7 @@
     </div>
 
     <div class="card-body">
-      <pre class="bg-light p-3 rounded-3 small mb-0" style="white-space: pre-wrap;">{{ sample_variables }}</pre>
+      <pre class="bg-light p-3 rounded-3 small mb-0 text-wrap text-break">{{ sample_variables }}</pre>
     </div>
   </div>
 

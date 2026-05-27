@@ -117,7 +117,7 @@
                 {{ review.title|default:"(No title)" }}
               </a>
               {% if review.comment %}
-                <div class="small text-muted text-truncate" style="max-width: 260px;">
+                <div class="small text-muted text-truncate">
                   {{ review.comment|truncatechars:80 }}
                 </div>
               {% endif %}

@@ -4,7 +4,9 @@
 
 {% block content %}
 
-<div class="container py-3" style="max-width: 980px;">
+<div class="container py-3">
+  <div class="row justify-content-center">
+    <div class="col-xl-10">
 
   <div class="card border-0 shadow-sm mb-3">
     <div class="card-body">
@@ -95,8 +97,8 @@
           <div class="mb-3">
             <div class="small text-muted mb-1">Description</div>
             <div class="border rounded-3 p-3 bg-light">
-              <div style="white-space: pre-line;">
-                {{ ticket.description }}
+              <div class="text-break">
+                {{ ticket.description|linebreaksbr }}
               </div>
             </div>
           </div>
@@ -166,8 +168,8 @@
         <div class="card-body">
           {% if ticket.admin_response %}
             <div class="border rounded-3 p-3 bg-light mb-2">
-              <div style="white-space: pre-line;">
-                {{ ticket.admin_response }}
+              <div class="text-break">
+                {{ ticket.admin_response|linebreaksbr }}
               </div>
             </div>
 
@@ -194,6 +196,8 @@
     </a>
   </div>
 
+    </div>
+  </div>
 </div>
 
 {% endblock %}

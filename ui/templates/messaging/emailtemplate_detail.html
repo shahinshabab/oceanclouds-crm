@@ -241,8 +241,7 @@
 
     <div class="card-body">
       {% if template.body_html %}
-        <pre class="mb-0 border rounded bg-body-tertiary p-3"
-             style="white-space: pre-wrap; word-wrap: break-word;">{{ template.body_html|escape }}</pre>
+        <pre class="mb-0 border rounded bg-body-tertiary p-3 text-wrap text-break">{{ template.body_html|escape }}</pre>
       {% else %}
         <p class="text-muted mb-0">No HTML body defined.</p>
       {% endif %}
@@ -257,8 +256,7 @@
 
     <div class="card-body">
       {% if template.body_text %}
-        <pre class="mb-0 border rounded bg-body-tertiary p-3"
-             style="white-space: pre-wrap; word-wrap: break-word;">{{ template.body_text|escape }}</pre>
+        <pre class="mb-0 border rounded bg-body-tertiary p-3 text-wrap text-break">{{ template.body_text|escape }}</pre>
       {% else %}
         <p class="text-muted mb-0">No plain text body defined.</p>
       {% endif %}
