@@ -18,11 +18,22 @@
         z-index: 150;
     }
 
+    .sidebar .offcanvas-body {
+        display: block;
+        min-height: 100%;
+        overflow-y: visible;
+        padding: 0;
+    }
+
     .sidebar .sidebar-title {
         font-weight: 700;
         font-size: 1.2rem;
         margin-bottom: 1.5rem;
         letter-spacing: 0.08em;
+    }
+
+    .sidebar .offcanvas-header .sidebar-title {
+        margin-bottom: 0;
     }
 
     .sidebar .nav-link {
@@ -164,20 +175,53 @@
     .content-inner {
         max-width: 1200px;
         margin: 0 auto;
+        min-width: 0;
     }
 
-    @media (max-width: 768px) {
+    @media (max-width: 991.98px) {
         .sidebar {
-            width: 200px;
+            width: min(82vw, 300px);
+            max-width: 300px;
+            padding: 0;
+            z-index: var(--bs-offcanvas-zindex);
+        }
+
+        .sidebar .offcanvas-body {
+            padding: 0 1rem 1rem;
         }
 
         .top-navbar {
-            left: 200px;
+            left: 0;
+            justify-content: space-between;
+            padding: 0 0.75rem;
         }
 
         .content {
-            margin-left: 200px;
-            padding: 80px 16px 16px;
+            margin-left: 0;
+            padding: 76px 0.75rem 1rem;
+        }
+
+        .content-inner,
+        .container,
+        .container-fluid {
+            max-width: 100%;
+        }
+
+        .notification-dropdown,
+        .dropdown-panel {
+            max-width: calc(100vw - 1.5rem);
+            min-width: min(340px, calc(100vw - 1.5rem));
+        }
+
+        .card-header,
+        .card-body,
+        .card-footer,
+        .list-group-item {
+            min-width: 0;
+        }
+
+        .top-navbar .nav-actions {
+            gap: 0.5rem;
         }
     }
 </style>

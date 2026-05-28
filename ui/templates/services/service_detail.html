@@ -93,6 +93,7 @@
 
     <div class="card-body p-0">
       {% if service.deliverables.all %}
+        <div class="table-responsive">
         <table class="table table-sm mb-0 align-middle">
           <thead class="table-light">
           <tr>
@@ -121,6 +122,7 @@
           {% endfor %}
           </tbody>
         </table>
+        </div>
       {% else %}
         <p class="text-muted mb-0 p-3">No default deliverables added.</p>
       {% endif %}

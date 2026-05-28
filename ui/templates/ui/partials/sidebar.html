@@ -1,7 +1,13 @@
 {% load user_groups %}
 
-<aside class="sidebar" id="sidebar">
-    <div class="sidebar-title">
+<aside class="sidebar offcanvas-lg offcanvas-start" tabindex="-1" id="sidebar" aria-labelledby="sidebarLabel">
+    <div class="offcanvas-header d-lg-none">
+        <h5 class="offcanvas-title sidebar-title mb-0" id="sidebarLabel">OCEAN CLOUDS</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" data-bs-target="#sidebar" aria-label="Close"></button>
+    </div>
+
+    <div class="offcanvas-body d-block">
+    <div class="sidebar-title d-none d-lg-block">
         OCEAN CLOUDS
     </div>
 
@@ -183,5 +189,6 @@
 
     <div class="small text-white-50 text-center">
         Version {{ APP_VERSION|default:"dev" }}
+    </div>
     </div>
 </aside>

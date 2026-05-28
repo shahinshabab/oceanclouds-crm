@@ -82,6 +82,7 @@
 
     <div class="card-body p-0">
       {% if package.items.all %}
+        <div class="table-responsive">
         <table class="table table-sm mb-0 align-middle">
           <thead class="table-light">
           <tr>
@@ -121,6 +122,7 @@
           </tr>
           </tfoot>
         </table>
+        </div>
       {% else %}
         <p class="text-muted mb-0 p-3">No items added to this package.</p>
       {% endif %}
@@ -135,6 +137,7 @@
 
     <div class="card-body p-0">
       {% if package.deliverables.all %}
+        <div class="table-responsive">
         <table class="table table-sm mb-0 align-middle">
           <thead class="table-light">
           <tr>
@@ -163,6 +166,7 @@
           {% endfor %}
           </tbody>
         </table>
+        </div>
       {% else %}
         <p class="text-muted mb-0 p-3">No package deliverables added.</p>
       {% endif %}

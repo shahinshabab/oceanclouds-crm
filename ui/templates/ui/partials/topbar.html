@@ -1,4 +1,8 @@
 <header class="top-navbar">
+    <button class="btn btn-outline-dark btn-sm d-lg-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebar" aria-controls="sidebar" aria-label="Open sidebar">
+        <i class="bi bi-list"></i>
+    </button>
+
     <div class="nav-actions">
         {% if request.user.is_authenticated %}
             {% block notifications %}
