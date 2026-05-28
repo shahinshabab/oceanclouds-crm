@@ -5,7 +5,7 @@
 
 {% block content %}
 {% is_admin request.user as is_admin %}
-{% is_manager request.user as is_manager %}
+{% is_crm_manager request.user as is_crm_manager %}
 {% is_employee request.user as is_employee %}
 
 <div class="container py-3">
@@ -14,8 +14,8 @@
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h2 class="fw-semibold mb-0">Client Reviews</h2>
 
-    {# Only Admin & Manager can create new reviews #}
-    {% if is_admin or is_manager %}
+    {# Only Admin and CRM Manager can create new reviews #}
+    {% if is_admin or is_crm_manager %}
       <a href="{% url 'crm:review_create' %}" class="btn btn-success btn-sm">
         + New Review
       </a>
@@ -170,7 +170,7 @@
                 View
               </a>
 
-              {% if is_admin or is_manager %}
+              {% if is_admin or is_crm_manager %}
                 <a href="{% url 'crm:review_update' review.pk %}"
                    class="btn btn-sm btn-outline-primary">
                   Edit

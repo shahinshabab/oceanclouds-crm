@@ -12,7 +12,6 @@ from common.roles import (
     ROLE_CRM_MANAGER,
     ROLE_PROJECT_MANAGER,
     ROLE_EMPLOYEE,
-    ROLE_MANAGER,
     user_has_role,
 )
 from crm.models import Client, Lead, Inquiry
@@ -41,9 +40,6 @@ def home(request):
     is_project_manager = user_has_role(user, ROLE_PROJECT_MANAGER)
     is_employee = user_has_role(user, ROLE_EMPLOYEE)
 
-    # Temporary old Manager support
-    is_old_manager = user_has_role(user, ROLE_MANAGER)
-
     if is_admin:
         role_label = "Admin"
     elif is_crm_manager:
@@ -52,8 +48,6 @@ def home(request):
         role_label = "Project Manager"
     elif is_employee:
         role_label = "Employee"
-    elif is_old_manager:
-        role_label = "Manager"
     else:
         role_label = "User"
 
@@ -273,7 +267,7 @@ def home(request):
     # ==========================================================
     # PROJECT MANAGER: project dashboard only
     # ==========================================================
-    elif is_project_manager or is_old_manager:
+    elif is_project_manager:
         show_project_section = True
 
         projects_qs = Project.objects.filter(manager=user)
@@ -540,7 +534,6 @@ def home(request):
         "is_crm_manager": is_crm_manager,
         "is_project_manager": is_project_manager,
         "is_employee": is_employee,
-        "is_old_manager": is_old_manager,
         "show_crm_section": show_crm_section,
         "show_project_section": show_project_section,
         "show_employee_section": show_employee_section,

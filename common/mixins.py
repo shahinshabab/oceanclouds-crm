@@ -128,17 +128,7 @@ class InquiryManageMixin(RolesRequiredMixin):
     allowed_roles = INQUIRY_MANAGE_ROLES
 
 
-# Backward compatibility with old names
-
 class AdminCRMManagerMixin(CRMAccessMixin):
-    pass
-
-
-class AdminManagerMixin(CRMAccessMixin):
-    """
-    Old name kept only for old CRM/Sales views.
-    Do not use this for services app anymore.
-    """
     pass
 
 

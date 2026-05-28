@@ -1,6 +1,7 @@
 # common/apps.py
 
 from django.apps import AppConfig
+from django.db.models.signals import post_migrate
 
 
 class CommonConfig(AppConfig):
@@ -9,3 +10,9 @@ class CommonConfig(AppConfig):
 
     def ready(self):
         import common.signals  # noqa
+        from common.role_permissions import setup_role_groups
+
+        post_migrate.connect(
+            setup_role_groups,
+            dispatch_uid="common.setup_role_groups",
+        )

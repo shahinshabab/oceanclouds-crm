@@ -24,7 +24,7 @@ from django.views.generic import (
     UpdateView,
 )
 
-from common.mixins import AdminManagerMixin, SalesReadOnlyAccessMixin
+from common.mixins import SalesAccessMixin, SalesReadOnlyAccessMixin
 from crm.models import Client, Contact, Lead
 from messaging.models import EmailTemplate
 from messaging.utils import EmailSendError, send_templated_email
@@ -228,7 +228,7 @@ def _client_filename_part(obj):
 # Deals
 # ============================================================
 
-class DealListView(AdminManagerMixin, ListView):
+class DealListView(SalesAccessMixin, ListView):
     model = Deal
     template_name = "sales/deal_list.html"
     context_object_name = "deals"
@@ -310,7 +310,7 @@ class DealDetailView(SalesReadOnlyAccessMixin, DetailMessageScopeMixin, DetailVi
         return context
 
 
-class DealCreateView(AdminManagerMixin, OwnerAssignMixin, CreateView):
+class DealCreateView(SalesAccessMixin, OwnerAssignMixin, CreateView):
     model = Deal
     form_class = DealForm
     template_name = "sales/deal_form.html"
@@ -366,7 +366,7 @@ class DealCreateView(AdminManagerMixin, OwnerAssignMixin, CreateView):
         return reverse_lazy("sales:deal_detail", kwargs={"pk": self.object.pk})
 
 
-class DealUpdateView(AdminManagerMixin, OwnerAssignMixin, UpdateView):
+class DealUpdateView(SalesAccessMixin, OwnerAssignMixin, UpdateView):
     model = Deal
     form_class = DealForm
     template_name = "sales/deal_form.html"
@@ -388,7 +388,7 @@ class DealUpdateView(AdminManagerMixin, OwnerAssignMixin, UpdateView):
     def get_success_url(self):
         return reverse_lazy("sales:deal_detail", kwargs={"pk": self.object.pk})
     
-class DealDeleteView(AdminManagerMixin, DeleteView):
+class DealDeleteView(SalesAccessMixin, DeleteView):
     model = Deal
     template_name = "common/confirm_delete.html"
     success_url = reverse_lazy("sales:deal_list")
@@ -405,7 +405,7 @@ class DealDeleteView(AdminManagerMixin, DeleteView):
         return super().form_valid(form)
 
 
-class LeadConvertToDealView(AdminManagerMixin, OwnerAssignMixin, CreateView):
+class LeadConvertToDealView(SalesAccessMixin, OwnerAssignMixin, CreateView):
     """
     Flow:
     Lead detail page -> Convert to Deal.
@@ -491,7 +491,7 @@ class LeadConvertToDealView(AdminManagerMixin, OwnerAssignMixin, CreateView):
 # Proposals
 # ============================================================
 
-class ProposalListView(AdminManagerMixin, ListView):
+class ProposalListView(SalesAccessMixin, ListView):
     model = Proposal
     template_name = "sales/proposal_list.html"
     context_object_name = "proposals"
@@ -572,7 +572,7 @@ class ProposalDetailView(SalesReadOnlyAccessMixin, DetailMessageScopeMixin, Deta
 
 
 
-class ProposalPDFDownloadView(AdminManagerMixin, DetailView):
+class ProposalPDFDownloadView(SalesAccessMixin, DetailView):
     model = Proposal
 
     def get_queryset(self):
@@ -636,7 +636,7 @@ class ProposalPDFDownloadView(AdminManagerMixin, DetailView):
         return response
 
 
-class ProposalCreateView(AdminManagerMixin, OwnerAssignMixin, CreateView):
+class ProposalCreateView(SalesAccessMixin, OwnerAssignMixin, CreateView):
     model = Proposal
     form_class = ProposalForm
     template_name = "sales/proposal_form.html"
@@ -1172,7 +1172,7 @@ class ProposalCreateView(AdminManagerMixin, OwnerAssignMixin, CreateView):
         return reverse_lazy("sales:proposal_detail", kwargs={"pk": self.object.pk})
 
 
-class ProposalUpdateView(AdminManagerMixin, OwnerAssignMixin, UpdateView):
+class ProposalUpdateView(SalesAccessMixin, OwnerAssignMixin, UpdateView):
     model = Proposal
     form_class = ProposalForm
     template_name = "sales/proposal_form.html"
@@ -1222,7 +1222,7 @@ class ProposalUpdateView(AdminManagerMixin, OwnerAssignMixin, UpdateView):
     def get_success_url(self):
         return reverse_lazy("sales:proposal_detail", kwargs={"pk": self.object.pk})
 
-class ProposalDeleteView(AdminManagerMixin, DeleteView):
+class ProposalDeleteView(SalesAccessMixin, DeleteView):
     model = Proposal
     template_name = "common/confirm_delete.html"
     success_url = reverse_lazy("sales:proposal_list")
@@ -1239,7 +1239,7 @@ class ProposalDeleteView(AdminManagerMixin, DeleteView):
         return super().form_valid(form)
 
 @method_decorator(require_POST, name="dispatch")
-class ProposalAcceptView(AdminManagerMixin, View):
+class ProposalAcceptView(SalesAccessMixin, View):
     """
     Proposal accepted:
     - Proposal status = accepted
@@ -1285,7 +1285,7 @@ class ProposalAcceptView(AdminManagerMixin, View):
 
         return redirect("sales:proposal_detail", pk=proposal.pk)
 
-class ProposalConvertToContractView(AdminManagerMixin, OwnerAssignMixin, CreateView):
+class ProposalConvertToContractView(SalesAccessMixin, OwnerAssignMixin, CreateView):
     """
     Proposal detail page -> Convert to Contract.
 
@@ -1403,7 +1403,7 @@ class ProposalConvertToContractView(AdminManagerMixin, OwnerAssignMixin, CreateV
         )
     
 @method_decorator(require_POST, name="dispatch")
-class ProposalCreateClientView(AdminManagerMixin, View):
+class ProposalCreateClientView(SalesAccessMixin, View):
     """
     Creates/links a client from proposal flow.
 
@@ -1541,7 +1541,7 @@ class ProposalCreateClientView(AdminManagerMixin, View):
 # Contracts
 # ============================================================
 
-class ContractListView(AdminManagerMixin, ListView):
+class ContractListView(SalesAccessMixin, ListView):
     model = Contract
     template_name = "sales/contract_list.html"
     context_object_name = "contracts"
@@ -1621,7 +1621,7 @@ class ContractDetailView(SalesReadOnlyAccessMixin, DetailMessageScopeMixin, Deta
 
 
 
-class ContractPDFDownloadView(AdminManagerMixin, DetailView):
+class ContractPDFDownloadView(SalesAccessMixin, DetailView):
     model = Contract
 
     def get_queryset(self):
@@ -1695,7 +1695,7 @@ class ContractPDFDownloadView(AdminManagerMixin, DetailView):
         return response
 
 
-class ContractCreateView(AdminManagerMixin, OwnerAssignMixin, CreateView):
+class ContractCreateView(SalesAccessMixin, OwnerAssignMixin, CreateView):
     model = Contract
     form_class = ContractForm
     template_name = "sales/contract_form.html"
@@ -1750,7 +1750,7 @@ class ContractCreateView(AdminManagerMixin, OwnerAssignMixin, CreateView):
         return reverse_lazy("sales:contract_detail", kwargs={"pk": self.object.pk})
 
 
-class ContractUpdateView(AdminManagerMixin, OwnerAssignMixin, UpdateView):
+class ContractUpdateView(SalesAccessMixin, OwnerAssignMixin, UpdateView):
     model = Contract
     form_class = ContractForm
     template_name = "sales/contract_form.html"
@@ -1782,7 +1782,7 @@ class ContractUpdateView(AdminManagerMixin, OwnerAssignMixin, UpdateView):
     def get_success_url(self):
         return reverse_lazy("sales:contract_detail", kwargs={"pk": self.object.pk})
 
-class ContractDeleteView(AdminManagerMixin, DeleteView):
+class ContractDeleteView(SalesAccessMixin, DeleteView):
     model = Contract
     template_name = "common/confirm_delete.html"
     success_url = reverse_lazy("sales:contract_list")
@@ -1803,7 +1803,7 @@ class ContractDeleteView(AdminManagerMixin, DeleteView):
         return super().form_valid(form)
     
 
-class ContractGenerateInvoiceView(AdminManagerMixin, OwnerAssignMixin, CreateView):
+class ContractGenerateInvoiceView(SalesAccessMixin, OwnerAssignMixin, CreateView):
     """
     Contract detail page -> Generate Invoice.
     Creates invoice and copies contract items into invoice items.
@@ -1883,7 +1883,7 @@ class ContractGenerateInvoiceView(AdminManagerMixin, OwnerAssignMixin, CreateVie
 # Invoices
 # ============================================================
 
-class InvoiceListView(AdminManagerMixin, ListView):
+class InvoiceListView(SalesAccessMixin, ListView):
     model = Invoice
     template_name = "sales/invoice_list.html"
     context_object_name = "invoices"
@@ -2001,7 +2001,7 @@ class InvoiceDetailView(SalesReadOnlyAccessMixin, DetailMessageScopeMixin, Detai
         return context
 
 
-class InvoiceCreateView(AdminManagerMixin, OwnerAssignMixin, CreateView):
+class InvoiceCreateView(SalesAccessMixin, OwnerAssignMixin, CreateView):
     model = Invoice
     form_class = InvoiceForm
     template_name = "sales/invoice_form.html"
@@ -2065,7 +2065,7 @@ class InvoiceCreateView(AdminManagerMixin, OwnerAssignMixin, CreateView):
         return reverse_lazy("sales:invoice_detail", kwargs={"pk": self.object.pk})
 
 
-class InvoiceUpdateView(AdminManagerMixin, OwnerAssignMixin, UpdateView):
+class InvoiceUpdateView(SalesAccessMixin, OwnerAssignMixin, UpdateView):
     model = Invoice
     form_class = InvoiceForm
     template_name = "sales/invoice_form.html"
@@ -2089,7 +2089,7 @@ class InvoiceUpdateView(AdminManagerMixin, OwnerAssignMixin, UpdateView):
     def get_success_url(self):
         return reverse_lazy("sales:invoice_detail", kwargs={"pk": self.object.pk})
 
-class InvoiceDeleteView(AdminManagerMixin, DeleteView):
+class InvoiceDeleteView(SalesAccessMixin, DeleteView):
     model = Invoice
     template_name = "common/confirm_delete.html"
     success_url = reverse_lazy("sales:invoice_list")
@@ -2110,7 +2110,7 @@ class InvoiceDeleteView(AdminManagerMixin, DeleteView):
         )
         return super().form_valid(form)
     
-class InvoicePDFDownloadView(AdminManagerMixin, DetailView):
+class InvoicePDFDownloadView(SalesAccessMixin, DetailView):
     model = Invoice
 
     def get(self, request, *args, **kwargs):
@@ -2144,7 +2144,7 @@ class InvoicePDFDownloadView(AdminManagerMixin, DetailView):
 # Payments
 # ============================================================
 
-class PaymentListView(AdminManagerMixin, ListView):
+class PaymentListView(SalesAccessMixin, ListView):
     model = Payment
     template_name = "sales/payment_list.html"
     context_object_name = "payments"
@@ -2204,7 +2204,7 @@ class PaymentDetailView(SalesReadOnlyAccessMixin, DetailMessageScopeMixin, Detai
         )
 
 
-class PaymentCreateView(AdminManagerMixin, OwnerAssignMixin, CreateView):
+class PaymentCreateView(SalesAccessMixin, OwnerAssignMixin, CreateView):
     model = Payment
     form_class = PaymentForm
     template_name = "sales/payment_form.html"
@@ -2252,7 +2252,7 @@ class PaymentCreateView(AdminManagerMixin, OwnerAssignMixin, CreateView):
         return reverse_lazy("sales:payment_list")
 
 
-class PaymentUpdateView(AdminManagerMixin, OwnerAssignMixin, UpdateView):
+class PaymentUpdateView(SalesAccessMixin, OwnerAssignMixin, UpdateView):
     model = Payment
     form_class = PaymentForm
     template_name = "sales/payment_form.html"
@@ -2277,7 +2277,7 @@ class PaymentUpdateView(AdminManagerMixin, OwnerAssignMixin, UpdateView):
 
         return reverse_lazy("sales:payment_list")
 
-class PaymentDeleteView(AdminManagerMixin, DeleteView):
+class PaymentDeleteView(SalesAccessMixin, DeleteView):
     model = Payment
     template_name = "common/confirm_delete.html"
 
@@ -2319,7 +2319,7 @@ class PaymentDeleteView(AdminManagerMixin, DeleteView):
 
 
 @method_decorator(require_POST, name="dispatch")
-class ProposalSendEmailView(AdminManagerMixin, View):
+class ProposalSendEmailView(SalesAccessMixin, View):
     def post(self, request, pk):
         proposal = get_object_or_404(
             Proposal.objects.select_related("deal", "deal__client", "deal__lead"),
@@ -2382,7 +2382,7 @@ class ProposalSendEmailView(AdminManagerMixin, View):
 
 
 @method_decorator(require_POST, name="dispatch")
-class ContractSendEmailView(AdminManagerMixin, View):
+class ContractSendEmailView(SalesAccessMixin, View):
     def post(self, request, pk):
         contract = get_object_or_404(
             Contract.objects.select_related(
@@ -2461,7 +2461,7 @@ class ContractSendEmailView(AdminManagerMixin, View):
 
 
 @method_decorator(require_POST, name="dispatch")
-class InvoiceSendEmailView(AdminManagerMixin, View):
+class InvoiceSendEmailView(SalesAccessMixin, View):
     def post(self, request, pk):
         invoice = get_object_or_404(
             Invoice.objects.select_related("deal", "deal__client", "contract"),
@@ -2526,7 +2526,7 @@ class InvoiceSendEmailView(AdminManagerMixin, View):
 
 
 @method_decorator(require_POST, name="dispatch")
-class PaymentSendEmailView(AdminManagerMixin, View):
+class PaymentSendEmailView(SalesAccessMixin, View):
     def post(self, request, pk):
         payment = get_object_or_404(
             Payment.objects.select_related(

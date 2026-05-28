@@ -44,7 +44,7 @@ class SoftDelete(models.Model):
 class Owned(models.Model):
     """
     Tracks which user created/owns the object.
-    Useful for multi-user CRM (Admin, Manager, Employee).
+    Useful for multi-user CRM (Admin, CRM Manager, Project Manager, Employee).
     """
 
     owner = models.ForeignKey(

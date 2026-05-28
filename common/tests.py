@@ -1,11 +1,14 @@
 from datetime import timedelta
 
+from django.contrib.auth.models import Group, Permission
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
+from common.role_permissions import setup_role_groups
+from common.roles import ROLE_ADMIN, ROLE_CRM_MANAGER, ROLE_EMPLOYEE, ROLE_PROJECT_MANAGER
 from common.test_helpers import AuthenticatedViewTestMixin, make_user
 from common.notifications import notify_user
 
@@ -107,3 +110,48 @@ class CommonModelTests(AuthenticatedViewTestMixin):
             reverse("common:notification_mark_read", args=[notification.pk]),
             f"/common/notifications/{notification.pk}/mark-read/",
         )
+
+
+class RolePermissionSetupTests(TestCase):
+    def test_setup_role_groups_creates_expected_groups(self):
+        Group.objects.create(name="Manager")
+
+        setup_role_groups()
+
+        self.assertTrue(Group.objects.filter(name=ROLE_ADMIN).exists())
+        self.assertTrue(Group.objects.filter(name=ROLE_CRM_MANAGER).exists())
+        self.assertTrue(Group.objects.filter(name=ROLE_PROJECT_MANAGER).exists())
+        self.assertTrue(Group.objects.filter(name=ROLE_EMPLOYEE).exists())
+        self.assertFalse(Group.objects.filter(name="Manager").exists())
+
+    def test_setup_role_groups_assigns_suitable_permissions(self):
+        setup_role_groups()
+
+        admin = Group.objects.get(name=ROLE_ADMIN)
+        crm_manager = Group.objects.get(name=ROLE_CRM_MANAGER)
+        project_manager = Group.objects.get(name=ROLE_PROJECT_MANAGER)
+        employee = Group.objects.get(name=ROLE_EMPLOYEE)
+
+        add_client = Permission.objects.get(
+            content_type__app_label="crm",
+            codename="add_client",
+        )
+        add_service = Permission.objects.get(
+            content_type__app_label="services",
+            codename="add_service",
+        )
+        change_project = Permission.objects.get(
+            content_type__app_label="projects",
+            codename="change_project",
+        )
+        view_project = Permission.objects.get(
+            content_type__app_label="projects",
+            codename="view_project",
+        )
+
+        self.assertIn(add_service, admin.permissions.all())
+        self.assertIn(add_client, crm_manager.permissions.all())
+        self.assertNotIn(add_service, crm_manager.permissions.all())
+        self.assertIn(change_project, project_manager.permissions.all())
+        self.assertIn(view_project, employee.permissions.all())
+        self.assertNotIn(change_project, employee.permissions.all())

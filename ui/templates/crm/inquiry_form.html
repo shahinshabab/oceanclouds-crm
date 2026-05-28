@@ -7,7 +7,7 @@
 
 {% block content %}
 {% is_admin request.user as is_admin %}
-{% is_manager request.user as is_manager %}
+{% is_crm_manager request.user as is_crm_manager %}
 {% is_employee request.user as is_employee %}
 
 <div class="container py-3 max-w-2xl">

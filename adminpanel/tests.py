@@ -36,11 +36,11 @@ class AdminPanelModelAndFormTests(AuthenticatedViewTestMixin):
         self.assertTrue(form.is_valid(), form.errors)
 
     def test_role_form_creates_group(self):
-        form = RoleForm(data={"name": "CRM Manager", "permissions": []})
+        form = RoleForm(data={"name": "Custom Editors", "permissions": []})
 
         self.assertTrue(form.is_valid(), form.errors)
         group = form.save()
-        self.assertEqual(group, Group.objects.get(name="CRM Manager"))
+        self.assertEqual(group, Group.objects.get(name="Custom Editors"))
 
     def test_edit_urls_reverse(self):
         group = Group.objects.create(name="Editors")

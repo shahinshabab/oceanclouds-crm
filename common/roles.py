@@ -5,9 +5,6 @@ ROLE_CRM_MANAGER = "CRM Manager"
 ROLE_PROJECT_MANAGER = "Project Manager"
 ROLE_EMPLOYEE = "Employee"
 
-# Temporary old role support if old Manager group still exists
-ROLE_MANAGER = "Manager"
-
 
 CRM_ACCESS_ROLES = [
     ROLE_ADMIN,

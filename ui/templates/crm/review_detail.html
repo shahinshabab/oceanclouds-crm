@@ -8,7 +8,6 @@
 {% block content %}
 {% is_admin request.user as is_admin %}
 {% is_crm_manager request.user as is_crm_manager %}
-{% is_manager request.user as is_manager %}
 {% is_employee request.user as is_employee %}
 
 <div class="container py-3">
@@ -54,7 +53,7 @@
 
     <!-- Header actions moved here -->
     <div class="text-end d-flex flex-wrap justify-content-end gap-2">
-      {% if is_admin or is_crm_manager or is_manager %}
+      {% if is_admin or is_crm_manager %}
         <a href="{% url 'crm:review_update' review.pk %}"
            class="btn btn-primary btn-sm">
           Edit

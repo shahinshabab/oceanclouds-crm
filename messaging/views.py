@@ -17,7 +17,6 @@ from common.roles import (
     ROLE_ADMIN,
     ROLE_CRM_MANAGER,
     ROLE_EMPLOYEE,
-    ROLE_MANAGER,
     ROLE_PROJECT_MANAGER,
     user_has_role,
 )
@@ -645,9 +644,6 @@ class TicketListView(LoginRequiredMixin, ListView):
         ctx["is_project_manager"] = user_has_role(user, ROLE_PROJECT_MANAGER)
         ctx["is_employee"] = user_has_role(user, ROLE_EMPLOYEE)
 
-        # Temporary old Manager support
-        ctx["is_old_manager"] = user_has_role(user, ROLE_MANAGER)
-
         return ctx
 
 
@@ -705,6 +701,5 @@ class TicketDetailView(LoginRequiredMixin, DetailView):
         ctx["is_crm_manager"] = user_has_role(user, ROLE_CRM_MANAGER)
         ctx["is_project_manager"] = user_has_role(user, ROLE_PROJECT_MANAGER)
         ctx["is_employee"] = user_has_role(user, ROLE_EMPLOYEE)
-        ctx["is_old_manager"] = user_has_role(user, ROLE_MANAGER)
 
         return ctx

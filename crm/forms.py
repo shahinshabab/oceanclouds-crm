@@ -6,7 +6,6 @@ from .models import Client, Contact, Inquiry, Lead, Review
 
 
 CRM_MANAGER_GROUP_NAMES = ["CRM Manager", "crm_manager", "CRM_MANAGER"]
-MANAGER_GROUP_NAMES = ["Manager", "manager"]
 
 
 class BootstrapModelForm(forms.ModelForm):
@@ -63,7 +62,7 @@ class InquiryForm(BootstrapModelForm):
         super().__init__(*args, **kwargs)
         User = get_user_model()
         managers_qs = User.objects.filter(
-            groups__name__in=CRM_MANAGER_GROUP_NAMES + MANAGER_GROUP_NAMES,
+            groups__name__in=CRM_MANAGER_GROUP_NAMES,
             is_active=True,
         ).distinct().order_by("first_name", "last_name", "username", "id")
 

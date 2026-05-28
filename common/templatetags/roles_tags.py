@@ -7,7 +7,6 @@ from common.roles import (
     ROLE_CRM_MANAGER,
     ROLE_PROJECT_MANAGER,
     ROLE_EMPLOYEE,
-    ROLE_MANAGER,
     can_access_crm,
     can_access_sales,
     can_access_project,
@@ -84,17 +83,6 @@ def has_services_manage_access(user):
     Admin only.
     """
     return can_manage_services(user)
-
-
-# Keep temporarily for old templates
-@register.simple_tag
-def is_manager(user):
-    return user_has_role(
-        user,
-        ROLE_MANAGER,
-        ROLE_CRM_MANAGER,
-        ROLE_PROJECT_MANAGER,
-    )
 
 
 @register.filter
