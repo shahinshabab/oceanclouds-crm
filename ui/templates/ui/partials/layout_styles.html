@@ -6,16 +6,24 @@
     }
 
     .sidebar {
+        --bs-offcanvas-bg: #000;
+        --bs-offcanvas-color: #fff;
         position: fixed;
         top: 0;
         left: 0;
         bottom: 0;
         width: 240px;
-        background-color: #000;
+        background-color: #000 !important;
         color: #fff;
         padding: 1.5rem 1rem;
         overflow-y: auto;
         z-index: 150;
+    }
+
+    .sidebar .offcanvas-header,
+    .sidebar .offcanvas-body {
+        background-color: #000;
+        color: #fff;
     }
 
     .sidebar .offcanvas-body {
