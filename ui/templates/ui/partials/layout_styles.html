@@ -22,8 +22,8 @@
 
     .sidebar .offcanvas-header,
     .sidebar .offcanvas-body {
-        background-color: #000;
-        color: #fff;
+        background-color: #000 !important;
+        color: #fff !important;
     }
 
     .sidebar .offcanvas-body {
@@ -187,6 +187,17 @@
     }
 
     @media (max-width: 991.98px) {
+        .sidebar,
+        .sidebar.offcanvas-lg,
+        .sidebar.offcanvas-lg.show,
+        .sidebar.offcanvas-lg.showing,
+        .sidebar.offcanvas-lg.hiding {
+            --bs-offcanvas-bg: #000;
+            --bs-offcanvas-color: #fff;
+            background-color: #000 !important;
+            color: #fff !important;
+        }
+
         .sidebar {
             width: min(82vw, 300px);
             max-width: 300px;
