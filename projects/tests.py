@@ -18,6 +18,7 @@ from .models import (
     WorkSession,
     WorkSessionStatus,
 )
+from .utils import pause_active_work_sessions_for_user
 
 
 class ProjectsTests(AuthenticatedViewTestMixin):
@@ -117,6 +118,63 @@ class ProjectsTests(AuthenticatedViewTestMixin):
         session.end()
         session.refresh_from_db()
         self.assertEqual(session.status, WorkSessionStatus.ENDED)
+
+    def test_pause_clears_resume_marker_and_freezes_work_time(self):
+        user = make_user(username="pause-freeze-worker")
+        project = Project.objects.create(name="Freeze Timer")
+        task = Task.objects.create(project=project, name="Edit")
+        session = WorkSession.objects.create(
+            user=user,
+            project=project,
+            task=task,
+            last_resumed_at=timezone.now() - timedelta(hours=2),
+        )
+
+        session.pause()
+        session.refresh_from_db()
+
+        self.assertEqual(session.status, WorkSessionStatus.PAUSED)
+        self.assertIsNone(session.last_resumed_at)
+        self.assertGreaterEqual(session.work_seconds, 7200)
+        self.assertEqual(session.live_work_seconds, session.work_seconds)
+
+    def test_pause_active_work_sessions_for_user_pauses_task_status(self):
+        user = make_user(username="logout-pause-worker")
+        project = Project.objects.create(name="Logout Timer")
+        task = Task.objects.create(
+            project=project,
+            name="Edit",
+            status=TaskStatus.IN_PROGRESS,
+        )
+        session = WorkSession.objects.create(user=user, project=project, task=task)
+
+        pause_active_work_sessions_for_user(user)
+
+        session.refresh_from_db()
+        task.refresh_from_db()
+        self.assertEqual(session.status, WorkSessionStatus.PAUSED)
+        self.assertEqual(task.status, TaskStatus.PAUSED)
+
+    def test_pause_active_work_sessions_for_user_pauses_deliverable_status(self):
+        user = make_user(username="logout-pause-deliverable-worker")
+        project = Project.objects.create(name="Logout Deliverable Timer")
+        deliverable = Deliverable.objects.create(
+            project=project,
+            name="Film",
+            status=DeliverableStatus.IN_PROGRESS,
+        )
+        session = WorkSession.objects.create(
+            user=user,
+            project=project,
+            deliverable=deliverable,
+        )
+
+        pause_active_work_sessions_for_user(user.id)
+
+        session.refresh_from_db()
+        deliverable.refresh_from_db()
+        self.assertEqual(session.status, WorkSessionStatus.PAUSED)
+        self.assertEqual(deliverable.status, DeliverableStatus.PAUSED)
 
     def test_project_manager_is_notified_when_project_assignment_changes(self):
         actor = make_user(username="project-actor")

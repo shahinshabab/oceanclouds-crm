@@ -48,6 +48,8 @@ def record_user_logout(sender, request, user, **kwargs):
     if not user or not request:
         return
 
+    from projects.utils import pause_active_work_sessions_for_user
+
     session_key = request.session.session_key
 
     UserLoginSession.objects.filter(
@@ -58,3 +60,5 @@ def record_user_logout(sender, request, user, **kwargs):
         logout_at=timezone.now(),
         end_reason=UserSessionEndReason.LOGOUT,
     )
+
+    pause_active_work_sessions_for_user(user)

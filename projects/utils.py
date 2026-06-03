@@ -1,6 +1,14 @@
 from common.roles import ROLE_ADMIN, ROLE_EMPLOYEE, ROLE_PROJECT_MANAGER, user_has_role
 
-from .models import Deliverable, Project, Task, WorkSession, WorkSessionStatus
+from .models import (
+    Deliverable,
+    DeliverableStatus,
+    Project,
+    Task,
+    TaskStatus,
+    WorkSession,
+    WorkSessionStatus,
+)
 
 
 def _scope_tags(*scopes):
@@ -163,6 +171,30 @@ def user_has_active_work(user):
         user=user,
         status=WorkSessionStatus.ACTIVE,
     ).exists()
+
+
+def pause_active_work_sessions_for_user(user):
+    user_filter = {"user_id": user} if isinstance(user, int) else {"user": user}
+    sessions = (
+        WorkSession.objects
+        .filter(
+            status=WorkSessionStatus.ACTIVE,
+            **user_filter,
+        )
+        .select_related("task", "deliverable")
+    )
+
+    for session in sessions:
+        session.pause()
+
+        if session.task_id:
+            session.task.status = TaskStatus.PAUSED
+            session.task.save(update_fields=["status"])
+            continue
+
+        if session.deliverable_id:
+            session.deliverable.status = DeliverableStatus.PAUSED
+            session.deliverable.save(update_fields=["status"])
 
 
 def close_active_work_for_target(user, task=None, deliverable=None):

@@ -11,7 +11,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from common.models import UserLoginSession, UserSessionEndReason
-from projects.models import WorkSession, WorkSessionStatus
+from projects.utils import pause_active_work_sessions_for_user
 
 
 class CloseExpiredLoginSessionsMiddleware:
@@ -73,17 +73,8 @@ class CloseExpiredLoginSessionsMiddleware:
             login_session.end_reason = UserSessionEndReason.AUTO_TIMEOUT
             login_session.save(update_fields=["logout_at", "end_reason"])
 
-        active_work_sessions = (
-            WorkSession.objects
-            .filter(
-                user_id__in=expired_user_ids,
-                status=WorkSessionStatus.ACTIVE,
-            )
-            .select_related("user", "task", "deliverable", "project")
-        )
-
-        for work_session in active_work_sessions:
-            work_session.pause()
+        for user_id in expired_user_ids:
+            pause_active_work_sessions_for_user(user_id)
 
         return self.get_response(request)
 

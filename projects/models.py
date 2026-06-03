@@ -802,7 +802,8 @@ class WorkSession(TimeStamped, Owned):
         self._add_active_duration()
         self.status = WorkSessionStatus.PAUSED
         self.paused_at = now
-        self.save(update_fields=["work_seconds", "status", "paused_at"])
+        self.last_resumed_at = None
+        self.save(update_fields=["work_seconds", "status", "paused_at", "last_resumed_at"])
 
     def resume(self):
         if self.status != WorkSessionStatus.PAUSED:
