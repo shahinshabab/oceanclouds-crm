@@ -20,20 +20,24 @@ def record_user_login(sender, request, user, **kwargs):
         request.session.save()
 
     session_key = request.session.session_key
+    now = timezone.now()
 
-    UserLoginSession.objects.filter(
+    active_session = UserLoginSession.objects.filter(
         user=user,
         session_key=session_key,
         logout_at__isnull=True,
-    ).update(
-        logout_at=timezone.now(),
-        end_reason=UserSessionEndReason.SYSTEM,
-    )
+    ).first()
+
+    if active_session:
+        active_session.ip_address = get_client_ip(request)
+        active_session.user_agent = request.META.get("HTTP_USER_AGENT", "")
+        active_session.save(update_fields=["ip_address", "user_agent"])
+        return
 
     UserLoginSession.objects.create(
         user=user,
         session_key=session_key,
-        login_at=timezone.now(),
+        login_at=now,
         ip_address=get_client_ip(request),
         user_agent=request.META.get("HTTP_USER_AGENT", ""),
     )

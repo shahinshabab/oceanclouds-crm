@@ -380,6 +380,7 @@ def _build_login_month_table(login_sessions_qs, work_sessions_qs, date_from, dat
             "work_seconds": day_work_seconds,
             "work_hours": _format_seconds_to_hours(day_work_seconds),
             "work_hm": _format_seconds_hm(day_work_seconds),
+            "ip_address": login.ip_address or "-",
         })
 
     # If multiple logins are on same date, showing same day work total repeatedly is useful,

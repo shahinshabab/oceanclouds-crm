@@ -1,20 +1,13 @@
 # common/middleware.py
 
-from datetime import timedelta
-
-from django.conf import settings
-from django.utils import timezone
-
-from .models import UserLoginSession, UserSessionEndReason
 from urllib.parse import urlparse
 
 from django.contrib.messages import get_messages
-
-# common/middleware.py
-
+from django.contrib.sessions.models import Session
 from datetime import timedelta
 
 from django.conf import settings
+from django.db.models import Q
 from django.utils import timezone
 
 from common.models import UserLoginSession, UserSessionEndReason
@@ -40,11 +33,32 @@ class CloseExpiredLoginSessionsMiddleware:
         now = timezone.now()
         cutoff = now - timedelta(seconds=max_age)
 
+        active_login_sessions = UserLoginSession.objects.filter(
+            logout_at__isnull=True,
+        )
+        active_session_keys = list(
+            active_login_sessions.values_list("session_key", flat=True).distinct()
+        )
+        valid_session_keys = set(
+            Session.objects.filter(
+                session_key__in=active_session_keys,
+                expire_date__gt=now,
+            ).values_list("session_key", flat=True)
+        )
+        stale_session_keys = [
+            session_key
+            for session_key in active_session_keys
+            if session_key not in valid_session_keys
+        ]
+
         expired_login_sessions = list(
             UserLoginSession.objects
             .filter(
                 logout_at__isnull=True,
-                login_at__lt=cutoff,
+            )
+            .filter(
+                Q(login_at__lt=cutoff)
+                | Q(session_key__in=stale_session_keys)
             )
             .select_related("user")
         )

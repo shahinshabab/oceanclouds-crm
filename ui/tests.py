@@ -1,5 +1,6 @@
 from django.urls import reverse
 
+from common.models import UserLoginSession
 from common.test_helpers import AuthenticatedViewTestMixin, make_user
 
 from .forms import ProfileUpdateForm
@@ -28,6 +29,28 @@ class UiTests(AuthenticatedViewTestMixin):
 
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response["Location"], reverse("ui:home"))
+
+    def test_repeated_login_in_same_browser_keeps_one_active_session(self):
+        user = make_user(username="repeat-login-user", password="secret12345")
+        login_data = {"username": user.username, "password": "secret12345"}
+
+        self.client.post(
+            reverse("ui:login"),
+            data=login_data,
+            REMOTE_ADDR="192.0.2.10",
+        )
+        self.client.post(
+            reverse("ui:login"),
+            data=login_data,
+            REMOTE_ADDR="192.0.2.11",
+        )
+
+        sessions = UserLoginSession.objects.filter(
+            user=user,
+            logout_at__isnull=True,
+        )
+        self.assertEqual(sessions.count(), 1)
+        self.assertEqual(sessions.get().ip_address, "192.0.2.11")
 
     def test_profile_form_updates_user_fields(self):
         form = ProfileUpdateForm(

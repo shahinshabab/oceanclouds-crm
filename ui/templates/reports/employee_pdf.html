@@ -163,6 +163,7 @@
         <th>Logout Type</th>
         <th>Total Logged Hour</th>
         <th>Total Work Session Time of Day</th>
+        <th>IP Address</th>
       </tr>
     </thead>
 
@@ -189,10 +190,11 @@
           </td>
           <td>{{ row.logged_hours }} hours<br>{{ row.logged_hm }}</td>
           <td>{{ row.work_hours }} hours<br>{{ row.work_hm }}</td>
+          <td>{{ row.ip_address }}</td>
         </tr>
       {% empty %}
         <tr>
-          <td colspan="6">No login sessions found.</td>
+          <td colspan="7">No login sessions found.</td>
         </tr>
       {% endfor %}
     </tbody>
@@ -202,6 +204,7 @@
         <th colspan="4" style="text-align: right;">Total</th>
         <th>{{ login_table.total_login_hours }} hours<br>{{ login_table.total_login_hm }}</th>
         <th>{{ login_table.total_work_hours }} hours<br>{{ login_table.total_work_hm }}</th>
+        <th></th>
       </tr>
     </tfoot>
   </table>

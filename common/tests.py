@@ -3,10 +3,11 @@ from datetime import timedelta
 from django.contrib.auth.models import Group, Permission
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError
-from django.test import TestCase
+from django.test import RequestFactory, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
+from common.middleware import CloseExpiredLoginSessionsMiddleware
 from common.role_permissions import setup_role_groups
 from common.roles import ROLE_ADMIN, ROLE_CRM_MANAGER, ROLE_EMPLOYEE, ROLE_PROJECT_MANAGER
 from common.test_helpers import AuthenticatedViewTestMixin, make_user
@@ -98,6 +99,22 @@ class CommonModelTests(AuthenticatedViewTestMixin):
         session.refresh_from_db()
         self.assertFalse(session.is_active)
         self.assertEqual(session.end_reason, "logout")
+
+    def test_stale_login_session_is_closed_by_middleware(self):
+        user = make_user(username="stale-session-user")
+        session = UserLoginSession.objects.create(
+            user=user,
+            session_key="missing-session-key",
+            login_at=timezone.now(),
+        )
+        request = RequestFactory().get("/")
+        middleware = CloseExpiredLoginSessionsMiddleware(lambda request: None)
+
+        middleware(request)
+
+        session.refresh_from_db()
+        self.assertFalse(session.is_active)
+        self.assertEqual(session.end_reason, "auto_timeout")
 
     def test_mark_notification_read_url_reverses(self):
         recipient = make_user(username="mark-read-user")
