@@ -358,6 +358,7 @@ class Notification(models.Model):
 class UserSessionEndReason(models.TextChoices):
     LOGOUT = "logout", "Manual Logout"
     AUTO_TIMEOUT = "auto_timeout", "Auto Timeout"
+    SESSION_REPLACED = "session_replaced", "Replaced by New Login"
     SYSTEM = "system", "System"
     UNKNOWN = "unknown", "Unknown"
 
@@ -379,6 +380,7 @@ class UserLoginSession(models.Model):
     session_key = models.CharField(max_length=100, db_index=True)
 
     login_at = models.DateTimeField(default=timezone.now, db_index=True)
+    last_activity_at = models.DateTimeField(default=timezone.now, db_index=True)
     logout_at = models.DateTimeField(null=True, blank=True, db_index=True)
 
     end_reason = models.CharField(
@@ -399,6 +401,13 @@ class UserLoginSession(models.Model):
             models.Index(fields=["user", "logout_at"]),
             models.Index(fields=["session_key"]),
             models.Index(fields=["logout_at", "end_reason"]),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user"],
+                condition=models.Q(logout_at__isnull=True),
+                name="one_active_login_session_per_user",
+            ),
         ]
 
     def __str__(self):

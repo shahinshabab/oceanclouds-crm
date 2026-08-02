@@ -1,6 +1,8 @@
 # common/signals.py
 
 from django.contrib.auth.signals import user_logged_in, user_logged_out
+from django.contrib.sessions.models import Session
+from django.db import transaction
 from django.dispatch import receiver
 from django.utils import timezone
 
@@ -15,12 +17,30 @@ def get_client_ip(request):
 
 
 @receiver(user_logged_in)
+@transaction.atomic
 def record_user_login(sender, request, user, **kwargs):
     if not request.session.session_key:
         request.session.save()
 
     session_key = request.session.session_key
     now = timezone.now()
+
+    replaced_session_keys = list(
+        UserLoginSession.objects.select_for_update()
+        .filter(user=user, logout_at__isnull=True)
+        .exclude(session_key=session_key)
+        .values_list("session_key", flat=True)
+    )
+    if replaced_session_keys:
+        UserLoginSession.objects.filter(
+            user=user,
+            session_key__in=replaced_session_keys,
+            logout_at__isnull=True,
+        ).update(
+            logout_at=now,
+            end_reason=UserSessionEndReason.SESSION_REPLACED,
+        )
+        Session.objects.filter(session_key__in=replaced_session_keys).delete()
 
     active_session = UserLoginSession.objects.filter(
         user=user,
@@ -31,13 +51,17 @@ def record_user_login(sender, request, user, **kwargs):
     if active_session:
         active_session.ip_address = get_client_ip(request)
         active_session.user_agent = request.META.get("HTTP_USER_AGENT", "")
-        active_session.save(update_fields=["ip_address", "user_agent"])
+        active_session.last_activity_at = now
+        active_session.save(
+            update_fields=["ip_address", "user_agent", "last_activity_at"]
+        )
         return
 
     UserLoginSession.objects.create(
         user=user,
         session_key=session_key,
         login_at=now,
+        last_activity_at=now,
         ip_address=get_client_ip(request),
         user_agent=request.META.get("HTTP_USER_AGENT", ""),
     )

@@ -1,9 +1,10 @@
 from datetime import timedelta
 
-from django.contrib.auth.models import Group, Permission
+from django.contrib.auth.models import AnonymousUser, Group, Permission
+from django.contrib.sessions.backends.db import SessionStore
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError
-from django.test import RequestFactory, TestCase
+from django.test import Client, RequestFactory, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
@@ -12,6 +13,7 @@ from common.role_permissions import setup_role_groups
 from common.roles import ROLE_ADMIN, ROLE_CRM_MANAGER, ROLE_EMPLOYEE, ROLE_PROJECT_MANAGER
 from common.test_helpers import AuthenticatedViewTestMixin, make_user
 from common.notifications import notify_user
+from projects.models import Project, Task, TaskStatus, WorkSession, WorkSessionStatus
 
 from .models import Choice, Communication, Notification, UserLoginSession
 
@@ -100,21 +102,86 @@ class CommonModelTests(AuthenticatedViewTestMixin):
         self.assertFalse(session.is_active)
         self.assertEqual(session.end_reason, "logout")
 
-    def test_stale_login_session_is_closed_by_middleware(self):
+    def test_idle_login_pauses_work_at_last_activity_and_closes_at_timeout(self):
         user = make_user(username="stale-session-user")
-        session = UserLoginSession.objects.create(
+        now = timezone.now()
+        last_activity_at = now - timedelta(hours=4)
+        login_session = UserLoginSession.objects.create(
             user=user,
             session_key="missing-session-key",
-            login_at=timezone.now(),
+            login_at=now - timedelta(hours=6),
+            last_activity_at=last_activity_at,
+        )
+        project = Project.objects.create(name="Timed Out Project")
+        task = Task.objects.create(
+            project=project,
+            name="Timed Out Task",
+            status=TaskStatus.IN_PROGRESS,
+        )
+        work_session = WorkSession.objects.create(
+            user=user,
+            project=project,
+            task=task,
+            started_at=last_activity_at - timedelta(hours=2),
+            last_resumed_at=last_activity_at - timedelta(hours=2),
         )
         request = RequestFactory().get("/")
+        request.session = SessionStore()
+        request.user = AnonymousUser()
         middleware = CloseExpiredLoginSessionsMiddleware(lambda request: None)
 
         middleware(request)
 
-        session.refresh_from_db()
-        self.assertFalse(session.is_active)
-        self.assertEqual(session.end_reason, "auto_timeout")
+        login_session.refresh_from_db()
+        work_session.refresh_from_db()
+        task.refresh_from_db()
+        self.assertFalse(login_session.is_active)
+        self.assertEqual(login_session.end_reason, "auto_timeout")
+        self.assertEqual(
+            login_session.logout_at,
+            last_activity_at + timedelta(hours=3),
+        )
+        self.assertEqual(work_session.status, WorkSessionStatus.PAUSED)
+        self.assertEqual(work_session.paused_at, last_activity_at)
+        self.assertEqual(work_session.work_seconds, 2 * 60 * 60)
+        self.assertEqual(task.status, TaskStatus.PAUSED)
+
+    def test_old_login_with_recent_activity_is_not_timed_out(self):
+        user = make_user(username="recently-active-user")
+        now = timezone.now()
+        login_session = UserLoginSession.objects.create(
+            user=user,
+            session_key="recent-session-key",
+            login_at=now - timedelta(hours=8),
+            last_activity_at=now - timedelta(minutes=5),
+        )
+        request = RequestFactory().get("/")
+        request.session = SessionStore()
+        request.user = AnonymousUser()
+
+        CloseExpiredLoginSessionsMiddleware(lambda request: None)(request)
+
+        login_session.refresh_from_db()
+        self.assertTrue(login_session.is_active)
+
+    def test_idle_current_request_is_logged_out_before_protected_view(self):
+        user = make_user(username="idle-current-user")
+        browser = Client()
+        browser.force_login(user)
+        login_session = UserLoginSession.objects.get(
+            user=user,
+            logout_at__isnull=True,
+        )
+        login_session.last_activity_at = timezone.now() - timedelta(hours=4)
+        login_session.save(update_fields=["last_activity_at"])
+
+        response = browser.get(reverse("ui:home"))
+
+        login_session.refresh_from_db()
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("ui:login"), response["Location"])
+        self.assertEqual(login_session.end_reason, "auto_timeout")
+        self.assertNotIn("_auth_user_id", browser.session)
 
     def test_mark_notification_read_url_reverses(self):
         recipient = make_user(username="mark-read-user")

@@ -164,7 +164,6 @@ class ReportAccessMixin(RolesRequiredMixin):
     - Admin
     - CRM Manager
     - Project Manager
-    - Employee
     """
     allowed_roles = REPORT_ACCESS_ROLES
 
@@ -192,6 +191,5 @@ class EmployeeReportAccessMixin(RolesRequiredMixin):
     Employee work report:
     - Admin
     - Project Manager
-    - Employee
     """
     allowed_roles = EMPLOYEE_REPORT_ACCESS_ROLES

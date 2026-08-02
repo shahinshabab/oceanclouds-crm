@@ -169,11 +169,13 @@ class ProjectsTests(AuthenticatedViewTestMixin):
             deliverable=deliverable,
         )
 
-        pause_active_work_sessions_for_user(user.id)
+        paused_at = timezone.now()
+        pause_active_work_sessions_for_user(user.id, paused_at=paused_at)
 
         session.refresh_from_db()
         deliverable.refresh_from_db()
         self.assertEqual(session.status, WorkSessionStatus.PAUSED)
+        self.assertEqual(session.paused_at, paused_at)
         self.assertEqual(deliverable.status, DeliverableStatus.PAUSED)
 
     def test_project_manager_is_notified_when_project_assignment_changes(self):

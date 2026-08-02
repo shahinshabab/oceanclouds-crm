@@ -57,6 +57,7 @@ from .utils import (
     _int,
     _money,
     _selected_user_id,
+    _sum_work_session_seconds,
     _user_display,
     _users_in_role,
 )
@@ -152,7 +153,6 @@ class ReportDashboardView(ReportAccessMixin, TemplateView):
             user,
             ROLE_ADMIN,
             ROLE_PROJECT_MANAGER,
-            ROLE_EMPLOYEE,
         )
 
         return context
@@ -188,6 +188,7 @@ class SalesReportView(SalesReportAccessMixin, ReportPDFMixin, TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
+        current_user = self.request.user
         date_from, date_to = _get_date_range(self.request)
         selected_user = self.get_selected_crm_user()
 
@@ -346,6 +347,7 @@ class SalesReportView(SalesReportAccessMixin, ReportPDFMixin, TemplateView):
             "selected_user_name": _user_display(selected_user),
             "crm_managers": _users_in_role(ROLE_CRM_MANAGER),
             "pdf_download_url": self.get_pdf_url(),
+            "show_detailed_data": user_has_role(current_user, ROLE_ADMIN),
 
             "summary": {
                 "inquiry_count": inquiry_count,
@@ -390,11 +392,11 @@ class SalesReportView(SalesReportAccessMixin, ReportPDFMixin, TemplateView):
             "contract_status_counts": contract_status_counts,
             "invoice_status_counts": invoice_status_counts,
 
-            "recent_inquiries": inquiries_in_period.order_by("-created_at")[:10],
-            "recent_leads": leads_in_period.order_by("-created_at")[:10],
-            "recent_deals": deals_in_period.order_by("-created_at")[:10],
-            "recent_invoices": invoices_in_period.order_by("-created_at")[:10],
-            "recent_payments": payments_in_period.order_by("-created_at")[:10],
+            "recent_inquiries": inquiries_in_period.order_by("-created_at")[:10] if user_has_role(current_user, ROLE_ADMIN) else [],
+            "recent_leads": leads_in_period.order_by("-created_at")[:10] if user_has_role(current_user, ROLE_ADMIN) else [],
+            "recent_deals": deals_in_period.order_by("-created_at")[:10] if user_has_role(current_user, ROLE_ADMIN) else [],
+            "recent_invoices": invoices_in_period.order_by("-created_at")[:10] if user_has_role(current_user, ROLE_ADMIN) else [],
+            "recent_payments": payments_in_period.order_by("-created_at")[:10] if user_has_role(current_user, ROLE_ADMIN) else [],
         })
 
         return context
@@ -430,6 +432,7 @@ class ProjectReportView(ProjectReportAccessMixin, ReportPDFMixin, TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
+        current_user = self.request.user
         date_from, date_to = _get_date_range(self.request)
         selected_user = self.get_selected_project_manager()
         today = timezone.localdate()
@@ -482,9 +485,7 @@ class ProjectReportView(ProjectReportAccessMixin, ReportPDFMixin, TemplateView):
         deliverables_in_period = _base_date_filter(deliverables, "created_at", date_from, date_to)
         work_sessions_in_period = _base_date_filter(work_sessions, "started_at", date_from, date_to)
 
-        total_work_seconds = _int(
-            work_sessions_in_period.aggregate(total=Sum("work_seconds"))["total"]
-        )
+        total_work_seconds = _sum_work_session_seconds(work_sessions_in_period)
 
         total_work_hours = round(total_work_seconds / 3600, 2)
 
@@ -548,6 +549,7 @@ class ProjectReportView(ProjectReportAccessMixin, ReportPDFMixin, TemplateView):
             "selected_user_name": _user_display(selected_user),
             "project_managers": _users_in_role(ROLE_PROJECT_MANAGER),
             "pdf_download_url": self.get_pdf_url(),
+            "show_detailed_data": user_has_role(current_user, ROLE_ADMIN),
 
             "summary": {
                 "project_count": project_count,
@@ -585,12 +587,12 @@ class ProjectReportView(ProjectReportAccessMixin, ReportPDFMixin, TemplateView):
             "task_department_counts": task_department_counts,
             "deliverable_department_counts": deliverable_department_counts,
 
-            "recent_projects": projects_in_period.order_by("-created_at")[:10],
-            "overdue_projects": overdue_projects.order_by("due_date")[:10],
-            "recent_tasks": tasks_in_period.order_by("-created_at")[:10],
-            "overdue_tasks": overdue_tasks.order_by("due_date")[:10],
-            "recent_deliverables": deliverables_in_period.order_by("-created_at")[:10],
-            "overdue_deliverables": overdue_deliverables.order_by("due_date")[:10],
+            "recent_projects": projects_in_period.order_by("-created_at")[:10] if user_has_role(current_user, ROLE_ADMIN) else [],
+            "overdue_projects": overdue_projects.order_by("due_date")[:10] if user_has_role(current_user, ROLE_ADMIN) else [],
+            "recent_tasks": tasks_in_period.order_by("-created_at")[:10] if user_has_role(current_user, ROLE_ADMIN) else [],
+            "overdue_tasks": overdue_tasks.order_by("due_date")[:10] if user_has_role(current_user, ROLE_ADMIN) else [],
+            "recent_deliverables": deliverables_in_period.order_by("-created_at")[:10] if user_has_role(current_user, ROLE_ADMIN) else [],
+            "overdue_deliverables": overdue_deliverables.order_by("due_date")[:10] if user_has_role(current_user, ROLE_ADMIN) else [],
         })
 
         return context
@@ -696,17 +698,9 @@ class EmployeeWorkReportView(EmployeeReportAccessMixin, ReportPDFMixin, Template
         task_work_sessions = work_sessions_in_period.filter(task__isnull=False)
         deliverable_work_sessions = work_sessions_in_period.filter(deliverable__isnull=False)
 
-        total_work_seconds = _int(
-            work_sessions_in_period.aggregate(total=Sum("work_seconds"))["total"]
-        )
-
-        task_work_seconds = _int(
-            task_work_sessions.aggregate(total=Sum("work_seconds"))["total"]
-        )
-
-        deliverable_work_seconds = _int(
-            deliverable_work_sessions.aggregate(total=Sum("work_seconds"))["total"]
-        )
+        total_work_seconds = _sum_work_session_seconds(work_sessions_in_period)
+        task_work_seconds = _sum_work_session_seconds(task_work_sessions)
+        deliverable_work_seconds = _sum_work_session_seconds(deliverable_work_sessions)
 
         active_sessions = work_sessions.filter(status=WorkSessionStatus.ACTIVE)
         paused_sessions = work_sessions.filter(status=WorkSessionStatus.PAUSED)
@@ -741,23 +735,29 @@ class EmployeeWorkReportView(EmployeeReportAccessMixin, ReportPDFMixin, Template
             count=Count("id")
         ).order_by("status")
 
-        work_by_employee = (
-            work_sessions_in_period
-            .values(
-                "user_id",
-                "user__username",
-                "user__first_name",
-                "user__last_name",
+        work_by_employee_map = {}
+        for session in work_sessions_in_period.select_related("user"):
+            row = work_by_employee_map.setdefault(
+                session.user_id,
+                {
+                    "user_id": session.user_id,
+                    "user__username": session.user.username,
+                    "user__first_name": session.user.first_name,
+                    "user__last_name": session.user.last_name,
+                    "session_count": 0,
+                    "total_seconds": 0,
+                },
             )
-            .annotate(
-                session_count=Count("id"),
-                total_seconds=Sum("work_seconds"),
-            )
-            .order_by("-total_seconds")
-        )
+            row["session_count"] += 1
+            row["total_seconds"] += max(int(session.live_work_seconds or 0), 0)
 
+        work_by_employee = sorted(
+            work_by_employee_map.values(),
+            key=lambda row: row["total_seconds"],
+            reverse=True,
+        )
         for row in work_by_employee:
-            seconds = row["total_seconds"] or 0
+            seconds = row["total_seconds"]
             row["total_hours"] = round(seconds / 3600, 2)
             row["total_hm"] = _format_seconds_hm(seconds)
 
@@ -780,6 +780,11 @@ class EmployeeWorkReportView(EmployeeReportAccessMixin, ReportPDFMixin, Template
         )
 
         recent_work_sessions = list(work_sessions_in_period.order_by("-started_at")[:20])
+        show_detailed_data = user_has_role(current_user, ROLE_ADMIN)
+        if not show_detailed_data:
+            login_table["rows"] = []
+            recent_work_sessions = []
+            work_by_employee = []
 
         context.update({
             "report_title": "Employee Work Report",
@@ -789,6 +794,7 @@ class EmployeeWorkReportView(EmployeeReportAccessMixin, ReportPDFMixin, Template
             "selected_user_name": _user_display(selected_user),
             "employees": _employee_options_for_user(current_user),
             "pdf_download_url": self.get_pdf_url(),
+            "show_detailed_data": show_detailed_data,
 
             "login_chart": login_chart,
             "login_table": login_table,

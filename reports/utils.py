@@ -1,6 +1,6 @@
 import json
 from collections import defaultdict
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 from decimal import Decimal
 
 from django.conf import settings
@@ -216,6 +216,14 @@ def _format_seconds_hm(seconds):
     return f"{hours}h {minutes}m"
 
 
+def _sum_work_session_seconds(work_sessions):
+    """Include stored time and the live portion of active work sessions."""
+    return sum(
+        max(int(session.live_work_seconds or 0), 0)
+        for session in work_sessions
+    )
+
+
 def _auto_logout_idle_seconds():
     return int(getattr(settings, "AUTO_LOGOUT_IDLE_SECONDS", 3 * 60 * 60) or 0)
 
@@ -232,33 +240,67 @@ def _login_session_seconds(session, local_login, local_logout):
 
 def _build_attendance_summary(login_sessions_qs, date_from, date_to):
     """
-    Count attendance from completed manual login sessions.
+    Count attendance from completed, user-valid login sessions.
 
-    A user earns attendance for a local login date only when their manually
-    logged-out sessions total at least 8 hours for that date.
+    Manual logout, auto-timeout, and replaced sessions all contain valid used
+    time. The auto-timeout idle window is excluded, and sessions crossing
+    midnight are split across their actual local calendar days.
     """
-    manual_sessions = (
+    completed_sessions = (
         login_sessions_qs
         .filter(
-            login_at__date__gte=date_from,
             login_at__date__lte=date_to,
+            logout_at__date__gte=date_from,
             logout_at__isnull=False,
-            end_reason=UserSessionEndReason.LOGOUT,
+            end_reason__in=[
+                UserSessionEndReason.LOGOUT,
+                UserSessionEndReason.AUTO_TIMEOUT,
+                UserSessionEndReason.SESSION_REPLACED,
+            ],
         )
         .select_related("user")
         .order_by("login_at")
     )
 
     seconds_by_user_date = defaultdict(int)
+    current_tz = timezone.get_current_timezone()
+    range_start = timezone.make_aware(
+        datetime.combine(date_from, time.min),
+        current_tz,
+    )
+    range_end = timezone.make_aware(
+        datetime.combine(date_to + timedelta(days=1), time.min),
+        current_tz,
+    )
 
-    for session in manual_sessions:
+    for session in completed_sessions:
         local_login = timezone.localtime(session.login_at)
         local_logout = timezone.localtime(session.logout_at)
-        attendance_key = (session.user_id, local_login.date())
-        seconds_by_user_date[attendance_key] += max(
-            int((local_logout - local_login).total_seconds()),
-            0,
-        )
+
+        if session.end_reason == UserSessionEndReason.AUTO_TIMEOUT:
+            local_logout = max(
+                local_login,
+                local_logout - timedelta(seconds=_auto_logout_idle_seconds()),
+            )
+
+        segment_start = max(local_login, range_start)
+        segment_end = min(local_logout, range_end)
+
+        while segment_start < segment_end:
+            next_day = timezone.make_aware(
+                datetime.combine(
+                    segment_start.date() + timedelta(days=1),
+                    time.min,
+                ),
+                current_tz,
+            )
+            day_end = min(segment_end, next_day)
+            attendance_key = (session.user_id, segment_start.date())
+            seconds_by_user_date[attendance_key] += max(
+                int((day_end - segment_start).total_seconds()),
+                0,
+            )
+            segment_start = day_end
 
     attended_days = [
         {

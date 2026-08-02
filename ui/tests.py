@@ -1,3 +1,5 @@
+from django.contrib.sessions.models import Session
+from django.test import Client
 from django.urls import reverse
 
 from common.models import UserLoginSession
@@ -51,6 +53,38 @@ class UiTests(AuthenticatedViewTestMixin):
         )
         self.assertEqual(sessions.count(), 1)
         self.assertEqual(sessions.get().ip_address, "192.0.2.11")
+
+    def test_new_login_invalidates_users_previous_browser_session(self):
+        user = make_user(username="single-session-user", password="secret12345")
+        login_data = {"username": user.username, "password": "secret12345"}
+        first_browser = Client()
+        second_browser = Client()
+
+        first_browser.post(reverse("ui:login"), data=login_data)
+        first_session_key = first_browser.session.session_key
+
+        second_browser.post(reverse("ui:login"), data=login_data)
+
+        self.assertFalse(Session.objects.filter(session_key=first_session_key).exists())
+        self.assertEqual(
+            UserLoginSession.objects.filter(
+                user=user,
+                logout_at__isnull=True,
+            ).count(),
+            1,
+        )
+        self.assertTrue(
+            UserLoginSession.objects.filter(
+                user=user,
+                session_key=first_session_key,
+                end_reason="session_replaced",
+                logout_at__isnull=False,
+            ).exists()
+        )
+
+        response = first_browser.get(reverse("ui:home"))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("ui:login"), response["Location"])
 
     def test_profile_form_updates_user_fields(self):
         form = ProfileUpdateForm(

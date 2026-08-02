@@ -274,10 +274,8 @@ CRONJOBS = [
     #("0 0 * * *", "django.core.management.call_command", ["generate_due_todos"]),
 #]
 
-SESSION_COOKIE_AGE = 10 * 60 * 60      # 10 hours
+# Authentication expires after three hours without a completed request.
+AUTO_LOGOUT_IDLE_SECONDS = 3 * 60 * 60
+SESSION_COOKIE_AGE = AUTO_LOGOUT_IDLE_SECONDS
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 SESSION_SAVE_EVERY_REQUEST = True      # reset inactivity timer
-
-# Time that can be added by system/session expiry after the user's last activity.
-# Reports subtract this from auto-timeout login sessions so charts show user-used time.
-AUTO_LOGOUT_IDLE_SECONDS = 3 * 60 * 60
