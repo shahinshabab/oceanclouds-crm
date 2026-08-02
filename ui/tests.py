@@ -21,6 +21,17 @@ class UiTests(AuthenticatedViewTestMixin):
 
         self.assertEqual(response.status_code, 200)
 
+    def test_authenticated_layout_includes_refined_sidebar(self):
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("ui:home"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="sidebarNavigation"')
+        self.assertContains(response, 'id="sidebarSearch"')
+        self.assertContains(response, 'class="sidebar-brand-mark"')
+        self.assertContains(response, 'class="sidebar-user"')
+
     def test_login_with_valid_credentials_redirects_home(self):
         user = make_user(username="login-user", password="secret12345")
 
