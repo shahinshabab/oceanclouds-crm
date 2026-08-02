@@ -1,5 +1,6 @@
 # Python venv
 crmenv/
+.venv/
 
 # Environment variables
 .env
@@ -16,6 +17,7 @@ __pycache__/
 # Django stuff (optional)
 staticfiles/
 media/
+logs/
 
 # db data
 db.sqlite3
@@ -23,3 +25,7 @@ db.sqlite3
 
 # work space
 oceanclouds-crm.code-workspace
+
+# Local production backups contain secrets and customer data
+Server-Backup/
+migration-output/

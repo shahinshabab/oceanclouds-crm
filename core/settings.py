@@ -25,12 +25,17 @@ env = environ.Env(
     DJANGO_DEBUG=(bool, False),
     DJANGO_SECRET_KEY=(str, "change-me"),
     DJANGO_ALLOWED_HOSTS=(list, []),
+    DJANGO_CSRF_TRUSTED_ORIGINS=(list, []),
+    DJANGO_SECURE_SSL_REDIRECT=(bool, False),
+    DJANGO_SESSION_COOKIE_SECURE=(bool, False),
+    DJANGO_CSRF_COOKIE_SECURE=(bool, False),
     DB_ENGINE=(str, "sqlite"),
     DB_NAME=(str, "db.sqlite3"),
     DB_USER=(str, ""),
     DB_PASSWORD=(str, ""),
     DB_HOST=(str, ""),
     DB_PORT=(str, ""),
+    DB_CONN_MAX_AGE=(int, 60),
     APP_VERSION=(str, "dev"),
     AWS_REGION=(str, ""),
     AWS_SES_SENDER=(str, ""),
@@ -60,6 +65,12 @@ environ.Env.read_env(BASE_DIR / ".env")
 DEBUG = env("DJANGO_DEBUG")
 SECRET_KEY = env("DJANGO_SECRET_KEY")
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS")
+CSRF_TRUSTED_ORIGINS = env.list("DJANGO_CSRF_TRUSTED_ORIGINS")
+SECURE_SSL_REDIRECT = env.bool("DJANGO_SECURE_SSL_REDIRECT")
+SESSION_COOKIE_SECURE = env.bool("DJANGO_SESSION_COOKIE_SECURE")
+CSRF_COOKIE_SECURE = env.bool("DJANGO_CSRF_COOKIE_SECURE")
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+USE_X_FORWARDED_HOST = True
 APP_VERSION = env("APP_VERSION")
 AWS_REGION = env("AWS_REGION")
 AWS_SES_SENDER = env("AWS_SES_SENDER")
@@ -171,6 +182,8 @@ if DB_ENGINE == "postgres":
             "PASSWORD": env("DB_PASSWORD"),
             "HOST": env("DB_HOST"),
             "PORT": env("DB_PORT"),
+            "CONN_MAX_AGE": env.int("DB_CONN_MAX_AGE"),
+            "CONN_HEALTH_CHECKS": True,
         }
     }
 else:
@@ -200,7 +213,7 @@ USE_TZ = True
 # ------------------------------------------------------------------------------
 # Static & Media
 # ------------------------------------------------------------------------------
-STATIC_URL = "static/"
+STATIC_URL = "/static/"
 STATICFILES_DIRS = [BASE_DIR / "ui" / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
 

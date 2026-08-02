@@ -1,0 +1,13 @@
+[Unit]
+Description=Back up OceanClouds ERP PostgreSQL and uploaded media
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/opt/oceanclouds-erp
+ExecStart=/usr/local/sbin/oceanclouds-erp-backup
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
