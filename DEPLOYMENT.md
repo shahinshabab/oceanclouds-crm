@@ -45,6 +45,8 @@ location / {
 
 For the test server, `deploy/test.oceanclouds.in.nginx.conf` is the HTTP host
 configuration used before Certbot adds the HTTPS listener and redirect.
+The production equivalent is `deploy/oceanclouds.in.nginx.conf`; issue its
+certificate only after both production DNS names resolve to the main server.
 
 ## Persistent data
 
