@@ -171,7 +171,7 @@
 
           <div class="small text-muted mt-2">
             Total work:
-            <span class="fw-semibold">{{ project.total_work_hours|default:"0" }} hrs</span>
+            <span class="fw-semibold">{{ project.total_work_hm|default:"0h 0m" }}</span>
           </div>
         </div>
       </div>
@@ -453,7 +453,7 @@
 
                   <td>{{ session.get_status_display }}</td>
                   <td>{{ session.started_at }}</td>
-                  <td class="text-end">{{ session.live_work_hours }} hrs</td>
+                  <td class="text-end">{{ session.live_work_hm }}</td>
                 </tr>
               {% endfor %}
             </tbody>

@@ -65,7 +65,7 @@
         <div>
           <div class="fw-semibold">Work Timer</div>
           <div class="small text-muted">
-            Total counted work: {{ deliverable.total_work_hours }} hrs.
+            Total counted work: {{ deliverable.total_work_hm }}.
             Paused time is not counted.
           </div>
         </div>
@@ -233,7 +233,7 @@
 
         <div class="col-md-4">
           <div class="small text-uppercase text-muted mb-1">Actual Work</div>
-          <div class="fw-semibold">{{ deliverable.total_work_hours }} hrs</div>
+          <div class="fw-semibold">{{ deliverable.total_work_hm }}</div>
         </div>
 
         <div class="col-md-4">
@@ -454,7 +454,7 @@
                   </td>
 
                   <td class="text-end">
-                    {{ t.total_work_hours }} hrs
+                    {{ t.total_work_hm }}
                   </td>
                 </tr>
               {% endfor %}
@@ -496,7 +496,7 @@
                   <td>{{ session.get_status_display }}</td>
                   <td>{{ session.started_at }}</td>
                   <td>{{ session.ended_at|default:"—" }}</td>
-                  <td class="text-end">{{ session.live_work_hours }} hrs</td>
+                  <td class="text-end">{{ session.live_work_hm }}</td>
                 </tr>
               {% endfor %}
             </tbody>

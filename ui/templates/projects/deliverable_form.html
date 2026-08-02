@@ -338,7 +338,7 @@
             data.forEach((task) => {
               const option = document.createElement("option");
               option.value = task.id;
-              option.textContent = task.name + " (" + task.status + ")";
+              option.textContent = task.name + " (" + task.status_display + " - " + task.assignee + ")";
               tasksSelect.appendChild(option);
             });
           })

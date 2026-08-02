@@ -255,6 +255,7 @@ class ProjectOverviewView(ProjectAccessMixin, DetailMessageScopeMixin, DetailVie
                     "assigned_to"
                 ).prefetch_related("tasks"),
                 "total_work_hours": project.total_work_hours,
+                "total_work_hm": project.total_work_hm,
             }
         )
 
@@ -1595,7 +1596,7 @@ def ajax_load_tasks(request):
     qs = Task.objects.none()
 
     if project_id:
-        qs = visible_tasks_for(request.user).filter(
+        qs = visible_tasks_for(request.user).select_related("assigned_to").filter(
             project_id=project_id,
         ).order_by(
             F("due_date").asc(nulls_last=True),
@@ -1609,7 +1610,11 @@ def ajax_load_tasks(request):
             "id": task.id,
             "name": task.name,
             "status": task.status,
+            "status_display": task.get_status_display(),
             "category": task.category,
+            "assignee": (
+                task.assigned_to.get_full_name().strip() or task.assigned_to.username
+            ) if task.assigned_to_id else "Unassigned",
         }
         for task in qs
     ]

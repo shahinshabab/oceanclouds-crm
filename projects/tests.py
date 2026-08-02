@@ -314,3 +314,30 @@ class ProjectsTests(AuthenticatedViewTestMixin):
                 title=f"Complete assigned deliverable: {deliverable.name}",
             ).exists()
         )
+
+    def test_work_duration_hm_uses_sixty_minutes_per_hour(self):
+        user = make_user(username="duration-worker")
+        project = Project.objects.create(name="Duration Project")
+        task = Task.objects.create(project=project, name="Duration Task")
+        deliverable = Deliverable.objects.create(project=project, name="Duration Deliverable")
+
+        task_session = WorkSession.objects.create(
+            user=user,
+            project=project,
+            task=task,
+            status=WorkSessionStatus.PAUSED,
+            work_seconds=100 * 60,
+        )
+        WorkSession.objects.create(
+            user=user,
+            project=project,
+            deliverable=deliverable,
+            status=WorkSessionStatus.PAUSED,
+            work_seconds=100 * 60,
+        )
+
+        self.assertEqual(task_session.live_work_hm, "1h 40m")
+        self.assertEqual(task.total_work_hm, "1h 40m")
+        self.assertEqual(deliverable.total_work_hm, "1h 40m")
+        self.assertEqual(project.total_work_hm, "3h 20m")
+
