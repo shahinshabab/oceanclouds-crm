@@ -30,7 +30,23 @@ class UiTests(AuthenticatedViewTestMixin):
         self.assertContains(response, 'id="sidebarNavigation"')
         self.assertContains(response, 'id="sidebarSearch"')
         self.assertContains(response, 'class="sidebar-brand-mark"')
-        self.assertContains(response, 'class="sidebar-user"')
+        self.assertNotContains(response, "View profile")
+        self.assertNotContains(response, 'class="sidebar-user"')
+        self.assertContains(response, "height: 100dvh;")
+        self.assertContains(response, "min-height: 0;")
+
+    def test_profile_page_renders_account_overview(self):
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("ui:profile"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="profileName"')
+        self.assertContains(response, "Personal information")
+        self.assertContains(response, "Assigned roles")
+        self.assertContains(response, "Last successful login")
+        self.assertContains(response, reverse("ui:profile_edit"))
+        self.assertContains(response, reverse("ui:profile_password"))
 
     def test_login_with_valid_credentials_redirects_home(self):
         user = make_user(username="login-user", password="secret12345")

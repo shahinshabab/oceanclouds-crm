@@ -206,22 +206,6 @@
     </div>
 
     <div class="sidebar-footer">
-        {% if request.user.is_authenticated %}
-            <a class="sidebar-user" href="{% url 'ui:profile' %}">
-                <span class="sidebar-user-avatar">
-                    {% if request.user.get_full_name %}
-                        {{ request.user.get_full_name|first|upper }}
-                    {% else %}
-                        {{ request.user.username|first|upper }}
-                    {% endif %}
-                </span>
-                <span class="sidebar-user-copy">
-                    <strong>{{ request.user.get_full_name|default:request.user.username }}</strong>
-                    <small>View profile</small>
-                </span>
-                <i class="bi bi-chevron-right" aria-hidden="true"></i>
-            </a>
-        {% endif %}
         <div class="sidebar-version">Ocean Clouds &middot; {{ APP_VERSION|default:"dev" }}</div>
     </div>
     </div>
