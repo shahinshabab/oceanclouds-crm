@@ -12,6 +12,7 @@ django-environ==0.12.0
 django-storages==1.14.6
 docopt==0.6.2
 fonttools==4.60.1
+gunicorn==23.0.0
 idna==3.13
 jmespath==1.0.1
 lxml==6.1.1
@@ -23,6 +24,7 @@ pycparser==2.23
 pydyf==0.11.0
 PyMuPDF==1.27.2.3
 pyphen==0.17.2
+psycopg[binary]==3.2.9
 python-dateutil==2.9.0.post0
 requests==2.33.1
 s3transfer==0.16.0

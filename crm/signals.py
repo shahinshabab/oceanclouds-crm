@@ -12,6 +12,9 @@ from crm.models import Inquiry
 
 @receiver(pre_save, sender=Inquiry)
 def cache_old_inquiry_handler(sender, instance, **kwargs):
+    if kwargs.get("raw"):
+        return
+
     if not instance.pk:
         instance._old_handled_by_id = None
         return
@@ -28,7 +31,7 @@ def notify_and_todo_inquiry_assigned(sender, instance, created, **kwargs):
     - Create todo for assigned CRM person.
     """
 
-    if not instance.handled_by_id:
+    if kwargs.get("raw") or not instance.handled_by_id:
         return
 
     old_handled_by_id = getattr(instance, "_old_handled_by_id", None)

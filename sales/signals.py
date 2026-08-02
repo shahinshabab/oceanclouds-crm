@@ -30,7 +30,7 @@ def create_project_todo_when_advance_payment_received(sender, instance, created,
     - Create admin todo to create project.
     """
 
-    if not created:
+    if kwargs.get("raw") or not created:
         return
 
     if instance.payment_type != PaymentType.ADVANCE:

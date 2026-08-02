@@ -200,20 +200,30 @@ class DeliverableForm(BootstrapModelForm):
             is_active=True,
             groups__name=ROLE_EMPLOYEE,
         ).order_by("first_name", "last_name", "username")
+        self.fields["tasks"].label_from_instance = self._task_option_label
 
         if self.fixed_project:
             self.fields["project"].required = False
             self.fields["project"].initial = self.fixed_project
-            self.fields["tasks"].queryset = Task.objects.filter(
+            self.fields["tasks"].queryset = Task.objects.select_related("assigned_to").filter(
                 project=self.fixed_project
             ).order_by(F("due_date").asc(nulls_last=True), "status", "priority", "created_at")
         else:
             self.fields["tasks"].queryset = Task.objects.none()
 
         if self.instance and self.instance.pk:
-            self.fields["tasks"].queryset = Task.objects.filter(
+            self.fields["tasks"].queryset = Task.objects.select_related("assigned_to").filter(
                 project=self.instance.project
             ).order_by(F("due_date").asc(nulls_last=True), "status", "priority", "created_at")
+
+    @staticmethod
+    def _task_option_label(task):
+        assignee = "Unassigned"
+        if task.assigned_to_id:
+            full_name = task.assigned_to.get_full_name().strip()
+            assignee = full_name or task.assigned_to.username
+
+        return f"{task.name} ({task.get_status_display()} - {assignee})"
 
     def clean(self):
         cleaned = super().clean()

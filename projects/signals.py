@@ -19,6 +19,9 @@ from projects.models import (
 
 @receiver(pre_save, sender=Project)
 def cache_old_project_values(sender, instance, **kwargs):
+    if kwargs.get("raw"):
+        return
+
     if not instance.pk:
         instance._old_manager_id = None
         instance._old_status = None
@@ -32,6 +35,9 @@ def cache_old_project_values(sender, instance, **kwargs):
 
 @receiver(post_save, sender=Project)
 def notify_and_todo_project_changes(sender, instance, created, **kwargs):
+    if kwargs.get("raw"):
+        return
+
     old_manager_id = getattr(instance, "_old_manager_id", None)
     old_status = getattr(instance, "_old_status", None)
     actor = getattr(instance, "_notification_actor", None) or getattr(instance, "owner", None)
@@ -186,6 +192,9 @@ def create_active_project_work_todos(project, actor=None):
 
 @receiver(pre_save, sender=Task)
 def cache_old_task_assignee(sender, instance, **kwargs):
+    if kwargs.get("raw"):
+        return
+
     if not instance.pk:
         instance._old_assigned_to_id = None
         return
@@ -196,6 +205,9 @@ def cache_old_task_assignee(sender, instance, **kwargs):
 
 @receiver(post_save, sender=Task)
 def notify_and_todo_task_assigned(sender, instance, created, **kwargs):
+    if kwargs.get("raw"):
+        return
+
     if not instance.assigned_to_id:
         return
 
@@ -225,6 +237,9 @@ def notify_and_todo_task_assigned(sender, instance, created, **kwargs):
 
 @receiver(pre_save, sender=Deliverable)
 def cache_old_deliverable_assignee(sender, instance, **kwargs):
+    if kwargs.get("raw"):
+        return
+
     if not instance.pk:
         instance._old_assigned_to_id = None
         return
@@ -235,6 +250,9 @@ def cache_old_deliverable_assignee(sender, instance, **kwargs):
 
 @receiver(post_save, sender=Deliverable)
 def notify_and_todo_deliverable_assigned(sender, instance, created, **kwargs):
+    if kwargs.get("raw"):
+        return
+
     if not instance.assigned_to_id:
         return
 

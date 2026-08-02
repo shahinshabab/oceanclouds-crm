@@ -1,0 +1,16 @@
+.git
+.gitignore
+.env
+.venv
+crmenv
+__pycache__
+*.py[cod]
+*.sqlite3
+staticfiles
+media
+logs
+Server-Backup
+migration-output
+.codex-tmp*
+.vscode
+*.code-workspace

@@ -48,9 +48,11 @@ from projects.models import (
 )
 from .utils import (
     _base_date_filter,
+    _build_attendance_summary,
     _build_login_month_table,
     _build_login_week_chart,
     _employee_options_for_user,
+    _format_seconds_hm,
     _get_date_range,
     _int,
     _money,
@@ -572,6 +574,7 @@ class ProjectReportView(ProjectReportAccessMixin, ReportPDFMixin, TemplateView):
                 "paused_work_session_count": work_sessions.filter(status=WorkSessionStatus.PAUSED).count(),
                 "total_work_seconds": total_work_seconds,
                 "total_work_hours": total_work_hours,
+                "total_work_hm": _format_seconds_hm(total_work_seconds),
 
                 "completion_rate": completion_rate,
             },
@@ -705,12 +708,6 @@ class EmployeeWorkReportView(EmployeeReportAccessMixin, ReportPDFMixin, Template
             deliverable_work_sessions.aggregate(total=Sum("work_seconds"))["total"]
         )
 
-        attendance_days = (
-            work_sessions_in_period
-            .datetimes("started_at", "day")
-            .count()
-        )
-
         active_sessions = work_sessions.filter(status=WorkSessionStatus.ACTIVE)
         paused_sessions = work_sessions.filter(status=WorkSessionStatus.PAUSED)
 
@@ -762,6 +759,7 @@ class EmployeeWorkReportView(EmployeeReportAccessMixin, ReportPDFMixin, Template
         for row in work_by_employee:
             seconds = row["total_seconds"] or 0
             row["total_hours"] = round(seconds / 3600, 2)
+            row["total_hm"] = _format_seconds_hm(seconds)
 
         login_chart = _build_login_week_chart(
             self.request,
@@ -775,6 +773,14 @@ class EmployeeWorkReportView(EmployeeReportAccessMixin, ReportPDFMixin, Template
             date_to=date_to,
         )
 
+        attendance_summary = _build_attendance_summary(
+            login_sessions_qs=login_sessions,
+            date_from=date_from,
+            date_to=date_to,
+        )
+
+        recent_work_sessions = list(work_sessions_in_period.order_by("-started_at")[:20])
+
         context.update({
             "report_title": "Employee Work Report",
             "date_from": date_from,
@@ -786,6 +792,7 @@ class EmployeeWorkReportView(EmployeeReportAccessMixin, ReportPDFMixin, Template
 
             "login_chart": login_chart,
             "login_table": login_table,
+            "attendance_summary": attendance_summary,
 
             "summary": {
                 "assigned_task_count": tasks_in_period.count(),
@@ -803,16 +810,20 @@ class EmployeeWorkReportView(EmployeeReportAccessMixin, ReportPDFMixin, Template
                 "work_session_count": work_sessions_in_period.count(),
                 "active_session_count": active_sessions.count(),
                 "paused_session_count": paused_sessions.count(),
-                "attendance_days": attendance_days,
+                "attendance_days": attendance_summary["attendance_days"],
+                "attendance_required_hm": attendance_summary["required_hm"],
 
                 "total_work_seconds": total_work_seconds,
                 "total_work_hours": round(total_work_seconds / 3600, 2),
+                "total_work_hm": _format_seconds_hm(total_work_seconds),
 
                 "task_work_seconds": task_work_seconds,
                 "task_work_hours": round(task_work_seconds / 3600, 2),
+                "task_work_hm": _format_seconds_hm(task_work_seconds),
 
                 "deliverable_work_seconds": deliverable_work_seconds,
                 "deliverable_work_hours": round(deliverable_work_seconds / 3600, 2),
+                "deliverable_work_hm": _format_seconds_hm(deliverable_work_seconds),
 
                 "login_total_hours": login_table["total_login_hours"],
                 "login_total_hm": login_table["total_login_hm"],
@@ -827,7 +838,7 @@ class EmployeeWorkReportView(EmployeeReportAccessMixin, ReportPDFMixin, Template
 
             "active_sessions": active_sessions.order_by("-started_at")[:10],
             "paused_sessions": paused_sessions.order_by("-started_at")[:10],
-            "recent_work_sessions": work_sessions_in_period.order_by("-started_at")[:20],
+            "recent_work_sessions": recent_work_sessions,
             "recent_tasks": tasks_in_period.order_by("-created_at")[:10],
             "overdue_tasks": overdue_tasks.order_by("due_date")[:10],
             "recent_deliverables": deliverables_in_period.order_by("-created_at")[:10],

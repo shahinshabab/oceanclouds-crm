@@ -116,29 +116,29 @@
 
     <div class="card">
       <div class="label">Project Worklog Hours</div>
-      <div class="value">{{ summary.total_work_hours }}</div>
+      <div class="value">{{ summary.total_work_hm }}</div>
     </div>
 
     <div class="card">
       <div class="label">Login Hours</div>
-      <div class="value">{{ summary.login_total_hours }}</div>
+      <div class="value">{{ summary.login_total_hm }}</div>
     </div>
 
     <div class="card">
       <div class="label">Work Session Hours</div>
-      <div class="value">{{ summary.login_work_hours }}</div>
+      <div class="value">{{ summary.login_work_hm }}</div>
     </div>
   </div>
 
   <div class="summary-grid">
     <div class="card">
       <div class="label">Task Hours</div>
-      <div class="value">{{ summary.task_work_hours }}</div>
+      <div class="value">{{ summary.task_work_hm }}</div>
     </div>
 
     <div class="card">
       <div class="label">Deliverable Hours</div>
-      <div class="value">{{ summary.deliverable_work_hours }}</div>
+      <div class="value">{{ summary.deliverable_work_hm }}</div>
     </div>
 
     <div class="card">
@@ -161,7 +161,7 @@
         <th>Login Time</th>
         <th>Logout Time</th>
         <th>Logout Type</th>
-        <th>Total Logged Hour</th>
+        <th>Website Used Time</th>
         <th>Total Work Session Time of Day</th>
         <th>IP Address</th>
       </tr>
@@ -182,14 +182,15 @@
           <td>
             {% if row.logout_reason == "auto_timeout" %}
               <span class="logout-auto">{{ row.logout_type }}</span>
+              {% if row.idle_seconds %}<br>Idle excluded: {{ row.idle_hm }}{% endif %}
             {% elif row.logout_reason == "logout" %}
               <span class="logout-manual">{{ row.logout_type }}</span>
             {% else %}
               <span class="logout-other">{{ row.logout_type }}</span>
             {% endif %}
           </td>
-          <td>{{ row.logged_hours }} hours<br>{{ row.logged_hm }}</td>
-          <td>{{ row.work_hours }} hours<br>{{ row.work_hm }}</td>
+          <td>{{ row.logged_hm }}</td>
+          <td>{{ row.work_hm }}</td>
           <td>{{ row.ip_address }}</td>
         </tr>
       {% empty %}
@@ -202,8 +203,8 @@
     <tfoot>
       <tr>
         <th colspan="4" style="text-align: right;">Total</th>
-        <th>{{ login_table.total_login_hours }} hours<br>{{ login_table.total_login_hm }}</th>
-        <th>{{ login_table.total_work_hours }} hours<br>{{ login_table.total_work_hm }}</th>
+        <th>{{ login_table.total_login_hm }}</th>
+        <th>{{ login_table.total_work_hm }}</th>
         <th></th>
       </tr>
     </tfoot>
@@ -233,7 +234,7 @@
           <td>{{ session.get_status_display }}</td>
           <td>{{ session.started_at|date:"d M Y H:i" }}</td>
           <td>{{ session.ended_at|date:"d M Y H:i"|default:"-" }}</td>
-          <td>{{ session.live_work_hours }}</td>
+          <td>{{ session.live_work_hm }}</td>
         </tr>
       {% empty %}
         <tr>

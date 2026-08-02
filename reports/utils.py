@@ -3,6 +3,7 @@ from collections import defaultdict
 from datetime import timedelta
 from decimal import Decimal
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db.models import Q
 from django.utils import timezone
@@ -14,6 +15,7 @@ from projects.models import WorkSession
 
 
 User = get_user_model()
+ATTENDANCE_REQUIRED_SECONDS = 8 * 60 * 60
 
 
 def _money(value):
@@ -214,6 +216,72 @@ def _format_seconds_hm(seconds):
     return f"{hours}h {minutes}m"
 
 
+def _auto_logout_idle_seconds():
+    return int(getattr(settings, "AUTO_LOGOUT_IDLE_SECONDS", 3 * 60 * 60) or 0)
+
+
+def _login_session_seconds(session, local_login, local_logout):
+    total_seconds = max(int((local_logout - local_login).total_seconds()), 0)
+
+    if session.end_reason != UserSessionEndReason.AUTO_TIMEOUT:
+        return total_seconds, 0
+
+    idle_seconds = min(total_seconds, _auto_logout_idle_seconds())
+    return max(total_seconds - idle_seconds, 0), idle_seconds
+
+
+def _build_attendance_summary(login_sessions_qs, date_from, date_to):
+    """
+    Count attendance from completed manual login sessions.
+
+    A user earns attendance for a local login date only when their manually
+    logged-out sessions total at least 8 hours for that date.
+    """
+    manual_sessions = (
+        login_sessions_qs
+        .filter(
+            login_at__date__gte=date_from,
+            login_at__date__lte=date_to,
+            logout_at__isnull=False,
+            end_reason=UserSessionEndReason.LOGOUT,
+        )
+        .select_related("user")
+        .order_by("login_at")
+    )
+
+    seconds_by_user_date = defaultdict(int)
+
+    for session in manual_sessions:
+        local_login = timezone.localtime(session.login_at)
+        local_logout = timezone.localtime(session.logout_at)
+        attendance_key = (session.user_id, local_login.date())
+        seconds_by_user_date[attendance_key] += max(
+            int((local_logout - local_login).total_seconds()),
+            0,
+        )
+
+    attended_days = [
+        {
+            "user_id": user_id,
+            "date": attendance_date,
+            "seconds": seconds,
+            "hours": _format_seconds_to_hours(seconds),
+            "hm": _format_seconds_hm(seconds),
+        }
+        for (user_id, attendance_date), seconds in seconds_by_user_date.items()
+        if seconds >= ATTENDANCE_REQUIRED_SECONDS
+    ]
+
+    attended_days.sort(key=lambda row: (row["date"], row["user_id"]))
+
+    return {
+        "required_seconds": ATTENDANCE_REQUIRED_SECONDS,
+        "required_hm": _format_seconds_hm(ATTENDANCE_REQUIRED_SECONDS),
+        "attendance_days": len(attended_days),
+        "days": attended_days,
+    }
+
+
 def _build_login_week_chart(request, login_sessions_qs):
     """
     Sunday to Saturday login duration chart.
@@ -250,6 +318,7 @@ def _build_login_week_chart(request, login_sessions_qs):
             "label": day.strftime("%a"),
             "manual_seconds": 0,
             "auto_seconds": 0,
+            "idle_seconds": 0,
         }
 
     for session in sessions:
@@ -261,12 +330,17 @@ def _build_login_week_chart(request, login_sessions_qs):
         if session_date not in day_map:
             continue
 
-        seconds = max(int((local_logout - local_login).total_seconds()), 0)
+        used_seconds, idle_seconds = _login_session_seconds(
+            session,
+            local_login,
+            local_logout,
+        )
 
-        if session.end_reason == UserSessionEndReason.AUTO_TIMEOUT:
-            day_map[session_date]["auto_seconds"] += seconds
-        else:
-            day_map[session_date]["manual_seconds"] += seconds
+        day_map[session_date]["manual_seconds"] += used_seconds
+        day_map[session_date]["auto_seconds"] += 0
+        day_map[session_date]["idle_seconds"] = (
+            day_map[session_date].get("idle_seconds", 0) + idle_seconds
+        )
 
     chart_days = []
 
@@ -281,11 +355,16 @@ def _build_login_week_chart(request, login_sessions_qs):
             "manual_hours": manual_hours,
             "auto_hours": auto_hours,
             "total_hours": total_hours,
+            "manual_hm": _format_seconds_hm(row["manual_seconds"]),
+            "auto_hm": _format_seconds_hm(row["auto_seconds"]),
+            "idle_hm": _format_seconds_hm(row.get("idle_seconds", 0)),
         })
 
     chart_labels = [row["label"] for row in chart_days]
     manual_hours = [row["manual_hours"] for row in chart_days]
     auto_hours = [row["auto_hours"] for row in chart_days]
+    manual_hm = [row["manual_hm"] for row in chart_days]
+    auto_hm = [row["auto_hm"] for row in chart_days]
 
     return {
         "week_start": week_start,
@@ -304,9 +383,15 @@ def _build_login_week_chart(request, login_sessions_qs):
         "chart_labels_json": json.dumps(chart_labels),
         "manual_hours_json": json.dumps(manual_hours),
         "auto_hours_json": json.dumps(auto_hours),
+        "manual_hm_json": json.dumps(manual_hm),
+        "auto_hm_json": json.dumps(auto_hm),
         "manual_total_hours": round(sum(manual_hours), 2),
         "auto_total_hours": round(sum(auto_hours), 2),
         "grand_total_hours": round(sum(manual_hours) + sum(auto_hours), 2),
+        "grand_total_hm": _format_seconds_hm(
+            sum(row["manual_seconds"] + row["auto_seconds"] for row in day_map.values())
+        ),
+        "auto_logout_idle_hm": _format_seconds_hm(_auto_logout_idle_seconds()),
     }
 
 
@@ -360,9 +445,14 @@ def _build_login_month_table(login_sessions_qs, work_sessions_qs, date_from, dat
         login_date = local_login.date()
 
         if local_logout:
-            logged_seconds = max(int((local_logout - local_login).total_seconds()), 0)
+            logged_seconds, idle_seconds = _login_session_seconds(
+                login,
+                local_login,
+                local_logout,
+            )
         else:
             logged_seconds = max(int((timezone.now() - login.login_at).total_seconds()), 0)
+            idle_seconds = 0
 
         day_work_seconds = work_seconds_by_date.get(login_date, 0)
 
@@ -377,6 +467,8 @@ def _build_login_month_table(login_sessions_qs, work_sessions_qs, date_from, dat
             "logged_seconds": logged_seconds,
             "logged_hours": _format_seconds_to_hours(logged_seconds),
             "logged_hm": _format_seconds_hm(logged_seconds),
+            "idle_seconds": idle_seconds,
+            "idle_hm": _format_seconds_hm(idle_seconds),
             "work_seconds": day_work_seconds,
             "work_hours": _format_seconds_to_hours(day_work_seconds),
             "work_hm": _format_seconds_hm(day_work_seconds),

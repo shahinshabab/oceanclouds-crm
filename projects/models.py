@@ -10,6 +10,13 @@ from django.utils import timezone
 from common.models import TimeStamped, Owned
 
 
+def _format_seconds_hm(seconds):
+    seconds = int(seconds or 0)
+    hours = seconds // 3600
+    minutes = (seconds % 3600) // 60
+    return f"{hours}h {minutes}m"
+
+
 # ============================================================
 # Choice enums
 # ============================================================
@@ -277,6 +284,10 @@ class Project(TimeStamped, Owned):
         return round(self.total_work_seconds / 3600, 2)
 
     @property
+    def total_work_hm(self):
+        return _format_seconds_hm(self.total_work_seconds)
+
+    @property
     def has_client_review(self):
         """
         True only when this project has a linked client
@@ -473,6 +484,10 @@ class Task(TimeStamped, Owned):
     def total_work_hours(self):
         return round(self.total_work_seconds / 3600, 2)
 
+    @property
+    def total_work_hm(self):
+        return _format_seconds_hm(self.total_work_seconds)
+
     def mark_completed(self):
         now = timezone.now()
         self.status = TaskStatus.COMPLETED
@@ -641,6 +656,10 @@ class Deliverable(TimeStamped, Owned):
     def total_work_hours(self):
         return round(self.total_work_seconds / 3600, 2)
 
+    @property
+    def total_work_hm(self):
+        return _format_seconds_hm(self.total_work_seconds)
+
     def can_move_to_in_progress(self):
         return self.required_tasks_completed
 
@@ -767,6 +786,10 @@ class WorkSession(TimeStamped, Owned):
     @property
     def live_work_hours(self):
         return round(self.live_work_seconds / 3600, 2)
+
+    @property
+    def live_work_hm(self):
+        return _format_seconds_hm(self.live_work_seconds)
 
     def clean(self):
         super().clean()

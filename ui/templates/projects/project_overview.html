@@ -153,7 +153,7 @@
 
           <div class="small text-muted mt-2">
             Work hours:
-            <span class="fw-semibold">{{ total_work_hours|default:"0" }} hrs</span>
+            <span class="fw-semibold">{{ total_work_hm|default:"0h 0m" }}</span>
           </div>
         </div>
       </div>
@@ -424,7 +424,7 @@
 
                       <td>{{ t.get_status_display }}</td>
                       <td>{{ t.due_date|default:"—" }}</td>
-                      <td class="text-end">{{ t.total_work_hours }}h</td>
+                      <td class="text-end">{{ t.total_work_hm }}</td>
                     </tr>
                   {% endfor %}
                 </tbody>
@@ -489,7 +489,7 @@
 
                       <td>{{ d.get_status_display }}</td>
                       <td>{{ d.due_date|default:"—" }}</td>
-                      <td class="text-end">{{ d.total_work_hours }}h</td>
+                      <td class="text-end">{{ d.total_work_hm }}</td>
                     </tr>
                   {% endfor %}
                 </tbody>
