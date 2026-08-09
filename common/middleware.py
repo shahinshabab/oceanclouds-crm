@@ -1,71 +1,33 @@
 # common/middleware.py
 
-from urllib.parse import urlparse
+from urllib.parse import urlencode, urlparse
 
 from django.contrib.auth import logout as auth_logout
 from django.contrib.messages import get_messages
-from django.contrib.sessions.models import Session
-from datetime import timedelta
-
-from django.conf import settings
+from django.db.models import Q
+from django.shortcuts import redirect
+from django.urls import reverse
 from django.utils import timezone
 
-from common.models import UserLoginSession, UserSessionEndReason
-from projects.utils import pause_active_work_sessions_for_user
+from common.models import ImportantNotice, UserLoginSession
+from common.session_management import close_expired_login_sessions
 
 
 class CloseExpiredLoginSessionsMiddleware:
     """
-    Closes login sessions after the configured inactivity period.
-
-    The login is closed at the timeout boundary. Active task/deliverable work
-    is paused at the user's last recorded activity, so the idle window is not
-    counted as worked time.
+    Enforces the fixed login deadline without treating page inactivity as work
+    inactivity. A scheduled command performs the same cleanup between requests.
     """
 
     def __init__(self, get_response):
         self.get_response = get_response
 
     def __call__(self, request):
-        now = timezone.now()
-        idle_seconds = int(
-            getattr(settings, "AUTO_LOGOUT_IDLE_SECONDS", 3 * 60 * 60)
-        )
-        idle_delta = timedelta(seconds=idle_seconds)
-        cutoff = now - idle_delta
-
-        timed_out_sessions = list(
-            UserLoginSession.objects
-            .filter(
-                logout_at__isnull=True,
-                last_activity_at__lte=cutoff,
-            )
-            .select_related("user")
-        )
-        timed_out_keys = {session.session_key for session in timed_out_sessions}
-
-        for login_session in timed_out_sessions:
-            login_session.logout_at = login_session.last_activity_at + idle_delta
-            login_session.end_reason = UserSessionEndReason.AUTO_TIMEOUT
-            login_session.save(update_fields=["logout_at", "end_reason"])
-
-        if timed_out_keys:
-            Session.objects.filter(session_key__in=timed_out_keys).delete()
-
-        for login_session in timed_out_sessions:
-            user_still_active = UserLoginSession.objects.filter(
-                user_id=login_session.user_id,
-                logout_at__isnull=True,
-            ).exists()
-            if not user_still_active:
-                pause_active_work_sessions_for_user(
-                    login_session.user_id,
-                    paused_at=login_session.last_activity_at,
-                )
+        expired_keys = set(close_expired_login_sessions())
 
         current_session_key = request.session.session_key
         if (
-            current_session_key in timed_out_keys
+            current_session_key in expired_keys
             and request.user.is_authenticated
         ):
             auth_logout(request)
@@ -80,6 +42,48 @@ class CloseExpiredLoginSessionsMiddleware:
             ).update(last_activity_at=timezone.now())
 
         return response
+
+
+class RequireNoticeAcknowledgementMiddleware:
+    """Keep authenticated users on the notice page until required notices are agreed."""
+
+    allowed_prefixes = (
+        "/admin/",
+        "/static/",
+        "/media/",
+        "/healthz",
+        "/logout/",
+    )
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        if not request.user.is_authenticated:
+            return self.get_response(request)
+
+        notice_url = reverse("common:important_notice")
+        if request.path == notice_url or request.path.startswith(self.allowed_prefixes):
+            return self.get_response(request)
+
+        now = timezone.now()
+        has_pending_notice = (
+            ImportantNotice.objects
+            .filter(
+                is_active=True,
+                requires_acknowledgement=True,
+                published_at__lte=now,
+            )
+            .filter(Q(expires_at__isnull=True) | Q(expires_at__gt=now))
+            .exclude(acknowledgements__user=request.user)
+            .exists()
+        )
+        if has_pending_notice:
+            response = redirect(notice_url)
+            response["Location"] += "?" + urlencode({"next": request.get_full_path()})
+            return response
+
+        return self.get_response(request)
 
 
 class ClearFrontendMessagesBeforeAdminMiddleware:

@@ -18,6 +18,7 @@ from .roles import (
     SALES_REPORT_ACCESS_ROLES,
     PROJECT_REPORT_ACCESS_ROLES,
     EMPLOYEE_REPORT_ACCESS_ROLES,
+    ATTENDANCE_ACCESS_ROLES,
     user_has_role,
 )
 
@@ -193,3 +194,9 @@ class EmployeeReportAccessMixin(RolesRequiredMixin):
     - Project Manager
     """
     allowed_roles = EMPLOYEE_REPORT_ACCESS_ROLES
+
+
+class AttendanceAccessMixin(RolesRequiredMixin):
+    """Attendance and leave: Admin, Project Manager, and Employee."""
+
+    allowed_roles = ATTENDANCE_ACCESS_ROLES

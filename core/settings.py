@@ -138,6 +138,7 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "common.middleware.CloseExpiredLoginSessionsMiddleware",
+    "common.middleware.RequireNoticeAcknowledgementMiddleware",
     "common.middleware.ClearFrontendMessagesBeforeAdminMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
@@ -274,8 +275,8 @@ CRONJOBS = [
     #("0 0 * * *", "django.core.management.call_command", ["generate_due_todos"]),
 #]
 
-# Authentication expires after three hours without a completed request.
-AUTO_LOGOUT_IDLE_SECONDS = 3 * 60 * 60
-SESSION_COOKIE_AGE = AUTO_LOGOUT_IDLE_SECONDS
+# Authentication has a fixed maximum lifetime from the moment of login.
+LOGIN_SESSION_MAX_SECONDS = 16 * 60 * 60
+SESSION_COOKIE_AGE = LOGIN_SESSION_MAX_SECONDS
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False
-SESSION_SAVE_EVERY_REQUEST = True      # reset inactivity timer
+SESSION_SAVE_EVERY_REQUEST = False

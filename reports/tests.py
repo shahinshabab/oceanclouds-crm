@@ -7,7 +7,13 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from common.models import UserLoginSession, UserSessionEndReason
+from common.models import (
+    CheckoutReviewStatus,
+    LeaveRequest,
+    LeaveStatus,
+    UserLoginSession,
+    UserSessionEndReason,
+)
 from common.roles import ROLE_ADMIN, ROLE_CRM_MANAGER, ROLE_EMPLOYEE, ROLE_PROJECT_MANAGER
 from common.test_helpers import AuthenticatedViewTestMixin, make_user
 from projects.models import Project, Task, TaskStatus, WorkSession, WorkSessionStatus
@@ -26,6 +32,7 @@ class ReportsViewTests(AuthenticatedViewTestMixin):
         "reports:sales_report",
         "reports:project_report",
         "reports:employee_work_report",
+        "reports:attendance",
     ]
 
 
@@ -187,6 +194,38 @@ class EmployeeReportCalculationTests(TestCase):
 
         self.assertEqual(total_seconds, 60 * 60)
 
+    @override_settings(TIME_ZONE="Asia/Kolkata", USE_TZ=True)
+    def test_expired_checkout_counts_only_after_manager_approval(self):
+        user = make_user(username="missing-checkout-user")
+        kolkata = ZoneInfo("Asia/Kolkata")
+        login_at = timezone.make_aware(datetime(2026, 7, 8, 9), kolkata)
+        session = UserLoginSession.objects.create(
+            user=user,
+            session_key="missing-checkout",
+            login_at=login_at,
+            expires_at=login_at + timedelta(hours=16),
+            logout_at=login_at + timedelta(hours=16),
+            end_reason=UserSessionEndReason.SESSION_EXPIRED,
+            checkout_review_status=CheckoutReviewStatus.PENDING,
+            requested_logout_at=login_at + timedelta(hours=9),
+        )
+
+        pending_summary = _build_attendance_summary(
+            UserLoginSession.objects.filter(user=user),
+            login_at.date(),
+            login_at.date(),
+        )
+        self.assertEqual(pending_summary["attendance_days"], 0)
+
+        session.checkout_review_status = CheckoutReviewStatus.APPROVED
+        session.save(update_fields=["checkout_review_status"])
+        approved_summary = _build_attendance_summary(
+            UserLoginSession.objects.filter(user=user),
+            login_at.date(),
+            login_at.date(),
+        )
+        self.assertEqual(approved_summary["attendance_days"], 1)
+
 
 class ReportRoleVisibilityTests(TestCase):
     @classmethod
@@ -231,7 +270,12 @@ class ReportRoleVisibilityTests(TestCase):
         home_response = self.client.get(reverse("ui:home"))
 
         self.assertEqual(report_response.status_code, 403)
-        self.assertNotContains(home_response, reverse("reports:dashboard"))
+        self.assertNotContains(
+            home_response,
+            f'href="{reverse("reports:dashboard")}"',
+            html=False,
+        )
+        self.assertContains(home_response, reverse("reports:attendance"))
 
     def test_managers_receive_kpis_without_detailed_rows(self):
         self.client.force_login(self.project_manager)
@@ -265,3 +309,153 @@ class ReportRoleVisibilityTests(TestCase):
         self.assertTrue(response.context["show_detailed_data"])
         self.assertContains(response, "ADMIN-ONLY-TASK-DETAIL")
         self.assertContains(response, "Login Sessions")
+
+    def test_project_manager_can_approve_managed_employee_checkout(self):
+        login_at = timezone.now() - timedelta(hours=10)
+        session = UserLoginSession.objects.create(
+            user=self.employee,
+            session_key="manager-review-checkout",
+            login_at=login_at,
+            expires_at=login_at + timedelta(hours=16),
+            logout_at=login_at + timedelta(hours=16),
+            end_reason=UserSessionEndReason.SESSION_EXPIRED,
+            checkout_review_status=CheckoutReviewStatus.PENDING,
+            requested_logout_at=login_at + timedelta(hours=9),
+            checkout_request_note="Browser was closed accidentally.",
+        )
+        self.client.force_login(self.project_manager)
+
+        response = self.client.post(
+            reverse("reports:attendance"),
+            {
+                "action": "approve_checkout",
+                "session_id": session.pk,
+                "review_note": "Confirmed with the team lead.",
+            },
+        )
+
+        self.assertRedirects(response, reverse("reports:attendance"))
+        session.refresh_from_db()
+        self.assertEqual(session.checkout_review_status, CheckoutReviewStatus.APPROVED)
+        self.assertEqual(session.reviewed_by, self.project_manager)
+
+    def test_submitted_checkout_hides_form_and_shows_manager_request_message(self):
+        login_at = timezone.now() - timedelta(hours=12)
+        session = UserLoginSession.objects.create(
+            user=self.employee,
+            session_key="employee-correction",
+            login_at=login_at,
+            expires_at=login_at + timedelta(hours=16),
+            logout_at=login_at + timedelta(hours=16),
+            end_reason=UserSessionEndReason.SESSION_EXPIRED,
+            checkout_review_status=CheckoutReviewStatus.PENDING,
+        )
+        requested_logout = timezone.localtime(login_at + timedelta(hours=9))
+        self.client.force_login(self.employee)
+
+        response = self.client.post(
+            reverse("reports:attendance"),
+            {
+                "action": "submit_checkout",
+                "session_id": session.pk,
+                "requested_logout_at": requested_logout.strftime("%Y-%m-%dT%H:%M"),
+                "checkout_request_note": "Internet connection failed before checkout.",
+            },
+            follow=True,
+        )
+
+        self.assertContains(response, "Correction sent - waiting for manager review")
+        self.assertNotContains(
+            response,
+            f'name="session_id" value="{session.pk}"',
+            html=False,
+        )
+
+        self.client.force_login(self.project_manager)
+        manager_response = self.client.get(reverse("reports:attendance"))
+        self.assertContains(manager_response, "Employee correction request")
+        self.assertContains(manager_response, "Internet connection failed before checkout.")
+        self.assertContains(manager_response, "approve_checkout")
+        self.assertContains(manager_response, "reject_checkout")
+
+    def test_rejected_checkout_can_be_corrected_and_resubmitted(self):
+        login_at = timezone.now() - timedelta(hours=12)
+        session = UserLoginSession.objects.create(
+            user=self.employee,
+            session_key="rejected-correction",
+            login_at=login_at,
+            expires_at=login_at + timedelta(hours=16),
+            logout_at=login_at + timedelta(hours=16),
+            end_reason=UserSessionEndReason.SESSION_EXPIRED,
+            checkout_review_status=CheckoutReviewStatus.PENDING,
+            requested_logout_at=login_at + timedelta(hours=10),
+            checkout_request_note="First request",
+        )
+        self.client.force_login(self.project_manager)
+        self.client.post(
+            reverse("reports:attendance"),
+            {
+                "action": "reject_checkout",
+                "session_id": session.pk,
+                "review_note": "Please enter the actual earlier checkout time.",
+            },
+        )
+        session.refresh_from_db()
+        self.assertEqual(session.checkout_review_status, CheckoutReviewStatus.REJECTED)
+
+        self.client.force_login(self.employee)
+        employee_response = self.client.get(reverse("reports:attendance"))
+        self.assertContains(employee_response, "Update the correction and submit it again.")
+        self.assertContains(
+            employee_response,
+            f'name="session_id" value="{session.pk}"',
+            html=False,
+        )
+
+        corrected_logout = timezone.localtime(login_at + timedelta(hours=9))
+        self.client.post(
+            reverse("reports:attendance"),
+            {
+                "action": "submit_checkout",
+                "session_id": session.pk,
+                "requested_logout_at": corrected_logout.strftime("%Y-%m-%dT%H:%M"),
+                "checkout_request_note": "Corrected checkout time.",
+            },
+        )
+        session.refresh_from_db()
+        self.assertEqual(session.checkout_review_status, CheckoutReviewStatus.PENDING)
+        self.assertEqual(session.checkout_request_note, "Corrected checkout time.")
+        self.assertIsNone(session.reviewed_by)
+        self.assertIsNone(session.reviewed_at)
+        self.assertEqual(session.review_note, "")
+
+    def test_employee_submits_leave_and_manager_approves_it(self):
+        self.client.force_login(self.employee)
+        start_date = timezone.localdate() + timedelta(days=2)
+        response = self.client.post(
+            reverse("reports:attendance"),
+            {
+                "action": "submit_leave",
+                "leave_type": "casual",
+                "start_date": start_date.isoformat(),
+                "end_date": (start_date + timedelta(days=1)).isoformat(),
+                "reason": "Family appointment",
+            },
+        )
+        self.assertRedirects(response, reverse("reports:attendance"))
+        leave = LeaveRequest.objects.get(user=self.employee)
+        self.assertEqual(leave.status, LeaveStatus.PENDING)
+
+        self.client.force_login(self.project_manager)
+        response = self.client.post(
+            reverse("reports:attendance"),
+            {
+                "action": "approve_leave",
+                "leave_id": leave.pk,
+                "review_note": "Approved for the requested dates.",
+            },
+        )
+        self.assertRedirects(response, reverse("reports:attendance"))
+        leave.refresh_from_db()
+        self.assertEqual(leave.status, LeaveStatus.APPROVED)
+        self.assertEqual(leave.reviewed_by, self.project_manager)

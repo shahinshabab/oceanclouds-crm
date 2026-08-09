@@ -1,8 +1,10 @@
 # reports/views.py
 
+from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.db.models import Count, Q, Sum
-from django.http import Http404, HttpResponse
+from django.http import Http404, HttpResponse, HttpResponseForbidden
+from django.shortcuts import get_object_or_404, redirect
 from django.template.loader import render_to_string
 from django.utils import timezone
 from django.views.generic import TemplateView
@@ -12,8 +14,14 @@ from common.mixins import (
     SalesReportAccessMixin,
     ProjectReportAccessMixin,
     EmployeeReportAccessMixin,
+    AttendanceAccessMixin,
 )
-from common.models import UserLoginSession
+from common.models import (
+    CheckoutReviewStatus,
+    LeaveRequest,
+    LeaveStatus,
+    UserLoginSession,
+)
 from common.roles import (
     ROLE_ADMIN,
     ROLE_CRM_MANAGER,
@@ -61,6 +69,7 @@ from .utils import (
     _user_display,
     _users_in_role,
 )
+from .forms import CheckoutCorrectionForm, LeaveRequestForm
 
 try:
     from weasyprint import HTML
@@ -155,6 +164,245 @@ class ReportDashboardView(ReportAccessMixin, TemplateView):
             ROLE_PROJECT_MANAGER,
         )
 
+        context["can_view_attendance"] = user_has_role(
+            user,
+            ROLE_ADMIN,
+            ROLE_PROJECT_MANAGER,
+        )
+
+        return context
+
+
+class AttendanceDashboardView(AttendanceAccessMixin, TemplateView):
+    template_name = "reports/attendance.html"
+
+    def visible_employees(self):
+        return _employee_options_for_user(self.request.user)
+
+    def visible_employee_ids(self):
+        return set(self.visible_employees().values_list("id", flat=True))
+
+    def can_review_user(self, employee_id):
+        return (
+            employee_id != self.request.user.id
+            and employee_id in self.visible_employee_ids()
+            and self.request.user.has_perm("common.review_attendance")
+        )
+
+    def post(self, request, *args, **kwargs):
+        action = request.POST.get("action", "")
+
+        if action == "submit_checkout":
+            login_session = get_object_or_404(
+                UserLoginSession,
+                pk=request.POST.get("session_id"),
+                user=request.user,
+                checkout_review_status__in=[
+                    CheckoutReviewStatus.PENDING,
+                    CheckoutReviewStatus.REJECTED,
+                ],
+            )
+            form = CheckoutCorrectionForm(request.POST, login_session=login_session)
+            if form.is_valid():
+                login_session.requested_logout_at = form.cleaned_data["requested_logout_at"]
+                login_session.checkout_request_note = form.cleaned_data["checkout_request_note"]
+                login_session.reviewed_by = None
+                login_session.reviewed_at = None
+                login_session.review_note = ""
+                login_session.checkout_review_status = CheckoutReviewStatus.PENDING
+                login_session.save(
+                    update_fields=[
+                        "requested_logout_at",
+                        "checkout_request_note",
+                        "reviewed_by",
+                        "reviewed_at",
+                        "review_note",
+                        "checkout_review_status",
+                    ]
+                )
+                messages.success(request, "Missing checkout submitted for approval.")
+            else:
+                messages.error(request, "Please provide a valid checkout time and reason.")
+
+        elif action in ["approve_checkout", "reject_checkout"]:
+            login_session = get_object_or_404(
+                UserLoginSession,
+                pk=request.POST.get("session_id"),
+                checkout_review_status=CheckoutReviewStatus.PENDING,
+                requested_logout_at__isnull=False,
+            )
+            if not self.can_review_user(login_session.user_id):
+                return HttpResponseForbidden("You cannot review this employee's attendance.")
+            review_note = request.POST.get("review_note", "").strip()
+            if action == "reject_checkout" and not review_note:
+                messages.error(request, "A rejection reason is required.")
+                return redirect("reports:attendance")
+            login_session.checkout_review_status = (
+                CheckoutReviewStatus.APPROVED
+                if action == "approve_checkout"
+                else CheckoutReviewStatus.REJECTED
+            )
+            login_session.reviewed_by = request.user
+            login_session.reviewed_at = timezone.now()
+            login_session.review_note = review_note
+            login_session.save(
+                update_fields=[
+                    "checkout_review_status",
+                    "reviewed_by",
+                    "reviewed_at",
+                    "review_note",
+                ]
+            )
+            messages.success(request, "Attendance correction reviewed.")
+
+        elif action == "submit_leave":
+            form = LeaveRequestForm(request.POST)
+            if form.is_valid():
+                leave_request = form.save(commit=False)
+                leave_request.user = request.user
+                leave_request.save()
+                messages.success(request, "Leave request submitted.")
+            else:
+                messages.error(request, "Please correct the leave request details.")
+
+        elif action in ["approve_leave", "reject_leave"]:
+            leave_request = get_object_or_404(
+                LeaveRequest,
+                pk=request.POST.get("leave_id"),
+                status=LeaveStatus.PENDING,
+            )
+            if not (
+                self.can_review_user(leave_request.user_id)
+                and request.user.has_perm("common.review_leave_requests")
+            ):
+                return HttpResponseForbidden("You cannot review this employee's leave.")
+            review_note = request.POST.get("review_note", "").strip()
+            if action == "reject_leave" and not review_note:
+                messages.error(request, "A rejection reason is required.")
+                return redirect("reports:attendance")
+            leave_request.status = (
+                LeaveStatus.APPROVED if action == "approve_leave" else LeaveStatus.REJECTED
+            )
+            leave_request.reviewed_by = request.user
+            leave_request.reviewed_at = timezone.now()
+            leave_request.review_note = review_note
+            leave_request.save(
+                update_fields=["status", "reviewed_by", "reviewed_at", "review_note"]
+            )
+            messages.success(request, "Leave request reviewed.")
+
+        elif action == "cancel_leave":
+            leave_request = get_object_or_404(
+                LeaveRequest,
+                pk=request.POST.get("leave_id"),
+                user=request.user,
+                status=LeaveStatus.PENDING,
+            )
+            leave_request.status = LeaveStatus.CANCELLED
+            leave_request.save(update_fields=["status"])
+            messages.success(request, "Leave request cancelled.")
+
+        return redirect("reports:attendance")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        date_from, date_to = _get_date_range(self.request)
+        employees = self.visible_employees()
+        visible_ids = set(employees.values_list("id", flat=True))
+        selected_id = _selected_user_id(self.request)
+        if selected_id not in visible_ids:
+            selected_id = None
+
+        sessions = UserLoginSession.objects.filter(
+            user_id__in=visible_ids,
+        ).filter(
+            Q(login_at__date__gte=date_from, login_at__date__lte=date_to)
+            | Q(checkout_review_status=CheckoutReviewStatus.PENDING)
+            | Q(logout_at__isnull=True)
+        ).select_related("user", "reviewed_by")
+        leaves = LeaveRequest.objects.filter(
+            user_id__in=visible_ids,
+        ).filter(
+            Q(start_date__lte=date_to, end_date__gte=date_from)
+            | Q(status=LeaveStatus.PENDING)
+        ).select_related("user", "reviewed_by")
+        if selected_id:
+            sessions = sessions.filter(user_id=selected_id)
+            leaves = leaves.filter(user_id=selected_id)
+
+        session_rows = []
+        for session in sessions.order_by("-login_at"):
+            display_end = session.approved_logout_at
+            if session.logout_at is None:
+                display_end = min(timezone.now(), session.expires_at or timezone.now())
+            seconds = max(
+                int((display_end - session.login_at).total_seconds()),
+                0,
+            ) if display_end else 0
+            session.display_logout_at = display_end
+            session.display_duration_hm = _format_seconds_hm(seconds)
+            session.can_submit_correction = (
+                session.user_id == self.request.user.id
+                and (
+                    (
+                        session.checkout_review_status == CheckoutReviewStatus.PENDING
+                        and session.requested_logout_at is None
+                    )
+                    or session.checkout_review_status == CheckoutReviewStatus.REJECTED
+                )
+            )
+            session.awaiting_review = (
+                session.user_id == self.request.user.id
+                and session.checkout_review_status == CheckoutReviewStatus.PENDING
+                and session.requested_logout_at is not None
+            )
+            session.can_review = (
+                self.can_review_user(session.user_id)
+                and session.checkout_review_status == CheckoutReviewStatus.PENDING
+                and session.requested_logout_at is not None
+            )
+            session_rows.append(session)
+
+        leave_rows = list(leaves.order_by("-start_date", "-created_at"))
+        for leave in leave_rows:
+            leave.can_review = (
+                self.can_review_user(leave.user_id)
+                and self.request.user.has_perm("common.review_leave_requests")
+                and leave.status == LeaveStatus.PENDING
+            )
+            leave.can_cancel = (
+                leave.user_id == self.request.user.id
+                and leave.status == LeaveStatus.PENDING
+            )
+
+        summary_user_ids = {selected_id} if selected_id else visible_ids
+        attendance_summary = _build_attendance_summary(
+            UserLoginSession.objects.filter(user_id__in=summary_user_ids),
+            date_from,
+            date_to,
+        )
+        context.update({
+            "date_from": date_from,
+            "date_to": date_to,
+            "employees": employees,
+            "selected_user_id": selected_id,
+            "session_rows": session_rows,
+            "leave_rows": leave_rows,
+            "leave_form": LeaveRequestForm(),
+            "can_review_attendance": self.request.user.has_perm("common.review_attendance"),
+            "summary": {
+                "attendance_days": attendance_summary["attendance_days"],
+                "pending_checkouts": sessions.filter(
+                    checkout_review_status=CheckoutReviewStatus.PENDING,
+                ).count(),
+                "active_sessions": sessions.filter(logout_at__isnull=True).count(),
+                "approved_leave_days": sum(
+                    (min(leave.end_date, date_to) - max(leave.start_date, date_from)).days + 1
+                    for leave in leave_rows
+                    if leave.status == LeaveStatus.APPROVED
+                ),
+            },
+        })
         return context
 
 

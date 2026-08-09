@@ -88,6 +88,12 @@ EMPLOYEE_REPORT_ACCESS_ROLES = [
     ROLE_PROJECT_MANAGER,
 ]
 
+ATTENDANCE_ACCESS_ROLES = [
+    ROLE_ADMIN,
+    ROLE_PROJECT_MANAGER,
+    ROLE_EMPLOYEE,
+]
+
 
 def user_has_role(user, *roles):
     """
@@ -166,3 +172,7 @@ def can_access_project_report(user):
 
 def can_access_employee_report(user):
     return user_has_role(user, *EMPLOYEE_REPORT_ACCESS_ROLES)
+
+
+def can_access_attendance(user):
+    return user_has_role(user, *ATTENDANCE_ACCESS_ROLES)
