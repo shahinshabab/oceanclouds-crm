@@ -5,7 +5,7 @@ from common.models import ImportantNotice
 
 NOTICE_KEY = "attendance-session-policy-2026-08"
 NOTICE_TITLE = "Important: New Attendance and Session Policy"
-NOTICE_BODY = """OceanClouds ERP now uses a fixed 16-hour login session.
+NOTICE_BODY = """OceanClouds ERP now uses a fixed login session.
 
 If you do not log out, your session will expire automatically and any active task will be paused at the session deadline.
 

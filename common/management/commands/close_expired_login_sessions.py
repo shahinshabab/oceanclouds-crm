@@ -4,7 +4,7 @@ from common.session_management import close_expired_login_sessions
 
 
 class Command(BaseCommand):
-    help = "Close login sessions that reached their fixed 16-hour deadline."
+    help = "Close login sessions that reached their fixed deadline."
 
     def handle(self, *args, **options):
         closed_keys = close_expired_login_sessions()
